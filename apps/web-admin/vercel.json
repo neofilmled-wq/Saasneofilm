@@ -1,4 +1,4 @@
 {
   "installCommand": "cd ../.. && pnpm install --no-frozen-lockfile",
-  "buildCommand": "cd ../.. && pnpm --filter @neofilm/web-admin build"
+  "buildCommand": "cd ../.. && pnpm --filter @neofilm/shared build && pnpm --filter @neofilm/config build && pnpm --filter @neofilm/database exec prisma generate && pnpm --filter @neofilm/web-admin build"
 }

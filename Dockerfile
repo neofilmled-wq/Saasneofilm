@@ -6,7 +6,7 @@ WORKDIR /app
 COPY . .
 
 # Override workspace to only include packages needed by the API
-RUN echo 'packages:\n  - "packages/*"' > pnpm-workspace.yaml
+RUN printf 'packages:\n  - "packages/*"\n' > pnpm-workspace.yaml
 
 # Install dependencies
 RUN pnpm install --no-frozen-lockfile --shamefully-hoist

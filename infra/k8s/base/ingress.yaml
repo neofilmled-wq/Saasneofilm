@@ -1,0 +1,59 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: neofilm-ingress
+  namespace: neofilm
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "500m"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.neofilm.io
+        - admin.neofilm.io
+        - partner.neofilm.io
+        - advertiser.neofilm.io
+      secretName: neofilm-tls
+  rules:
+    - host: api.neofilm.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: neofilm-api
+                port:
+                  number: 3001
+    - host: admin.neofilm.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: neofilm-web-admin
+                port:
+                  number: 3000
+    - host: partner.neofilm.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: neofilm-web-partner
+                port:
+                  number: 3002
+    - host: advertiser.neofilm.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: neofilm-web-advertiser
+                port:
+                  number: 3003

@@ -1,0 +1,6 @@
+environment        = "staging"
+aws_region         = "eu-west-1"
+vpc_cidr           = "10.0.0.0/16"
+kubernetes_version = "1.29"
+rds_instance_class = "db.t3.small"
+redis_node_type    = "cache.t3.micro"

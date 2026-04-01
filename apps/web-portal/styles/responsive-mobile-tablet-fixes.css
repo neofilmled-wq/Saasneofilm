@@ -1,0 +1,151 @@
+/* ================================================================
+   RESPONSIVE MOBILE & TABLET FIXES — Web Portal (Marketing Site)
+   ================================================================
+   Fichier : styles/responsive-mobile-tablet-fixes.css
+   Règle : aucun style ne s'applique au-dessus de 1024px.
+   Desktop strictement inchangé.
+   ================================================================ */
+
+/* ──────────────────────────────────────────────────────────────────
+   MOBILE — max-width: 767px
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+
+  /* ── Global ── */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* ── Navbar — reduce spacing on very small screens ── */
+  nav.fixed {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  /* Navbar pills — reduce padding to prevent overflow */
+  nav.fixed a[href="/"] {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  /* CTA pill — tighter on mobile */
+  nav.fixed .flex.items-center.gap-2 {
+    gap: 0.25rem;
+  }
+
+  /* ── Hero orbs — reduce size to prevent overflow ── */
+  .hero-orb-1 {
+    width: 250px;
+    height: 250px;
+  }
+
+  .hero-orb-2 {
+    width: 200px;
+    height: 200px;
+  }
+
+  .hero-orb-3 {
+    width: 180px;
+    height: 180px;
+  }
+
+  /* ── Hero grid — shrink on mobile ── */
+  .hero-grid {
+    background-size: 40px 40px;
+  }
+
+  /* ── Content wave cards — reduce size on mobile ── */
+  .content-wave-card {
+    width: clamp(70px, 22vw, 120px);
+  }
+
+  /* ── Marquee — slow down for readability on mobile ── */
+  .marquee-track {
+    animation-duration: 35s;
+  }
+
+  /* ── TV ad cards — stack better on mobile ── */
+  .tv-ad-card {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  /* ── Tables — horizontal scroll on mobile ── */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  table thead,
+  table tbody,
+  table tr {
+    min-width: 600px;
+  }
+
+  /* ── Images — fluid on mobile ── */
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* ── Partner carousel — full width ── */
+  .partner-carousel-slide {
+    width: 100%;
+  }
+
+  /* ── Sections — reduce vertical padding ── */
+  section {
+    padding-top: clamp(2rem, 6vw, 4rem);
+    padding-bottom: clamp(2rem, 6vw, 4rem);
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   TABLETTE — min-width: 768px to max-width: 1024px
+   ────────────────────────────────────────────────────────────────── */
+@media (min-width: 768px) and (max-width: 1024px) {
+
+  /* ── Global ── */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* ── Hero orbs — slightly reduce on tablet ── */
+  .hero-orb-1 {
+    width: 380px;
+    height: 380px;
+  }
+
+  .hero-orb-2 {
+    width: 300px;
+    height: 300px;
+  }
+
+  .hero-orb-3 {
+    width: 260px;
+    height: 260px;
+  }
+
+  /* ── Content wave cards — moderate size on tablet ── */
+  .content-wave-card {
+    width: clamp(80px, 14vw, 150px);
+  }
+
+  /* ── Tables — scrollable on tablet if needed ── */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  /* ── Images — fluid ── */
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+}

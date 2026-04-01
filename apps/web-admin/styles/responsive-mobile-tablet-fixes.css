@@ -1,0 +1,311 @@
+/* ================================================================
+   RESPONSIVE MOBILE & TABLET FIXES — Web Admin (Dashboard)
+   ================================================================
+   Fichier : styles/responsive-mobile-tablet-fixes.css
+   Règle : aucun style ne s'applique au-dessus de 1024px.
+   Desktop strictement inchangé.
+   ================================================================ */
+
+/* ──────────────────────────────────────────────────────────────────
+   MOBILE — max-width: 767px
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+
+  /* ── Global ── */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* ── Sidebar — CRITICAL: hide on mobile ──
+     The admin sidebar is fixed at w-64 (256px) with ml-64 on content.
+     On mobile this leaves almost no visible content area. ── */
+  aside {
+    display: none !important;
+  }
+
+  /* ── Content area — remove hardcoded sidebar margin ──
+     Layout: <div class="flex min-h-screen"><aside/><div class="... ml-64"> ── */
+  aside + div {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  /* ── Main content — reduce padding ── */
+  main {
+    padding: 1rem !important;
+  }
+
+  /* ── Header / Topbar — reduce horizontal padding ── */
+  header {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    gap: 0.5rem !important;
+  }
+
+  /* ── Header search input — constrain width ── */
+  header input[type="text"],
+  header input[type="search"] {
+    max-width: 100%;
+    width: 100% !important;
+  }
+
+  /* ── Page titles — scale down ── */
+  h1 {
+    font-size: 1.375rem !important;
+    line-height: 1.2 !important;
+  }
+
+  h2 {
+    font-size: 1.125rem !important;
+    line-height: 1.3 !important;
+  }
+
+  /* ── Stat/KPI cards — single column on mobile ── */
+  .grid[class*="grid-cols-2"],
+  .grid[class*="grid-cols-3"],
+  .grid[class*="grid-cols-4"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Stats grids that should stay 2-col (compact KPIs) ── */
+  .grid[class*="sm:grid-cols-4"],
+  .grid[class*="sm:grid-cols-2"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ── Devices page stats — CRITICAL: grid-cols-4 with no breakpoint ── */
+  .grid[class*="grid-cols-4"]:not([class*="sm:"]):not([class*="md:"]):not([class*="lg:"]) {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ── Tables — horizontal scroll wrapper ──
+     Admin tables have 7-11 columns — must scroll on mobile ── */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+    font-size: 0.8125rem;
+  }
+
+  table thead {
+    display: table;
+    width: 100%;
+    min-width: 750px;
+  }
+
+  table tbody {
+    display: table;
+    width: 100%;
+    min-width: 750px;
+  }
+
+  table tr {
+    display: table-row;
+  }
+
+  table th,
+  table td {
+    display: table-cell;
+    white-space: nowrap;
+    padding: 0.5rem 0.625rem !important;
+  }
+
+  /* ── Table header row — reduce text size ── */
+  table th {
+    font-size: 0.75rem;
+  }
+
+  /* ── Dialog grids — stack on mobile ── */
+  [role="dialog"] .grid[class*="grid-cols-2"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Dialog — full screen width ── */
+  [role="dialog"] {
+    max-width: calc(100vw - 1.5rem) !important;
+    margin-left: 0.75rem;
+    margin-right: 0.75rem;
+  }
+
+  /* ── Forms — stack fields ── */
+  form .grid[class*="grid-cols-2"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Select/dropdown — full width ── */
+  select,
+  [role="combobox"] {
+    max-width: 100%;
+  }
+
+  /* ── Buttons — minimum touch target ── */
+  button,
+  a[role="button"],
+  [role="tab"] {
+    min-height: 2.5rem;
+  }
+
+  /* ── Tab lists — horizontal scroll ── */
+  [role="tablist"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap !important;
+    scrollbar-width: none;
+  }
+
+  [role="tablist"]::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ── Charts (recharts) — reduce min height ── */
+  .recharts-responsive-container {
+    min-height: 200px;
+  }
+
+  /* ── Map containers ── */
+  .leaflet-container {
+    height: 300px !important;
+    min-height: 250px;
+  }
+
+  /* ── Images — fluid ── */
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* ── Auth login card — center and constrain ──
+     Login page card has no max-width constraint ── */
+  [class*="min-h-screen"][class*="items-center"] > div {
+    width: 100%;
+    max-width: calc(100vw - 2rem);
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* ── Flex button groups — wrap on mobile ── */
+  .flex[class*="gap-2"]:has(> button + button),
+  .flex[class*="gap-3"]:has(> button + button) {
+    flex-wrap: wrap;
+  }
+
+  /* ── Status filter buttons — wrap ── */
+  .flex[class*="flex-wrap"][class*="gap-2"] {
+    gap: 0.375rem;
+  }
+
+  /* ── PIN/pairing input modal ── */
+  [role="dialog"] [class*="p-6"] {
+    padding: 1rem !important;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   TABLETTE — min-width: 768px to max-width: 1024px
+   ────────────────────────────────────────────────────────────────── */
+@media (min-width: 768px) and (max-width: 1024px) {
+
+  /* ── Global ── */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* ── Sidebar — hide on tablet ──
+     256px sidebar + content is too cramped at 768-1024px ── */
+  aside {
+    display: none !important;
+  }
+
+  /* ── Content area — remove sidebar margin ── */
+  aside + div {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  /* ── Main content — moderate padding ── */
+  main {
+    padding: 1.25rem !important;
+  }
+
+  /* ── Header — moderate padding ── */
+  header {
+    padding-left: 1.25rem !important;
+    padding-right: 1.25rem !important;
+  }
+
+  /* ── Page titles ── */
+  h1 {
+    font-size: 1.5rem !important;
+    line-height: 1.2 !important;
+  }
+
+  /* ── Grids — 2 columns on tablet ── */
+  .grid[class*="lg:grid-cols-4"],
+  .grid[class*="grid-cols-4"]:not([class*="sm:"]):not([class*="md:"]):not([class*="lg:"]) {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .grid[class*="lg:grid-cols-3"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ── Tables — scrollable on tablet ── */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  table thead,
+  table tbody {
+    display: table;
+    width: 100%;
+    min-width: 750px;
+  }
+
+  table tr {
+    display: table-row;
+  }
+
+  table th,
+  table td {
+    display: table-cell;
+    white-space: nowrap;
+  }
+
+  /* ── Dialogs — constrained ── */
+  [role="dialog"] {
+    max-width: 85vw !important;
+  }
+
+  /* ── Map containers ── */
+  .leaflet-container {
+    height: 400px !important;
+  }
+
+  /* ── Images — fluid ── */
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* ── Tab lists — scrollable ── */
+  [role="tablist"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  [role="tablist"]::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ── Forms — keep 2 columns on tablet ── */
+  form .grid[class*="grid-cols-2"] {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

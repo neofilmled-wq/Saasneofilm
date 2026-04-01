@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker exec neofilmsaas-postgres-1 sh -c \"sed -i ''s/host all all all md5/host all all all trust/g'' /var/lib/postgresql/data/pg_hba.conf\")",
+      "Bash(docker exec -u postgres neofilmsaas-postgres-1 sh -c \"pg_ctl reload -D /var/lib/postgresql/data\")",
+      "Bash(\"C:/Users/AYHHAN/AppData/Local/Android/Sdk/platform-tools/adb.exe\" forward:*)",
+      "Bash(tasklist //FI \"IMAGENAME eq node.exe\")",
+      "Bash(DATABASE_URL=\"postgresql://postgres:NeoPostgres2026!@192.168.10.10:5433/neofilm\" node -e \":*)"
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: neofilm
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secrets.yaml
+  - api-deployment.yaml
+  - web-admin-deployment.yaml
+  - web-partner-deployment.yaml
+  - web-advertiser-deployment.yaml
+  - ingress.yaml
+  - hpa.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: neofilm
+  app.kubernetes.io/managed-by: kustomize

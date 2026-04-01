@@ -1,0 +1,1722 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP-INSPIRED DARK THEME — Orange accent on near-black background
+   Designed for NeoFilm Admin dashboard
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Background: near-black with subtle warm undertone ── */
+  --background: 240 6% 6%;              /* #0E0E11 */
+  --foreground: 0 0% 93%;              /* #EDEDED */
+
+  /* ── Cards: slightly lifted dark panels ── */
+  --card: 240 5% 10%;                  /* #18181D */
+  --card-foreground: 0 0% 93%;
+
+  /* ── Popover: lighter than bg for dialogs/dropdowns ── */
+  --popover: 240 5% 15%;
+  --popover-foreground: 0 0% 93%;
+
+  /* ── Primary: vivid orange (Chirp accent) ── */
+  --primary: 24 95% 53%;               /* #F97316 — bright orange */
+  --primary-foreground: 0 0% 100%;     /* White text on orange */
+
+  /* ── Secondary: dark elevated surface ── */
+  --secondary: 240 4% 14%;             /* #222226 */
+  --secondary-foreground: 0 0% 88%;
+
+  /* ── Muted: subtle dark surface ── */
+  --muted: 240 4% 14%;
+  --muted-foreground: 0 0% 64%;        /* Readable gray on dark bg */
+
+  /* ── Accent: orange-tinted hover surface ── */
+  --accent: 24 20% 14%;                /* Dark with orange tint */
+  --accent-foreground: 24 95% 60%;     /* Orange text */
+
+  /* ── Destructive: red ── */
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  /* ── Success: green ── */
+  --success: 152 60% 40%;
+  --success-foreground: 0 0% 100%;
+
+  /* ── Warning: amber ── */
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+
+  /* ── Borders: very subtle ── */
+  --border: 240 4% 16%;               /* #272729 */
+  --input: 240 4% 16%;
+  --ring: 24 95% 53%;                  /* Orange ring */
+
+  /* ── Sidebar: darker than background ── */
+  --sidebar: 240 6% 7%;               /* #111114 */
+  --sidebar-foreground: 0 0% 68%;     /* Visible nav text on dark bg */
+  --sidebar-accent: 24 95% 53%;        /* Orange active */
+  --sidebar-border: 240 4% 13%;
+
+  --radius: 0.75rem;
+}
+
+/* Dark class — same as :root (next-themes adds class="dark" on <html>) */
+.dark {
+  --background: 240 6% 6%;
+  --foreground: 0 0% 93%;
+  --card: 240 5% 10%;
+  --card-foreground: 0 0% 93%;
+  --popover: 240 5% 15%;
+  --popover-foreground: 0 0% 93%;
+  --primary: 24 95% 53%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 4% 14%;
+  --secondary-foreground: 0 0% 88%;
+  --muted: 240 4% 14%;
+  --muted-foreground: 0 0% 64%;
+  --accent: 24 20% 14%;
+  --accent-foreground: 24 95% 60%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 152 60% 40%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+  --border: 240 4% 16%;
+  --input: 240 4% 16%;
+  --ring: 24 95% 53%;
+  --sidebar: 240 6% 7%;
+  --sidebar-foreground: 0 0% 68%;
+  --sidebar-accent: 24 95% 53%;
+  --sidebar-border: 240 4% 13%;
+  --radius: 0.75rem;
+}
+
+/* Light mode override (fallback, not primary) */
+.light {
+  --background: 30 20% 96%;
+  --foreground: 220 20% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 20% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 20% 12%;
+  --primary: 24 95% 53%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 30 10% 93%;
+  --secondary-foreground: 220 20% 12%;
+  --muted: 30 10% 93%;
+  --muted-foreground: 220 10% 50%;
+  --accent: 24 15% 94%;
+  --accent-foreground: 24 95% 45%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 152 60% 40%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+  --border: 30 10% 90%;
+  --input: 30 10% 88%;
+  --ring: 24 95% 53%;
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 220 10% 50%;
+  --sidebar-accent: 24 95% 53%;
+  --sidebar-border: 30 10% 92%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CARD SYSTEM — Dark floating panels with subtle glow
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.card-elevated {
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.3),
+    0 1px 2px -1px rgb(0 0 0 / 0.2);
+  border: 1px solid hsl(var(--border));
+}
+
+.card-elevated:hover {
+  box-shadow:
+    0 4px 12px -2px rgb(0 0 0 / 0.4),
+    0 2px 4px -2px rgb(0 0 0 / 0.3);
+  border-color: hsl(240 4% 20%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   STAT CARDS — Gradient variants (Chirp-inspired)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Primary stat: orange gradient */
+.stat-card-primary {
+  background: linear-gradient(145deg, hsl(24 90% 35%) 0%, hsl(24 95% 48%) 50%, hsl(28 95% 55%) 100%);
+  color: white;
+  box-shadow:
+    0 4px 20px -4px hsl(24 95% 40% / 0.4),
+    inset 0 1px 0 0 hsl(24 90% 65% / 0.2);
+}
+
+.stat-card-primary .stat-label {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.stat-card-primary .stat-trend {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Success stat: green gradient */
+.stat-card-success {
+  background: linear-gradient(145deg, hsl(152 55% 25%) 0%, hsl(160 50% 35%) 100%);
+  color: white;
+  box-shadow:
+    0 4px 20px -4px hsl(152 55% 25% / 0.35),
+    inset 0 1px 0 0 hsl(152 50% 45% / 0.2);
+}
+
+/* Warning stat: amber gradient */
+.stat-card-warning {
+  background: linear-gradient(145deg, hsl(30 80% 38%) 0%, hsl(38 85% 48%) 100%);
+  color: white;
+  box-shadow:
+    0 4px 20px -4px hsl(38 80% 38% / 0.35),
+    inset 0 1px 0 0 hsl(38 80% 55% / 0.2);
+}
+
+/* Danger stat: red gradient */
+.stat-card-danger {
+  background: linear-gradient(145deg, hsl(0 65% 35%) 0%, hsl(5 60% 45%) 100%);
+  color: white;
+  box-shadow:
+    0 4px 20px -4px hsl(0 65% 35% / 0.35),
+    inset 0 1px 0 0 hsl(0 60% 50% / 0.2);
+}
+
+/* Shared gradient stat card inner text */
+.stat-card-success .stat-label,
+.stat-card-warning .stat-label,
+.stat-card-danger .stat-label {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.stat-card-success .stat-trend,
+.stat-card-warning .stat-trend,
+.stat-card-danger .stat-trend {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SIDEBAR — Dark navigation with orange active indicator
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.sidebar-link-active {
+  position: relative;
+  background-color: hsl(24 95% 53% / 0.1);
+  color: hsl(24 95% 60%);
+  font-weight: 600;
+}
+
+.sidebar-link-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, hsl(24 95% 58%) 0%, hsl(24 95% 48%) 100%);
+  box-shadow: 0 0 8px hsl(24 95% 53% / 0.4);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SEARCH BAR
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.search-bar {
+  background-color: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  transition: all 0.2s ease;
+}
+
+.search-bar:focus-within {
+  background-color: hsl(240 5% 12%);
+  border-color: hsl(24 95% 53% / 0.3);
+  box-shadow: 0 0 0 3px hsl(24 95% 53% / 0.08);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TABLE
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.table-row-hover:hover {
+  background-color: hsl(var(--muted) / 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PROGRESS BAR — Orange striped
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.progress-bar-orange {
+  background: repeating-linear-gradient(
+    90deg,
+    hsl(24 95% 50%) 0px,
+    hsl(24 95% 50%) 6px,
+    hsl(24 90% 58%) 6px,
+    hsl(24 90% 58%) 12px
+  );
+  border-radius: 999px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BADGES — Dark background variants
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.badge-success {
+  background-color: hsl(152 60% 40% / 0.15);
+  color: hsl(152 60% 55%);
+  border: 1px solid hsl(152 60% 40% / 0.25);
+}
+
+.badge-warning {
+  background-color: hsl(38 92% 50% / 0.15);
+  color: hsl(38 85% 60%);
+  border: 1px solid hsl(38 92% 50% / 0.25);
+}
+
+.badge-danger {
+  background-color: hsl(0 72% 51% / 0.15);
+  color: hsl(0 72% 60%);
+  border: 1px solid hsl(0 72% 51% / 0.25);
+}
+
+.badge-orange {
+  background-color: hsl(24 95% 53% / 0.15);
+  color: hsl(24 95% 65%);
+  border: 1px solid hsl(24 95% 53% / 0.25);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SELECT DROPDOWN — Dark with orange gradient
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.select-dropdown {
+  background: linear-gradient(160deg, hsl(240 6% 10%) 0%, hsl(240 5% 14%) 40%, hsl(240 4% 16%) 100%) !important;
+  border: 1px solid hsl(240 4% 20%) !important;
+  color: hsl(0 0% 93%) !important;
+  box-shadow:
+    0 10px 40px -8px hsl(0 0% 0% / 0.6),
+    0 4px 12px -2px hsl(0 0% 0% / 0.3);
+}
+
+.select-dropdown-item {
+  color: hsl(0 0% 80%);
+}
+
+.select-dropdown-item[data-highlighted],
+.select-dropdown-item:focus {
+  background: hsl(24 95% 53% / 0.15);
+  color: hsl(0 0% 95%);
+}
+
+.select-dropdown-item[data-state="checked"] {
+  color: hsl(24 95% 70%);
+  font-weight: 600;
+}
+
+.select-dropdown-item [data-radix-select-item-indicator] svg {
+  color: hsl(24 95% 60%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ADDRESS AUTOCOMPLETE — Dark with orange gradient
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.address-dropdown {
+  background: linear-gradient(160deg, hsl(240 6% 10%) 0%, hsl(240 5% 14%) 40%, hsl(240 4% 16%) 100%);
+  border: 1px solid hsl(240 4% 20%);
+  color: hsl(0 0% 93%);
+  box-shadow:
+    0 10px 40px -8px hsl(0 0% 0% / 0.6),
+    0 4px 12px -2px hsl(0 0% 0% / 0.3);
+}
+
+.address-dropdown-item {
+  color: hsl(0 0% 80%);
+}
+
+.address-dropdown-item:hover,
+.address-dropdown-item-active {
+  background: hsl(24 95% 53% / 0.15);
+}
+
+.address-dropdown-icon {
+  background: hsl(24 95% 53% / 0.1);
+  color: hsl(24 95% 65%);
+}
+
+.address-dropdown-item-active .address-dropdown-icon,
+.address-dropdown-item:hover .address-dropdown-icon {
+  background: hsl(24 95% 53% / 0.2);
+  color: hsl(24 95% 75%);
+}
+
+.address-dropdown-name {
+  color: hsl(0 0% 95%);
+}
+
+.address-dropdown-detail {
+  color: hsl(0 0% 55%);
+}
+
+.address-dropdown-badge {
+  background: hsl(24 95% 53% / 0.15);
+  color: hsl(24 95% 70%);
+}
+
+.address-dropdown-item-active .address-dropdown-badge,
+.address-dropdown-item:hover .address-dropdown-badge {
+  background: hsl(24 95% 53% / 0.25);
+  color: hsl(24 95% 80%);
+}
+
+.address-dropdown-footer {
+  background: hsl(240 6% 8% / 0.5);
+  border-color: hsl(240 4% 16%);
+}
+
+.address-dropdown-kbd {
+  background: hsl(240 5% 14%);
+  border: 1px solid hsl(240 4% 20%);
+  color: hsl(0 0% 55%);
+}
+
+.address-dropdown mark {
+  background: hsl(24 95% 53% / 0.2);
+  color: hsl(24 95% 75%);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SCROLLBAR — Thin, dark
+   ═══════════════════════════════════════════════════════════════════════ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(240 4% 20%);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(240 4% 28%);
+}
+
+.sidebar-nav-scroll {
+  scrollbar-width: none;
+}
+.sidebar-nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DARK ACCENT CARD — High-contrast dark panel with orange glow
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.card-dark {
+  background: linear-gradient(145deg, hsl(240 6% 8%) 0%, hsl(240 5% 12%) 50%, hsl(240 4% 14%) 100%);
+  color: white;
+  box-shadow:
+    0 10px 30px -4px hsl(0 0% 0% / 0.5),
+    inset 0 1px 0 0 hsl(240 4% 20% / 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.card-dark::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, hsl(24 95% 53% / 0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.card-dark .card-dark-label {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.card-dark .card-dark-value {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   HERO CARD — Orange gradient banner
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.card-hero-orange {
+  background:
+    radial-gradient(ellipse 80% 60% at 90% 20%, hsl(30 90% 55% / 0.3) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 80% at 10% 80%, hsl(15 80% 35% / 0.2) 0%, transparent 60%),
+    linear-gradient(135deg, hsl(20 85% 35%) 0%, hsl(24 95% 48%) 40%, hsl(28 95% 55%) 100%);
+  color: white;
+  box-shadow:
+    0 10px 40px -8px hsl(24 95% 35% / 0.5),
+    inset 0 1px 0 0 hsl(28 90% 65% / 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.card-hero-orange::before {
+  content: '';
+  position: absolute;
+  right: -30px;
+  top: -30px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.card-hero-orange::after {
+  content: '';
+  position: absolute;
+  right: -10px;
+  top: -10px;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+}
+
+.card-hero-orange .hero-label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.card-hero-orange .hero-sub {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SPARKLINE — SVG chart styling
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.sparkline-path {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 3px hsl(24 95% 53% / 0.3));
+}
+
+.sparkline-area {
+  opacity: 0.12;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   HORIZONTAL BAR CHART
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.hbar {
+  height: 8px;
+  border-radius: 4px;
+  transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.hbar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+  animation: hbar-shimmer 2s ease-in-out infinite;
+}
+
+@keyframes hbar-shimmer {
+  0%, 100% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PERIOD SELECTOR PILLS
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.period-pill {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.period-pill-active {
+  background-color: hsl(24 95% 53%);
+  color: white;
+}
+
+.period-pill-inactive {
+  color: hsl(var(--muted-foreground));
+  background-color: transparent;
+}
+
+.period-pill-inactive:hover {
+  background-color: hsl(var(--muted));
+  color: hsl(0 0% 80%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CARD HOVER LIFT
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.card-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 25px -5px rgb(0 0 0 / 0.4),
+    0 4px 10px -3px rgb(0 0 0 / 0.2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   METRIC RING
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.metric-ring {
+  position: relative;
+}
+
+.metric-ring::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px dashed hsl(240 4% 20%);
+  opacity: 0.5;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CALENDAR DOT GRID
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.cal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  transition: transform 0.15s ease;
+}
+
+.cal-dot:hover {
+  transform: scale(1.5);
+}
+
+.cal-dot-empty {
+  background-color: hsl(240 4% 16%);
+}
+
+.cal-dot-low {
+  background-color: hsl(24 95% 53% / 0.2);
+}
+
+.cal-dot-mid {
+  background-color: hsl(24 95% 53% / 0.5);
+}
+
+.cal-dot-high {
+  background-color: hsl(24 95% 53%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   COUNTDOWN TIMER
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.countdown-digit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  height: 48px;
+  border-radius: 12px;
+  background: hsl(240 5% 14%);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: hsl(0 0% 93%);
+  border: 1px solid hsl(240 4% 20%);
+}
+
+.countdown-separator {
+  font-size: 20px;
+  font-weight: 700;
+  color: hsl(0 0% 55%);
+  margin: 0 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BUDGET BUBBLES
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.bubble-chart {
+  position: relative;
+}
+
+.bubble {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  position: absolute;
+  transition: transform 0.2s ease;
+}
+
+.bubble:hover {
+  transform: scale(1.05);
+  z-index: 10;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MAP GLOW — Orange radial glow for map markers (Chirp-style)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.map-marker-glow {
+  position: relative;
+}
+
+.map-marker-glow::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: radial-gradient(circle, hsl(24 95% 53% / 0.35) 0%, hsl(24 95% 53% / 0.1) 40%, transparent 70%);
+  pointer-events: none;
+  animation: map-glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes map-glow-pulse {
+  0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   STATUS INDICATORS — Chirp-style
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.status-dot-online {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: hsl(152 60% 45%);
+  box-shadow: 0 0 6px hsl(152 60% 45% / 0.5);
+}
+
+.status-dot-offline {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: hsl(0 0% 40%);
+}
+
+.status-dot-warning {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: hsl(24 95% 53%);
+  box-shadow: 0 0 6px hsl(24 95% 53% / 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ORANGE GLOW BUTTON — Primary CTA
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.btn-glow-orange {
+  background: linear-gradient(135deg, hsl(20 90% 45%) 0%, hsl(24 95% 53%) 50%, hsl(28 95% 58%) 100%);
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 2px 12px -2px hsl(24 95% 53% / 0.4);
+  transition: all 0.2s ease;
+}
+
+.btn-glow-orange:hover {
+  box-shadow: 0 4px 20px -2px hsl(24 95% 53% / 0.55);
+  transform: translateY(-1px);
+}
+
+.btn-glow-orange:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px -2px hsl(24 95% 53% / 0.4);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP TAB NAVIGATION — Orange active tab, ghost inactive
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.chirp-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: hsl(240 5% 10%);
+  border: 1px solid hsl(240 4% 14%);
+}
+
+.chirp-tab {
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  color: hsl(0 0% 62%);
+  background: transparent;
+  border: none;
+}
+
+.chirp-tab:hover {
+  color: hsl(0 0% 75%);
+  background: hsl(240 4% 14%);
+}
+
+.chirp-tab-active {
+  background: hsl(24 95% 53%);
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 2px 8px -2px hsl(24 95% 53% / 0.4);
+}
+
+.chirp-tab-active:hover {
+  background: hsl(24 95% 56%);
+  color: white;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP TOGGLE GROUP — Compact pill selector (USD | 7d | 14d | 30d)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.chirp-toggle-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: hsl(240 5% 10%);
+  border: 1px solid hsl(240 4% 14%);
+}
+
+.chirp-toggle {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  color: hsl(0 0% 58%);
+  background: transparent;
+  border: none;
+  letter-spacing: 0.01em;
+}
+
+.chirp-toggle:hover {
+  color: hsl(0 0% 70%);
+}
+
+.chirp-toggle-active {
+  background: hsl(24 95% 53%);
+  color: white;
+  box-shadow: 0 1px 4px -1px hsl(24 95% 53% / 0.4);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP DATA TABLE — Minimal, dark, no visible borders
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.chirp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.chirp-table thead th {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: hsl(0 0% 52%);
+  text-align: left;
+  border-bottom: 1px solid hsl(240 4% 14%);
+  background: transparent;
+}
+
+.chirp-table tbody td {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: hsl(0 0% 75%);
+  border-bottom: 1px solid hsl(240 4% 10%);
+}
+
+.chirp-table tbody tr {
+  transition: background-color 0.1s ease;
+}
+
+.chirp-table tbody tr:hover {
+  background-color: hsl(240 4% 11%);
+}
+
+.chirp-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Monospace values in table cells */
+.chirp-table .cell-mono {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 12px;
+  color: hsl(0 0% 65%);
+}
+
+.chirp-table .cell-hash {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 11px;
+  color: hsl(0 0% 58%);
+}
+
+.chirp-table .cell-value {
+  font-weight: 600;
+  color: hsl(0 0% 90%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP STATUS PILLS — Compact colored pills
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.status-pill-active {
+  background: hsl(152 60% 40% / 0.12);
+  color: hsl(152 60% 55%);
+  border-color: hsl(152 60% 40% / 0.2);
+}
+
+.status-pill-active::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: hsl(152 60% 45%);
+  box-shadow: 0 0 4px hsl(152 60% 45% / 0.5);
+}
+
+.status-pill-orange {
+  background: hsl(24 95% 53% / 0.12);
+  color: hsl(24 95% 65%);
+  border-color: hsl(24 95% 53% / 0.2);
+}
+
+.status-pill-neutral {
+  background: hsl(240 4% 14%);
+  color: hsl(0 0% 60%);
+  border-color: hsl(240 4% 18%);
+}
+
+.status-pill-danger {
+  background: hsl(0 72% 51% / 0.12);
+  color: hsl(0 72% 65%);
+  border-color: hsl(0 72% 51% / 0.2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP PAGINATION — Dark with orange active
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.chirp-pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chirp-page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  color: hsl(0 0% 62%);
+  background: transparent;
+  border: none;
+}
+
+.chirp-page:hover {
+  color: hsl(0 0% 80%);
+  background: hsl(240 4% 14%);
+}
+
+.chirp-page-active {
+  background: hsl(24 95% 53%);
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 2px 6px -2px hsl(24 95% 53% / 0.35);
+}
+
+.chirp-page-active:hover {
+  background: hsl(24 95% 56%);
+  color: white;
+}
+
+.chirp-page-arrow {
+  color: hsl(0 0% 55%);
+}
+
+.chirp-page-arrow:hover {
+  color: hsl(0 0% 70%);
+  background: hsl(240 4% 14%);
+}
+
+.chirp-page-ellipsis {
+  color: hsl(0 0% 52%);
+  cursor: default;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP PROGRESS BAR — Orange gradient with time label
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.chirp-progress {
+  position: relative;
+  height: 28px;
+  border-radius: 6px;
+  background: hsl(240 4% 12%);
+  overflow: hidden;
+  border: 1px solid hsl(240 4% 16%);
+}
+
+.chirp-progress-fill {
+  height: 100%;
+  border-radius: 5px;
+  background: linear-gradient(90deg, hsl(24 95% 45%) 0%, hsl(24 95% 53%) 50%, hsl(28 92% 58%) 100%);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.chirp-progress-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+
+.chirp-progress-value {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  font-weight: 700;
+  color: hsl(0 0% 85%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP KPI BLOCK — Large number + small delta + muted label
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.chirp-kpi-value {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: hsl(0 0% 93%);
+  font-variant-numeric: tabular-nums;
+}
+
+.chirp-kpi-delta {
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  margin-left: 6px;
+  vertical-align: super;
+}
+
+.chirp-kpi-delta-up {
+  color: hsl(152 60% 50%);
+}
+
+.chirp-kpi-delta-down {
+  color: hsl(0 72% 60%);
+}
+
+.chirp-kpi-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(0 0% 58%);
+  margin-top: 4px;
+}
+
+.chirp-kpi-sub {
+  font-size: 12px;
+  color: hsl(0 0% 52%);
+  margin-top: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP SECTION HEADER — Muted uppercase divider
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.chirp-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: hsl(0 0% 52%);
+  padding-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chirp-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, hsl(240 4% 16%) 0%, transparent 100%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP CARD — Borderless dark panel (background diff only)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.chirp-card {
+  background: hsl(240 5% 10%);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+
+.chirp-card:hover {
+  border-color: hsl(240 4% 16%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP SIDEBAR SECTIONS — Group labels + indented sub-items
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.sidebar-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: hsl(0 0% 56%);
+  padding: 16px 16px 6px;
+}
+
+.sidebar-sub-item {
+  padding-left: 36px !important;
+  font-size: 12px !important;
+}
+
+.sidebar-sub-item::before {
+  content: '';
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  width: 6px;
+  height: 1px;
+  background: hsl(240 4% 20%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP CTA BUTTON — Gradient orange sidebar CTA
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.sidebar-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 12px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, hsl(20 85% 42%) 0%, hsl(24 95% 50%) 50%, hsl(28 90% 55%) 100%);
+  box-shadow:
+    0 4px 16px -4px hsl(24 95% 45% / 0.4),
+    inset 0 1px 0 0 hsl(28 90% 65% / 0.15);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+  text-decoration: none;
+}
+
+.sidebar-cta:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 6px 20px -4px hsl(24 95% 45% / 0.55),
+    inset 0 1px 0 0 hsl(28 90% 65% / 0.2);
+}
+
+.sidebar-cta:active {
+  transform: translateY(0);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP USER PROFILE — Bottom sidebar with balance display
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.sidebar-profile {
+  padding: 12px;
+  border-top: 1px solid hsl(240 4% 13%);
+}
+
+.sidebar-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  background: linear-gradient(135deg, hsl(24 80% 35%) 0%, hsl(24 95% 50%) 100%);
+  color: white;
+  box-shadow: 0 0 0 2px hsl(240 6% 7%), 0 0 0 3px hsl(24 95% 53% / 0.3);
+  flex-shrink: 0;
+}
+
+.sidebar-balance {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  margin: 8px 0;
+  border-radius: 8px;
+  background: hsl(240 4% 12%);
+  border: 1px solid hsl(240 4% 16%);
+}
+
+.sidebar-balance-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: hsl(0 0% 85%);
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar-balance-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: hsl(152 60% 40% / 0.12);
+  color: hsl(152 60% 55%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP STAR FAVORITE — Orange star icon
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.star-favorite {
+  color: hsl(24 95% 53%);
+  filter: drop-shadow(0 0 3px hsl(24 95% 53% / 0.4));
+  transition: all 0.15s ease;
+}
+
+.star-favorite:hover {
+  color: hsl(24 95% 60%);
+  filter: drop-shadow(0 0 6px hsl(24 95% 53% / 0.5));
+  transform: scale(1.1);
+}
+
+.star-empty {
+  color: hsl(0 0% 42%);
+  transition: all 0.15s ease;
+}
+
+.star-empty:hover {
+  color: hsl(0 0% 58%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP CHART — Recharts overrides for orange theme
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.chirp-chart .recharts-cartesian-grid line {
+  stroke: hsl(240 4% 14%);
+}
+
+.chirp-chart .recharts-text {
+  fill: hsl(0 0% 55%);
+  font-size: 11px;
+}
+
+.chirp-chart .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: hsl(240 5% 12%) !important;
+  border: 1px solid hsl(240 4% 18%) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 24px -4px rgb(0 0 0 / 0.5) !important;
+}
+
+.chirp-chart .recharts-tooltip-item {
+  color: hsl(0 0% 85%) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP MODAL / SLIDE-OVER — Dark overlay panel
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.chirp-modal-overlay {
+  background: rgb(0 0 0 / 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.chirp-modal {
+  background: hsl(240 6% 8%);
+  border: 1px solid hsl(240 4% 14%);
+  border-radius: 16px;
+  box-shadow:
+    0 24px 48px -12px rgb(0 0 0 / 0.6),
+    0 0 0 1px hsl(240 4% 14%);
+}
+
+.chirp-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: hsl(240 4% 14%);
+  color: hsl(0 0% 55%);
+  border: 1px solid hsl(240 4% 18%);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.chirp-modal-close:hover {
+  background: hsl(240 4% 18%);
+  color: hsl(0 0% 80%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP ALERT BADGE — Red/orange inline alert
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.chirp-alert-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  background: hsl(0 72% 51% / 0.15);
+  color: hsl(0 72% 65%);
+  border: 1px solid hsl(0 72% 51% / 0.2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIRP DETAIL HEADER — Back arrow + title + online status
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.chirp-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chirp-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: hsl(240 4% 12%);
+  border: 1px solid hsl(240 4% 16%);
+  color: hsl(0 0% 60%);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.chirp-back-btn:hover {
+  background: hsl(240 4% 16%);
+  color: hsl(0 0% 85%);
+  border-color: hsl(240 4% 22%);
+}
+
+.chirp-online-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: hsl(152 60% 55%);
+}
+
+.chirp-online-badge::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: hsl(152 60% 45%);
+  box-shadow: 0 0 6px hsl(152 60% 45% / 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   GLOBAL OVERRIDES — Make Radix/shadcn components match dark theme
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DIALOG / POPOVER — Elevated surface (lighter than bg)
+   Uses --popover variable which is set to 15% lightness vs 6% bg
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* DialogContent uses bg-background — override to bg-popover */
+[data-radix-dialog-content],
+[data-radix-dialog-overlay] + div {
+  background-color: hsl(var(--popover));
+  border-color: hsl(240 4% 24%);
+}
+
+/* Toast */
+[data-sonner-toast] {
+  background: hsl(240 5% 13%) !important;
+  border: 1px solid hsl(240 4% 22%) !important;
+  color: hsl(0 0% 90%) !important;
+}
+
+/* Dropdown menus */
+[data-radix-popper-content-wrapper] [role="menu"],
+[data-radix-menu-content] {
+  background: hsl(240 5% 13%) !important;
+  border: 1px solid hsl(240 4% 22%) !important;
+  color: hsl(0 0% 88%) !important;
+  box-shadow: 0 12px 36px -8px rgb(0 0 0 / 0.6) !important;
+}
+
+[data-radix-menu-content] [role="menuitem"] {
+  color: hsl(0 0% 82%);
+}
+
+[data-radix-menu-content] [role="menuitem"]:hover,
+[data-radix-menu-content] [role="menuitem"][data-highlighted] {
+  background: hsl(240 4% 18%) !important;
+  color: white !important;
+}
+
+[data-radix-menu-content] [role="menuitem"].text-destructive,
+[data-radix-menu-content] [role="menuitem"].text-destructive:hover {
+  color: hsl(0 72% 65%) !important;
+}
+
+[data-radix-menu-content] [role="separator"] {
+  background: hsl(240 4% 18%) !important;
+}
+
+/* Select dropdowns (Radix) */
+[data-radix-select-content],
+[data-radix-popper-content-wrapper] [role="listbox"] {
+  background: hsl(240 5% 13%) !important;
+  border: 1px solid hsl(240 4% 22%) !important;
+  color: hsl(0 0% 88%) !important;
+  box-shadow: 0 12px 36px -8px rgb(0 0 0 / 0.6) !important;
+}
+
+[data-radix-select-content] [role="option"] {
+  color: hsl(0 0% 78%);
+}
+
+[data-radix-select-content] [role="option"][data-highlighted] {
+  background: hsl(240 4% 18%) !important;
+  color: white !important;
+}
+
+[data-radix-select-content] [role="option"][data-state="checked"] {
+  color: hsl(24 95% 65%) !important;
+  font-weight: 600;
+}
+
+/* Tooltip (Radix) */
+[data-radix-tooltip-content] {
+  background: hsl(240 5% 13%) !important;
+  border: 1px solid hsl(240 4% 22%) !important;
+  color: hsl(0 0% 88%) !important;
+}
+
+/* Input fields */
+input:not([type="checkbox"]):not([type="radio"]),
+textarea,
+select {
+  background-color: hsl(240 4% 12%) !important;
+  border-color: hsl(240 4% 20%) !important;
+  color: hsl(0 0% 90%) !important;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):focus,
+textarea:focus,
+select:focus {
+  border-color: hsl(24 95% 53% / 0.5) !important;
+  box-shadow: 0 0 0 3px hsl(24 95% 53% / 0.1) !important;
+  outline: none !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: hsl(0 0% 52%) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BUTTON OVERRIDES — Ensure visibility on dark bg
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Primary button — orange, already fine */
+
+/* Outline button — make visible on dark bg */
+button[class*="border"][class*="bg-background"],
+a[class*="border"][class*="bg-background"] {
+  background-color: hsl(240 4% 12%) !important;
+  border-color: hsl(240 4% 22%) !important;
+  color: hsl(0 0% 82%) !important;
+}
+
+button[class*="border"][class*="bg-background"]:hover,
+a[class*="border"][class*="bg-background"]:hover {
+  background-color: hsl(240 4% 16%) !important;
+  color: hsl(0 0% 95%) !important;
+}
+
+/* Ghost button */
+button[class*="hover:bg-accent"] {
+  color: hsl(0 0% 75%);
+}
+
+/* Table — ensure dark styling */
+table, .table {
+  color: hsl(0 0% 85%);
+}
+
+thead th, [class*="TableHead"] {
+  color: hsl(0 0% 60%) !important;
+  border-bottom-color: hsl(240 4% 16%) !important;
+}
+
+tbody td, [class*="TableCell"] {
+  border-bottom-color: hsl(240 4% 12%) !important;
+}
+
+tbody tr:hover {
+  background-color: hsl(240 4% 11%) !important;
+}
+
+/* Card override — ensure dark bg */
+[class*="rounded-lg"][class*="border"][class*="bg-card"],
+[class*="rounded-xl"][class*="border"][class*="bg-card"] {
+  background-color: hsl(240 5% 10%);
+  border-color: hsl(240 4% 16%);
+}
+
+/* Badge "Actif" — visible green on dark */
+[class*="bg-green-100"] {
+  background-color: hsl(152 60% 40% / 0.15) !important;
+  color: hsl(152 60% 60%) !important;
+}
+
+[class*="bg-red-100"] {
+  background-color: hsl(0 72% 51% / 0.15) !important;
+  color: hsl(0 72% 65%) !important;
+}
+
+[class*="bg-yellow-100"] {
+  background-color: hsl(38 92% 50% / 0.15) !important;
+  color: hsl(38 85% 65%) !important;
+}
+
+[class*="bg-orange-100"] {
+  background-color: hsl(24 95% 53% / 0.15) !important;
+  color: hsl(24 95% 65%) !important;
+}
+
+[class*="bg-blue-100"] {
+  background-color: hsl(220 60% 50% / 0.15) !important;
+  color: hsl(220 60% 65%) !important;
+}
+
+[class*="bg-purple-100"] {
+  background-color: hsl(270 50% 50% / 0.15) !important;
+  color: hsl(270 50% 65%) !important;
+}
+
+[class*="bg-slate-100"] {
+  background-color: hsl(240 4% 14%) !important;
+  color: hsl(0 0% 65%) !important;
+}
+
+[class*="bg-gray-100"] {
+  background-color: hsl(240 4% 14%) !important;
+  color: hsl(0 0% 65%) !important;
+}
+
+/* Text color overrides for light-mode leftovers */
+.text-green-700, [class*="text-green-700"] { color: hsl(152 60% 55%) !important; }
+.text-green-600, [class*="text-green-600"] { color: hsl(152 60% 55%) !important; }
+.text-red-700, [class*="text-red-700"] { color: hsl(0 72% 60%) !important; }
+.text-red-600, [class*="text-red-600"] { color: hsl(0 72% 60%) !important; }
+.text-yellow-700, [class*="text-yellow-700"] { color: hsl(38 85% 60%) !important; }
+.text-orange-700, [class*="text-orange-700"] { color: hsl(24 95% 60%) !important; }
+.text-orange-600, [class*="text-orange-600"] { color: hsl(24 95% 60%) !important; }
+.text-slate-700, [class*="text-slate-700"] { color: hsl(0 0% 65%) !important; }
+.text-gray-700, [class*="text-gray-700"] { color: hsl(0 0% 65%) !important; }
+.text-gray-500, [class*="text-gray-500"] { color: hsl(0 0% 58%) !important; }
+
+/* Light-mode bg leftovers on dark theme */
+.bg-white, [class*="bg-white"] {
+  background-color: hsl(240 5% 13%) !important;
+}
+
+.bg-slate-50, [class*="bg-slate-50"],
+.bg-gray-50, [class*="bg-gray-50"] {
+  background-color: hsl(240 4% 10%) !important;
+}
+
+.border-slate-200, [class*="border-slate-200"],
+.border-gray-200, [class*="border-gray-200"] {
+  border-color: hsl(240 4% 18%) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LEAFLET MAP — Dark theme overrides
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.leaflet-container {
+  background: hsl(240 6% 6%) !important;
+  font-family: inherit;
+}
+
+.leaflet-control-zoom {
+  border: 1px solid hsl(240 4% 16%) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+
+.leaflet-control-zoom a {
+  background: hsl(240 5% 10%) !important;
+  color: hsl(0 0% 70%) !important;
+  border-bottom: 1px solid hsl(240 4% 16%) !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: hsl(240 5% 14%) !important;
+  color: hsl(0 0% 90%) !important;
+}
+
+/* Tooltip dark theme */
+.chirp-map-tooltip.leaflet-tooltip {
+  background: hsl(240 5% 10%) !important;
+  border: 1px solid hsl(240 4% 18%) !important;
+  border-radius: 8px !important;
+  color: hsl(0 0% 90%) !important;
+  box-shadow: 0 8px 24px -4px rgb(0 0 0 / 0.5) !important;
+  padding: 8px 12px !important;
+}
+
+.chirp-map-tooltip.leaflet-tooltip::before {
+  border-top-color: hsl(240 5% 10%) !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: hsl(240 5% 10%) !important;
+  color: hsl(0 0% 90%) !important;
+  border-radius: 10px !important;
+  border: 1px solid hsl(240 4% 18%) !important;
+  box-shadow: 0 8px 24px -4px rgb(0 0 0 / 0.5) !important;
+}
+
+.leaflet-popup-tip {
+  background: hsl(240 5% 10%) !important;
+}

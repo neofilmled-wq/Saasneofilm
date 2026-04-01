@@ -1,0 +1,304 @@
+/* ================================================================
+   RESPONSIVE MOBILE & TABLET FIXES — Web Partner (Dashboard)
+   ================================================================
+   Fichier : styles/responsive-mobile-tablet-fixes.css
+   Règle : aucun style ne s'applique au-dessus de 1024px.
+   Desktop strictement inchangé.
+   ================================================================ */
+
+/* ──────────────────────────────────────────────────────────────────
+   MOBILE — max-width: 767px
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+
+  /* ── Global ── */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* ── Sidebar — hide on mobile (MobileNav provides navigation) ── */
+  aside {
+    display: none !important;
+  }
+
+  /* ── Main content — remove sidebar margin, reduce padding ── */
+  main {
+    padding: 1rem !important;
+  }
+
+  /* ── Header — reduce horizontal padding ── */
+  header {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    gap: 0.5rem !important;
+  }
+
+  /* ── Header search bar — full width when visible ── */
+  header input[type="text"],
+  header input[type="search"] {
+    max-width: 100%;
+    width: 100% !important;
+  }
+
+  /* ── Header dropdown — constrain width ── */
+  header [role="menu"],
+  header [data-radix-popper-content-wrapper] {
+    max-width: calc(100vw - 2rem);
+  }
+
+  /* ── Page titles — reduce size ── */
+  h1 {
+    font-size: 1.375rem !important;
+    line-height: 1.2 !important;
+  }
+
+  h2 {
+    font-size: 1.125rem !important;
+    line-height: 1.3 !important;
+  }
+
+  /* ── Stat cards grid — force single column on mobile ── */
+  .grid[class*="grid-cols-2"],
+  .grid[class*="grid-cols-3"],
+  .grid[class*="grid-cols-4"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Allow 2-column stat grids with small cards */
+  .grid[class*="sm:grid-cols-4"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ── Stat card values — reduce font size ── */
+  .stat-card-primary .stat-value,
+  .card-elevated .stat-value {
+    font-size: 1.5rem;
+  }
+
+  /* ── Tables — make scrollable on mobile ── */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+    font-size: 0.8125rem;
+  }
+
+  table thead {
+    display: table;
+    width: 100%;
+    min-width: 700px;
+  }
+
+  table tbody {
+    display: table;
+    width: 100%;
+    min-width: 700px;
+  }
+
+  table tr {
+    display: table-row;
+  }
+
+  table th,
+  table td {
+    display: table-cell;
+    white-space: nowrap;
+    padding: 0.5rem 0.625rem !important;
+  }
+
+  /* ── Select/dropdown — full width on mobile ── */
+  select,
+  [role="combobox"] {
+    max-width: 100%;
+  }
+
+  /* ── Cards — reduce padding ── */
+  [class*="CardContent"] {
+    padding: 1rem;
+  }
+
+  /* ── Charts — reduce minimum height ── */
+  .recharts-responsive-container {
+    min-height: 200px;
+  }
+
+  /* ── Forms — stack fields vertically ── */
+  form .grid[class*="grid-cols-2"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Buttons — ensure minimum touch target ── */
+  button,
+  a[role="button"],
+  [role="tab"] {
+    min-height: 2.5rem;
+  }
+
+  /* ── Badges — readable on mobile ── */
+  .badge-success,
+  .badge-warning,
+  .badge-danger {
+    font-size: 0.6875rem;
+    padding: 0.125rem 0.5rem;
+  }
+
+  /* ── Tab lists — scrollable horizontally ── */
+  [role="tablist"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap !important;
+    scrollbar-width: none;
+  }
+
+  [role="tablist"]::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ── Images — fluid ── */
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* ── Dialogs/Modals — full width on mobile ── */
+  [role="dialog"],
+  [data-radix-popper-content-wrapper] > div {
+    max-width: calc(100vw - 2rem) !important;
+    margin-left: 1rem;
+    margin-right: 1rem;
+  }
+
+  /* ── Map containers — reduce height ── */
+  .leaflet-container {
+    height: 300px !important;
+    min-height: 250px;
+  }
+
+  /* ── Progress bar ── */
+  .progress-bar-donezo {
+    height: 6px;
+  }
+
+  /* ── Sidebar link active — reset when sidebar hidden ── */
+  .sidebar-link-active::before {
+    display: none;
+  }
+
+  /* ── Search bar Donezo — full width ── */
+  .search-bar {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   TABLETTE — min-width: 768px to max-width: 1024px
+   ────────────────────────────────────────────────────────────────── */
+@media (min-width: 768px) and (max-width: 1024px) {
+
+  /* ── Global ── */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* ── Sidebar — hide on tablet too (MobileNav provides navigation) ── */
+  aside {
+    display: none !important;
+  }
+
+  /* ── Main content — reduce padding ── */
+  main {
+    padding: 1.25rem !important;
+  }
+
+  /* ── Header — moderate padding ── */
+  header {
+    padding-left: 1.25rem !important;
+    padding-right: 1.25rem !important;
+  }
+
+  /* ── Page titles ── */
+  h1 {
+    font-size: 1.5rem !important;
+    line-height: 1.2 !important;
+  }
+
+  /* ── Grids — 2-column on tablet ── */
+  .grid[class*="lg:grid-cols-4"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .grid[class*="lg:grid-cols-3"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ── Tables — scrollable on tablet ── */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  table thead,
+  table tbody {
+    display: table;
+    width: 100%;
+    min-width: 700px;
+  }
+
+  table tr {
+    display: table-row;
+  }
+
+  table th,
+  table td {
+    display: table-cell;
+    white-space: nowrap;
+  }
+
+  /* ── Cards padding ── */
+  [class*="CardContent"] {
+    padding: 1.25rem;
+  }
+
+  /* ── Forms — 2 columns on tablet ── */
+  form .grid[class*="grid-cols-2"] {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* ── Map containers — moderate height ── */
+  .leaflet-container {
+    height: 400px !important;
+  }
+
+  /* ── Dialogs — constrained width ── */
+  [role="dialog"] {
+    max-width: 90vw !important;
+  }
+
+  /* ── Images — fluid ── */
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* ── Search bar ── */
+  .search-bar {
+    max-width: 100%;
+  }
+
+  /* ── Tab lists — scrollable ── */
+  [role="tablist"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  [role="tablist"]::-webkit-scrollbar {
+    display: none;
+  }
+}

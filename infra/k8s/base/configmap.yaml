@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: neofilm-config
+  namespace: neofilm
+data:
+  NODE_ENV: "production"
+  API_URL: "https://api.neofilm.io"
+  API_PORT: "3001"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  MQTT_BROKER_URL: "mqtt://mosquitto:1883"
+  S3_REGION: "eu-west-1"
+  S3_ENDPOINT: ""
+  CDN_BASE_URL: "https://cdn.neofilm.io"

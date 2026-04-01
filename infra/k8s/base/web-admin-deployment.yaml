@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: neofilm-web-admin
+  namespace: neofilm
+  labels:
+    app: neofilm-web-admin
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: neofilm-web-admin
+  template:
+    metadata:
+      labels:
+        app: neofilm-web-admin
+    spec:
+      containers:
+        - name: web-admin
+          image: neofilm/web-admin:latest
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: NEXT_PUBLIC_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: neofilm-config
+                  key: API_URL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: neofilm-web-admin
+  namespace: neofilm
+spec:
+  selector:
+    app: neofilm-web-admin
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: http
+  type: ClusterIP

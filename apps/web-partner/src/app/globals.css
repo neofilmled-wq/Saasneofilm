@@ -1,0 +1,393 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+}
+
+:root {
+  /* Donezo-inspired dark forest green palette */
+  --background: 40 20% 96%;          /* Warm light gray background #F5F3EF */
+  --foreground: 150 30% 10%;         /* Near-black green-tinted text */
+
+  --card: 0 0% 100%;                 /* Pure white cards */
+  --card-foreground: 150 30% 10%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 150 30% 10%;
+
+  --primary: 152 44% 18%;            /* Dark forest green #1B4332 */
+  --primary-foreground: 0 0% 100%;   /* White text on primary */
+
+  --secondary: 150 10% 93%;          /* Soft green-gray */
+  --secondary-foreground: 150 30% 10%;
+
+  --muted: 40 15% 93%;               /* Warm muted gray */
+  --muted-foreground: 150 10% 45%;   /* Medium gray-green */
+
+  --accent: 150 15% 92%;             /* Light green tint for hover states */
+  --accent-foreground: 152 44% 18%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 152 60% 36%;            /* Vibrant green for success states */
+  --success-foreground: 0 0% 100%;
+
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+
+  --border: 40 15% 90%;              /* Warm subtle border */
+  --input: 40 15% 88%;
+  --ring: 152 44% 18%;
+
+  /* Sidebar */
+  --sidebar: 0 0% 100%;              /* White sidebar */
+  --sidebar-foreground: 150 10% 45%;
+  --sidebar-accent: 152 44% 18%;     /* Green active indicator */
+  --sidebar-border: 40 15% 92%;
+
+  --radius: 0.75rem;                 /* Larger radius for Donezo roundness */
+}
+
+.dark {
+  --background: 150 20% 6%;
+  --foreground: 40 20% 95%;
+
+  --card: 150 20% 9%;
+  --card-foreground: 40 20% 95%;
+
+  --popover: 150 20% 9%;
+  --popover-foreground: 40 20% 95%;
+
+  --primary: 152 50% 40%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 150 15% 15%;
+  --secondary-foreground: 40 20% 95%;
+
+  --muted: 150 15% 15%;
+  --muted-foreground: 150 10% 55%;
+
+  --accent: 150 15% 15%;
+  --accent-foreground: 152 50% 40%;
+
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 40 20% 95%;
+
+  --success: 152 60% 36%;
+  --success-foreground: 0 0% 100%;
+
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+
+  --border: 150 15% 15%;
+  --input: 150 15% 15%;
+  --ring: 152 50% 40%;
+
+  --sidebar: 150 20% 8%;
+  --sidebar-foreground: 150 10% 55%;
+  --sidebar-accent: 152 50% 40%;
+  --sidebar-border: 150 15% 15%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+/* Donezo-style card shadows */
+.card-elevated {
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.04),
+    0 1px 2px -1px rgb(0 0 0 / 0.04);
+}
+
+.card-elevated:hover {
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.06),
+    0 2px 4px -2px rgb(0 0 0 / 0.04);
+}
+
+/* Stat card gradient — deep green like the Donezo screenshot */
+.stat-card-primary {
+  background: linear-gradient(145deg, hsl(152 44% 15%) 0%, hsl(152 38% 24%) 50%, hsl(160 35% 30%) 100%);
+  color: white;
+  box-shadow:
+    0 4px 14px -2px hsl(152 44% 18% / 0.35),
+    inset 0 1px 0 0 hsl(152 40% 35% / 0.2);
+}
+
+.stat-card-primary .stat-label {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.stat-card-primary .stat-trend {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Stat card gradient — success variant (lighter green) */
+.stat-card-success {
+  background: linear-gradient(145deg, hsl(152 55% 30%) 0%, hsl(160 50% 38%) 100%);
+  color: white;
+  box-shadow:
+    0 4px 14px -2px hsl(152 55% 30% / 0.3),
+    inset 0 1px 0 0 hsl(152 50% 45% / 0.2);
+}
+
+/* Stat card gradient — warning variant (amber) */
+.stat-card-warning {
+  background: linear-gradient(145deg, hsl(30 80% 45%) 0%, hsl(38 85% 52%) 100%);
+  color: white;
+  box-shadow:
+    0 4px 14px -2px hsl(38 80% 45% / 0.3),
+    inset 0 1px 0 0 hsl(38 80% 60% / 0.2);
+}
+
+/* Stat card gradient — danger variant (red) */
+.stat-card-danger {
+  background: linear-gradient(145deg, hsl(0 65% 42%) 0%, hsl(5 60% 52%) 100%);
+  color: white;
+  box-shadow:
+    0 4px 14px -2px hsl(0 65% 42% / 0.3),
+    inset 0 1px 0 0 hsl(0 60% 55% / 0.2);
+}
+
+/* Shared gradient stat card inner text styles */
+.stat-card-success .stat-label,
+.stat-card-warning .stat-label,
+.stat-card-danger .stat-label {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.stat-card-success .stat-trend,
+.stat-card-warning .stat-trend,
+.stat-card-danger .stat-trend {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Sidebar active indicator */
+.sidebar-link-active {
+  position: relative;
+  background-color: hsl(152 44% 18% / 0.08);
+  color: hsl(152 44% 18%);
+  font-weight: 600;
+}
+
+.sidebar-link-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background-color: hsl(152 44% 18%);
+}
+
+/* Search bar Donezo style */
+.search-bar {
+  background-color: hsl(var(--muted));
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.search-bar:focus-within {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+  box-shadow: 0 0 0 3px hsl(152 44% 18% / 0.08);
+}
+
+/* Table row hover */
+.table-row-hover:hover {
+  background-color: hsl(var(--muted) / 0.5);
+}
+
+/* Progress bar Donezo style (striped green) */
+.progress-bar-donezo {
+  background: repeating-linear-gradient(
+    90deg,
+    hsl(152 44% 18%) 0px,
+    hsl(152 44% 18%) 6px,
+    hsl(152 44% 25%) 6px,
+    hsl(152 44% 25%) 12px
+  );
+  border-radius: 999px;
+}
+
+/* Badge styles */
+.badge-success {
+  background-color: hsl(152 60% 36% / 0.1);
+  color: hsl(152 60% 30%);
+  border: 1px solid hsl(152 60% 36% / 0.2);
+}
+
+.badge-warning {
+  background-color: hsl(38 92% 50% / 0.1);
+  color: hsl(38 80% 35%);
+  border: 1px solid hsl(38 92% 50% / 0.2);
+}
+
+.badge-danger {
+  background-color: hsl(0 72% 51% / 0.1);
+  color: hsl(0 72% 40%);
+  border: 1px solid hsl(0 72% 51% / 0.2);
+}
+
+/* ─── Select dropdown — Donezo green gradient ───── */
+.select-dropdown {
+  background: linear-gradient(160deg, hsl(152 44% 14%) 0%, hsl(155 40% 20%) 40%, hsl(158 36% 26%) 100%) !important;
+  border: 1px solid hsl(152 40% 30% / 0.4) !important;
+  color: hsl(40 20% 95%) !important;
+  box-shadow:
+    0 10px 40px -8px hsl(152 44% 10% / 0.5),
+    0 4px 12px -2px hsl(0 0% 0% / 0.2);
+}
+
+.select-dropdown-item {
+  color: hsl(40 20% 92%);
+}
+
+.select-dropdown-item[data-highlighted],
+.select-dropdown-item:focus {
+  background: hsl(152 40% 30% / 0.4);
+  color: hsl(40 20% 98%);
+}
+
+.select-dropdown-item[data-state="checked"] {
+  color: hsl(152 70% 80%);
+  font-weight: 600;
+}
+
+.select-dropdown-item [data-radix-select-item-indicator] svg {
+  color: hsl(152 60% 70%);
+}
+
+/* ─── Address autocomplete dropdown — Donezo green gradient ───── */
+.address-dropdown {
+  background: linear-gradient(160deg, hsl(152 44% 14%) 0%, hsl(155 40% 20%) 40%, hsl(158 36% 26%) 100%);
+  border: 1px solid hsl(152 40% 30% / 0.4);
+  color: hsl(40 20% 95%);
+  box-shadow:
+    0 10px 40px -8px hsl(152 44% 10% / 0.5),
+    0 4px 12px -2px hsl(0 0% 0% / 0.2);
+}
+
+.address-dropdown-item {
+  color: hsl(40 20% 92%);
+}
+
+.address-dropdown-item:hover,
+.address-dropdown-item-active {
+  background: hsl(152 40% 30% / 0.4);
+}
+
+.address-dropdown-icon {
+  background: hsl(152 40% 35% / 0.2);
+  color: hsl(152 60% 70%);
+}
+
+.address-dropdown-item-active .address-dropdown-icon,
+.address-dropdown-item:hover .address-dropdown-icon {
+  background: hsl(152 50% 45% / 0.25);
+  color: hsl(152 70% 80%);
+}
+
+.address-dropdown-name {
+  color: hsl(40 20% 98%);
+}
+
+.address-dropdown-detail {
+  color: hsl(40 15% 75%);
+}
+
+.address-dropdown-badge {
+  background: hsl(152 40% 35% / 0.25);
+  color: hsl(152 60% 75%);
+}
+
+.address-dropdown-item-active .address-dropdown-badge,
+.address-dropdown-item:hover .address-dropdown-badge {
+  background: hsl(152 50% 45% / 0.3);
+  color: hsl(152 70% 85%);
+}
+
+.address-dropdown-footer {
+  background: hsl(152 44% 12% / 0.5);
+  border-color: hsl(152 40% 30% / 0.3);
+}
+
+.address-dropdown-kbd {
+  background: hsl(152 40% 25% / 0.5);
+  border: 1px solid hsl(152 40% 35% / 0.3);
+  color: hsl(40 15% 70%);
+}
+
+.address-dropdown mark {
+  background: hsl(152 60% 45% / 0.3);
+  color: hsl(152 70% 85%);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+/* Floating panel scrollbar — thin and subtle */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.3);
+}
+
+/* Sidebar nav scrollbar — hidden but scrollable */
+.sidebar-nav-scroll {
+  scrollbar-width: none;
+}
+.sidebar-nav-scroll::-webkit-scrollbar {
+  display: none;
+}

@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: neofilm-api
+  namespace: neofilm
+  labels:
+    app: neofilm-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: neofilm-api
+  template:
+    metadata:
+      labels:
+        app: neofilm-api
+    spec:
+      containers:
+        - name: api
+          image: neofilm/api:latest
+          ports:
+            - containerPort: 3001
+              name: http
+          envFrom:
+            - configMapRef:
+                name: neofilm-config
+            - secretRef:
+                name: neofilm-secrets
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 30
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: neofilm-api
+  namespace: neofilm
+spec:
+  selector:
+    app: neofilm-api
+  ports:
+    - port: 3001
+      targetPort: 3001
+      name: http
+  type: ClusterIP

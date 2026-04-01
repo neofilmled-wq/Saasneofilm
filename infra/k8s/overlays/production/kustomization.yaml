@@ -1,0 +1,50 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: neofilm
+
+resources:
+  - ../../base
+
+patches:
+  - target:
+      kind: Deployment
+      name: neofilm-api
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+  - target:
+      kind: Deployment
+      name: neofilm-api
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 500m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 512Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: 2000m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 1Gi
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: neofilm-api-hpa
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 3
+      - op: replace
+        path: /spec/maxReplicas
+        value: 20
+
+configMapGenerator:
+  - name: neofilm-config
+    behavior: merge
+    literals:
+      - NODE_ENV=production
+      - API_URL=https://api.neofilm.io
+      - CDN_BASE_URL=https://cdn.neofilm.io

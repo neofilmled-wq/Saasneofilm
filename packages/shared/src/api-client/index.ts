@@ -1,0 +1,1 @@
+export { NeoFilmApiClient } from './client';

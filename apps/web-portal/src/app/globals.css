@@ -1,0 +1,335 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-border: hsl(var(--border));
+  --color-ring: hsl(var(--ring));
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --primary: 221.2 83.2% 53.3%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --border: 214.3 31.8% 91.4%;
+  --ring: 221.2 83.2% 53.3%;
+  --radius: 0.75rem;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: #ffffff;
+  color: hsl(var(--foreground));
+  overflow-x: hidden;
+}
+
+/* ── Hero gradient text animation ── */
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.hero-gradient-text {
+  background-size: 200% 200%;
+  animation: gradient-shift 4s ease infinite;
+}
+
+/* ── Badge pulse dot ── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.5); }
+}
+
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* ── Dashboard mockup glow ── */
+@keyframes mockup-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+.mockup-glow {
+  animation: mockup-glow 4s ease-in-out infinite;
+}
+
+/* ── Dashboard float-in ── */
+@keyframes float-up {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.dashboard-float {
+  animation: float-up 6s ease-in-out infinite;
+}
+
+/* ── Scroll indicator bounce ── */
+@keyframes scroll-bounce {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(10px); opacity: 0.8; }
+}
+
+.scroll-indicator {
+  animation: scroll-bounce 2.5s ease-in-out infinite;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   HERO — Background (GPU-friendly: translate-only, no blur)
+   ══════════════════════════════════════════════════════════════ */
+
+/* Orbs use pre-blurred radial-gradients — NO filter:blur */
+@keyframes hero-orb-1 {
+  0%, 100% { transform: translate3d(0,0,0); }
+  25% { transform: translate3d(60px,-30px,0); }
+  50% { transform: translate3d(-20px,-50px,0); }
+  75% { transform: translate3d(40px,20px,0); }
+}
+
+@keyframes hero-orb-2 {
+  0%, 100% { transform: translate3d(0,0,0); }
+  33% { transform: translate3d(-50px,40px,0); }
+  66% { transform: translate3d(40px,-30px,0); }
+}
+
+@keyframes hero-orb-3 {
+  0%, 100% { transform: translate3d(0,0,0); opacity: 0.5; }
+  50% { transform: translate3d(30px,40px,0); opacity: 0.8; }
+}
+
+.hero-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  /* No filter:blur — gradient is already soft */
+}
+
+.hero-orb-1 {
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(59,130,246,0.10) 0%, rgba(99,102,241,0.03) 40%, transparent 65%);
+  animation: hero-orb-1 22s ease-in-out infinite;
+}
+
+.hero-orb-2 {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, rgba(236,72,153,0.02) 40%, transparent 65%);
+  animation: hero-orb-2 28s ease-in-out infinite;
+}
+
+.hero-orb-3 {
+  width: 350px; height: 350px;
+  background: radial-gradient(circle, rgba(16,185,129,0.07) 0%, rgba(59,130,246,0.02) 40%, transparent 65%);
+  animation: hero-orb-3 19s ease-in-out infinite;
+}
+
+/* Grid pattern — CSS only, no JS */
+.hero-grid {
+  background-image:
+    linear-gradient(rgba(59,130,246,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59,130,246,0.035) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 70% 55% at 50% 35%, black 10%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 55% at 50% 35%, black 10%, transparent 100%);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TV CONTENT — Card Animations (lean: no filter, no box-shadow)
+   ══════════════════════════════════════════════════════════════ */
+
+/* Ad cards — 3D slide-in (scroll-driven via JS) */
+.tv-ad-card {
+  flex-shrink: 0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+}
+
+/* Single shimmer sweep per card, then stops */
+.tv-ad-card.visible::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.18) 50%, transparent 65%);
+  animation: ad-shimmer 1.2s ease-out forwards;
+  animation-delay: var(--shimmer-delay, 0s);
+  pointer-events: none;
+}
+
+@keyframes ad-shimmer {
+  0% { transform: translateX(-150%); }
+  100% { transform: translateX(250%); }
+}
+
+/* Active tab glow — simple box-shadow, no animation */
+.tv-tab-active {
+  box-shadow: 0 0 12px rgba(59,130,246,0.4);
+}
+
+/* Logo cards — float after reveal */
+@keyframes logo-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.logo-card-revealed {
+  animation: logo-float 3.5s ease-in-out infinite;
+  animation-delay: var(--float-delay, 0s);
+}
+
+/* Single shimmer on logo reveal, then stops */
+.logo-card-revealed::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.08) 50%, transparent 70%);
+  animation: logo-shimmer 1s ease-out forwards;
+  animation-delay: var(--float-delay, 0s);
+  pointer-events: none;
+}
+
+@keyframes logo-shimmer {
+  0% { transform: translateX(-200%); }
+  100% { transform: translateX(300%); }
+}
+
+/* Stats value subtle glow — animation-free, just text color */
+.stat-value {
+  color: #111827;
+}
+
+/* CTA button glow — static shadow, no animation */
+.cta-primary {
+  box-shadow: 0 0 20px rgba(59,130,246,0.12), 0 4px 6px rgba(0,0,0,0.08);
+}
+
+/* ── Button shimmer effect ── */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ── Infinite scrolling marquee ── */
+@keyframes marquee-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-33.333%); }
+}
+
+.marquee-track {
+  animation: marquee-scroll 25s linear infinite;
+}
+
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+
+/* ── Scroll-Driven Content Wave ── */
+.content-wave-list {
+  -ms-overflow-style: none;
+  overflow-anchor: none;
+}
+.content-wave-list::-webkit-scrollbar {
+  display: none;
+}
+
+.content-wave-item {
+  flex: 0 0 auto;
+}
+
+.content-wave-card {
+  width: clamp(100px, 12vw, 180px);
+  will-change: transform;
+  transform-origin: center bottom;
+}
+
+@supports (animation-timeline: view()) {
+  .content-wave-card {
+    animation: wave-expand both linear(
+      0 0%, 0.0027 3.64%, 0.0106 7.29%, 0.0425 14.58%, 0.0957 21.87%,
+      0.1701 29.16%, 0.2477 35.19%, 0.3401 41.23%, 0.5982 55.18%,
+      0.7044 61.56%, 0.7987 68.28%, 0.875 75%, 0.9297 81.25%,
+      0.9687 87.5%, 0.9922 93.75%, 1 100%
+    );
+    animation-timeline: view(inline);
+  }
+}
+
+@keyframes wave-expand {
+  50% {
+    transform: scale(1.35);
+  }
+}
+
+/* ── Partner carousel (6 slides, 4s each = 24s total) ── */
+.partner-carousel-slide {
+  opacity: 0;
+  transform: scale(1.05);
+  animation: partner-fade 24s infinite;
+}
+
+.partner-carousel-dot {
+  animation: partner-dot 24s infinite;
+}
+
+@keyframes partner-fade {
+  0%, 2%   { opacity: 0; transform: scale(1.05); }
+  4%, 14%  { opacity: 1; transform: scale(1); }
+  16%, 18% { opacity: 0; transform: scale(1.02); }
+  100%     { opacity: 0; }
+}
+
+@keyframes partner-dot {
+  0%, 2%   { background: rgba(255,255,255,0.4); }
+  4%, 14%  { background: rgba(255,255,255,1); }
+  16%      { background: rgba(255,255,255,0.4); }
+  100%     { background: rgba(255,255,255,0.4); }
+}
+
+/* ── Partner tab progress bar ── */
+@keyframes tab-progress {
+  0% { transform: scaleX(0); transform-origin: left; }
+  100% { transform: scaleX(1); transform-origin: left; }
+}
+
+.partner-tab-progress {
+  animation: tab-progress 4s linear;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

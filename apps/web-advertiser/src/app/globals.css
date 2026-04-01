@@ -1,0 +1,637 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+}
+
+:root {
+  /* ── Coral/Terracotta palette — inspired by financial dashboard ── */
+  --background: 30 20% 96%;              /* Warm off-white #F6F3EF */
+  --foreground: 220 20% 12%;             /* Dark charcoal text */
+
+  --card: 0 0% 100%;                     /* Pure white cards */
+  --card-foreground: 220 20% 12%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 20% 12%;
+
+  --primary: 12 60% 52%;                 /* Coral/terracotta #D4654A */
+  --primary-foreground: 0 0% 100%;       /* White text on primary */
+
+  --secondary: 25 15% 93%;              /* Warm soft beige */
+  --secondary-foreground: 220 20% 12%;
+
+  --muted: 30 15% 93%;                   /* Warm muted gray */
+  --muted-foreground: 220 10% 50%;       /* Medium gray */
+
+  --accent: 20 20% 94%;                  /* Light coral tint for hover */
+  --accent-foreground: 12 60% 45%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 152 55% 38%;               /* Green for success states */
+  --success-foreground: 0 0% 100%;
+
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+
+  --border: 30 15% 91%;                 /* Warm subtle border */
+  --input: 30 15% 89%;
+  --ring: 12 60% 52%;                   /* Coral ring */
+
+  /* Sidebar */
+  --sidebar: 0 0% 100%;                 /* White sidebar */
+  --sidebar-foreground: 220 10% 50%;
+  --sidebar-accent: 12 60% 52%;         /* Coral active indicator */
+  --sidebar-border: 30 15% 92%;
+
+  --radius: 0.75rem;                    /* Large radius for modern roundness */
+}
+
+.dark {
+  --background: 220 18% 7%;
+  --foreground: 30 20% 95%;
+
+  --card: 220 18% 10%;
+  --card-foreground: 30 20% 95%;
+
+  --popover: 220 18% 10%;
+  --popover-foreground: 30 20% 95%;
+
+  --primary: 12 65% 58%;                /* Lighter coral in dark mode */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 220 15% 15%;
+  --secondary-foreground: 30 20% 95%;
+
+  --muted: 220 15% 15%;
+  --muted-foreground: 220 10% 55%;
+
+  --accent: 220 15% 15%;
+  --accent-foreground: 12 65% 58%;
+
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 30 20% 95%;
+
+  --success: 152 55% 38%;
+  --success-foreground: 0 0% 100%;
+
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+
+  --border: 220 15% 15%;
+  --input: 220 15% 15%;
+  --ring: 12 65% 58%;
+
+  --sidebar: 220 18% 8%;
+  --sidebar-foreground: 220 10% 55%;
+  --sidebar-accent: 12 65% 58%;
+  --sidebar-border: 220 15% 15%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+/* ─── Card shadows — soft floating panels ─── */
+.card-elevated {
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.04),
+    0 1px 2px -1px rgb(0 0 0 / 0.04);
+}
+
+.card-elevated:hover {
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.06),
+    0 2px 4px -2px rgb(0 0 0 / 0.04);
+}
+
+/* ─── Stat card gradient — coral/terracotta primary ─── */
+.stat-card-primary {
+  background: linear-gradient(145deg, hsl(12 55% 42%) 0%, hsl(15 58% 52%) 50%, hsl(18 62% 58%) 100%);
+  color: white;
+  box-shadow:
+    0 4px 14px -2px hsl(12 60% 45% / 0.35),
+    inset 0 1px 0 0 hsl(12 55% 65% / 0.2);
+}
+
+.stat-card-primary .stat-label {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.stat-card-primary .stat-trend {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ─── Stat card — success variant (green) ─── */
+.stat-card-success {
+  background: linear-gradient(145deg, hsl(152 55% 30%) 0%, hsl(160 50% 38%) 100%);
+  color: white;
+  box-shadow:
+    0 4px 14px -2px hsl(152 55% 30% / 0.3),
+    inset 0 1px 0 0 hsl(152 50% 45% / 0.2);
+}
+
+/* ─── Stat card — warning variant (amber) ─── */
+.stat-card-warning {
+  background: linear-gradient(145deg, hsl(30 80% 45%) 0%, hsl(38 85% 52%) 100%);
+  color: white;
+  box-shadow:
+    0 4px 14px -2px hsl(38 80% 45% / 0.3),
+    inset 0 1px 0 0 hsl(38 80% 60% / 0.2);
+}
+
+/* ─── Stat card — danger variant (red) ─── */
+.stat-card-danger {
+  background: linear-gradient(145deg, hsl(0 65% 42%) 0%, hsl(5 60% 52%) 100%);
+  color: white;
+  box-shadow:
+    0 4px 14px -2px hsl(0 65% 42% / 0.3),
+    inset 0 1px 0 0 hsl(0 60% 55% / 0.2);
+}
+
+/* Shared gradient stat card inner text styles */
+.stat-card-success .stat-label,
+.stat-card-warning .stat-label,
+.stat-card-danger .stat-label {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.stat-card-success .stat-trend,
+.stat-card-warning .stat-trend,
+.stat-card-danger .stat-trend {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ─── Sidebar active indicator — coral left bar ─── */
+.sidebar-link-active {
+  position: relative;
+  background-color: hsl(12 60% 52% / 0.08);
+  color: hsl(12 60% 48%);
+  font-weight: 600;
+}
+
+.sidebar-link-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background-color: hsl(12 60% 52%);
+}
+
+/* ─── Search bar ─── */
+.search-bar {
+  background-color: hsl(var(--muted));
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.search-bar:focus-within {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+  box-shadow: 0 0 0 3px hsl(12 60% 52% / 0.08);
+}
+
+/* ─── Table row hover ─── */
+.table-row-hover:hover {
+  background-color: hsl(var(--muted) / 0.5);
+}
+
+/* ─── Progress bar — coral striped ─── */
+.progress-bar-coral {
+  background: repeating-linear-gradient(
+    90deg,
+    hsl(12 60% 50%) 0px,
+    hsl(12 60% 50%) 6px,
+    hsl(12 55% 58%) 6px,
+    hsl(12 55% 58%) 12px
+  );
+  border-radius: 999px;
+}
+
+/* ─── Badge styles ─── */
+.badge-success {
+  background-color: hsl(152 55% 38% / 0.1);
+  color: hsl(152 55% 30%);
+  border: 1px solid hsl(152 55% 38% / 0.2);
+}
+
+.badge-warning {
+  background-color: hsl(38 92% 50% / 0.1);
+  color: hsl(38 80% 35%);
+  border: 1px solid hsl(38 92% 50% / 0.2);
+}
+
+.badge-danger {
+  background-color: hsl(0 72% 51% / 0.1);
+  color: hsl(0 72% 40%);
+  border: 1px solid hsl(0 72% 51% / 0.2);
+}
+
+.badge-coral {
+  background-color: hsl(12 60% 52% / 0.1);
+  color: hsl(12 60% 45%);
+  border: 1px solid hsl(12 60% 52% / 0.2);
+}
+
+/* ─── Select dropdown — coral gradient ─── */
+.select-dropdown {
+  background: linear-gradient(160deg, hsl(12 55% 38%) 0%, hsl(15 52% 46%) 40%, hsl(18 50% 52%) 100%) !important;
+  border: 1px solid hsl(12 50% 55% / 0.4) !important;
+  color: hsl(30 20% 95%) !important;
+  box-shadow:
+    0 10px 40px -8px hsl(12 55% 30% / 0.5),
+    0 4px 12px -2px hsl(0 0% 0% / 0.2);
+}
+
+.select-dropdown-item {
+  color: hsl(30 20% 92%);
+}
+
+.select-dropdown-item[data-highlighted],
+.select-dropdown-item:focus {
+  background: hsl(12 50% 55% / 0.3);
+  color: hsl(30 20% 98%);
+}
+
+.select-dropdown-item[data-state="checked"] {
+  color: hsl(12 80% 85%);
+  font-weight: 600;
+}
+
+.select-dropdown-item [data-radix-select-item-indicator] svg {
+  color: hsl(12 65% 75%);
+}
+
+/* ─── Address autocomplete dropdown — coral gradient ─── */
+.address-dropdown {
+  background: linear-gradient(160deg, hsl(12 55% 38%) 0%, hsl(15 52% 46%) 40%, hsl(18 50% 52%) 100%);
+  border: 1px solid hsl(12 50% 55% / 0.4);
+  color: hsl(30 20% 95%);
+  box-shadow:
+    0 10px 40px -8px hsl(12 55% 30% / 0.5),
+    0 4px 12px -2px hsl(0 0% 0% / 0.2);
+}
+
+.address-dropdown-item {
+  color: hsl(30 20% 92%);
+}
+
+.address-dropdown-item:hover,
+.address-dropdown-item-active {
+  background: hsl(12 50% 55% / 0.3);
+}
+
+.address-dropdown-icon {
+  background: hsl(12 50% 55% / 0.2);
+  color: hsl(12 65% 75%);
+}
+
+.address-dropdown-item-active .address-dropdown-icon,
+.address-dropdown-item:hover .address-dropdown-icon {
+  background: hsl(12 55% 60% / 0.25);
+  color: hsl(12 75% 85%);
+}
+
+.address-dropdown-name {
+  color: hsl(30 20% 98%);
+}
+
+.address-dropdown-detail {
+  color: hsl(30 15% 75%);
+}
+
+.address-dropdown-badge {
+  background: hsl(12 50% 55% / 0.25);
+  color: hsl(12 65% 80%);
+}
+
+.address-dropdown-item-active .address-dropdown-badge,
+.address-dropdown-item:hover .address-dropdown-badge {
+  background: hsl(12 55% 60% / 0.3);
+  color: hsl(12 75% 88%);
+}
+
+.address-dropdown-footer {
+  background: hsl(12 55% 32% / 0.5);
+  border-color: hsl(12 50% 50% / 0.3);
+}
+
+.address-dropdown-kbd {
+  background: hsl(12 50% 45% / 0.5);
+  border: 1px solid hsl(12 50% 55% / 0.3);
+  color: hsl(30 15% 70%);
+}
+
+.address-dropdown mark {
+  background: hsl(12 60% 55% / 0.3);
+  color: hsl(12 75% 88%);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+/* ─── Scrollbar — thin and subtle ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.3);
+}
+
+/* Sidebar nav scrollbar — hidden but scrollable */
+.sidebar-nav-scroll {
+  scrollbar-width: none;
+}
+.sidebar-nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Dark accent card — high-contrast like Growth Rate in screenshot ─── */
+.card-dark {
+  background: linear-gradient(145deg, hsl(220 20% 8%) 0%, hsl(225 18% 12%) 50%, hsl(220 15% 15%) 100%);
+  color: white;
+  box-shadow:
+    0 10px 30px -4px hsl(220 20% 3% / 0.5),
+    inset 0 1px 0 0 hsl(220 15% 22% / 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle radial glow behind donut */
+.card-dark::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, hsl(12 60% 52% / 0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.card-dark .card-dark-label {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.card-dark .card-dark-value {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* ─── Hero card — extra-large with coral gradient bg ─── */
+.card-hero-coral {
+  background:
+    radial-gradient(ellipse 80% 60% at 90% 20%, hsl(24 75% 68% / 0.35) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 80% at 10% 80%, hsl(5 55% 40% / 0.2) 0%, transparent 60%),
+    linear-gradient(135deg, hsl(10 55% 44%) 0%, hsl(15 60% 52%) 40%, hsl(22 68% 58%) 100%);
+  color: white;
+  box-shadow:
+    0 10px 40px -8px hsl(12 60% 35% / 0.45),
+    inset 0 1px 0 0 hsl(20 65% 72% / 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Decorative circle shapes on hero card */
+.card-hero-coral::before {
+  content: '';
+  position: absolute;
+  right: -30px;
+  top: -30px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.card-hero-coral::after {
+  content: '';
+  position: absolute;
+  right: -10px;
+  top: -10px;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+}
+
+.card-hero-coral .hero-label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.card-hero-coral .hero-sub {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ─── Mini sparkline — SVG polyline styling ─── */
+.sparkline-path {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.08));
+}
+
+.sparkline-area {
+  opacity: 0.15;
+}
+
+/* ─── Horizontal bar chart ─── */
+.hbar {
+  height: 8px;
+  border-radius: 4px;
+  transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.hbar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+  animation: hbar-shimmer 2s ease-in-out infinite;
+}
+
+@keyframes hbar-shimmer {
+  0%, 100% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+}
+
+/* ─── Countdown timer card ─── */
+.countdown-digit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  height: 48px;
+  border-radius: 12px;
+  background: hsl(var(--muted));
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.countdown-separator {
+  font-size: 20px;
+  font-weight: 700;
+  color: hsl(var(--muted-foreground));
+  margin: 0 2px;
+}
+
+/* ─── Card hover lift ─── */
+.card-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 25px -5px rgb(0 0 0 / 0.08),
+    0 4px 10px -3px rgb(0 0 0 / 0.04);
+}
+
+/* ─── Metric highlight ring ─── */
+.metric-ring {
+  position: relative;
+}
+
+.metric-ring::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px dashed hsl(var(--border));
+  opacity: 0.5;
+}
+
+/* ─── Calendar dot grid ─── */
+.cal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  transition: transform 0.15s ease;
+}
+
+.cal-dot:hover {
+  transform: scale(1.5);
+}
+
+.cal-dot-empty {
+  background-color: hsl(var(--border));
+}
+
+.cal-dot-low {
+  background-color: hsl(12 60% 52% / 0.25);
+}
+
+.cal-dot-mid {
+  background-color: hsl(12 60% 52% / 0.55);
+}
+
+.cal-dot-high {
+  background-color: hsl(12 60% 52%);
+}
+
+/* ─── Budget bubbles — overlapping circles ─── */
+.bubble-chart {
+  position: relative;
+}
+
+.bubble {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
+  position: absolute;
+  transition: transform 0.2s ease;
+}
+
+.bubble:hover {
+  transform: scale(1.05);
+  z-index: 10;
+}
+
+/* ─── Period selector pills ─── */
+.period-pill {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.period-pill-active {
+  background-color: hsl(var(--foreground));
+  color: hsl(var(--background));
+}
+
+.period-pill-inactive {
+  color: hsl(var(--muted-foreground));
+  background-color: transparent;
+}
+
+.period-pill-inactive:hover {
+  background-color: hsl(var(--muted));
+}

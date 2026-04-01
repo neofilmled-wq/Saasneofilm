@@ -1,0 +1,57 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: neofilm-staging
+
+resources:
+  - ../../base
+
+namePrefix: staging-
+
+patches:
+  - target:
+      kind: Deployment
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: neofilm-api-hpa
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 3
+  - target:
+      kind: Ingress
+    patch: |-
+      - op: replace
+        path: /spec/tls/0/hosts
+        value:
+          - api.staging.neofilm.io
+          - admin.staging.neofilm.io
+          - partner.staging.neofilm.io
+          - advertiser.staging.neofilm.io
+      - op: replace
+        path: /spec/rules/0/host
+        value: api.staging.neofilm.io
+      - op: replace
+        path: /spec/rules/1/host
+        value: admin.staging.neofilm.io
+      - op: replace
+        path: /spec/rules/2/host
+        value: partner.staging.neofilm.io
+      - op: replace
+        path: /spec/rules/3/host
+        value: advertiser.staging.neofilm.io
+
+configMapGenerator:
+  - name: neofilm-config
+    behavior: merge
+    literals:
+      - NODE_ENV=staging
+      - API_URL=https://api.staging.neofilm.io
+      - CDN_BASE_URL=https://cdn-staging.neofilm.io

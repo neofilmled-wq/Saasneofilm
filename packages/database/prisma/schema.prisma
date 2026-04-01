@@ -1,0 +1,2158 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// NEOFILM SAAS — Production Database Schema
+// Digital Signage & TV Advertising Platform
+// ═══════════════════════════════════════════════════════════════════════════
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  1. MULTI-TENANT: USERS, ORGANIZATIONS, MEMBERSHIPS                     ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+enum PlatformRole {
+  SUPER_ADMIN
+  ADMIN
+  SUPPORT
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?
+  firstName    String
+  lastName     String
+  isActive     Boolean  @default(true)
+
+  // Platform role — null means user only has org-level roles
+  platformRole PlatformRole?
+
+  // Email verification
+  emailVerifiedAt DateTime?
+
+  // MFA
+  mfaSecret          String?
+  mfaEnabled         Boolean  @default(false)
+  mfaBackupCodesHash String[]
+
+  // Security
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+  lastLoginIp         String?
+  avatar              String?
+
+  // Relations
+  memberships    Membership[]
+  refreshTokens  RefreshToken[]
+  oauthAccounts  OAuthAccount[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]     @relation("AuditActor")
+  blackouts      ScheduleBlackout[] @relation("BlackoutCreator")
+
+  // Messaging
+  conversationsCreated       Conversation[]              @relation("ConversationCreator")
+  conversationParticipants   ConversationParticipant[]
+  messagesSent               Message[]
+
+  // Third-party integrations (e.g. Canva)
+  thirdPartyIntegrations ThirdPartyIntegration[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([platformRole])
+  @@index([isActive])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model OAuthAccount {
+  id                String   @id @default(cuid())
+  provider          String
+  providerAccountId String
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken       String?
+  refreshToken      String?
+  expiresAt         DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("oauth_accounts")
+}
+
+enum OrgType {
+  PARTNER
+  ADVERTISER
+}
+
+model Organization {
+  id           String  @id @default(cuid())
+  type         OrgType
+  name         String
+  slug         String  @unique
+  contactEmail String
+  contactPhone String?
+  isActive     Boolean @default(true)
+
+  // Address
+  address  String?
+  city     String?
+  postCode String?
+  country  String  @default("FR")
+
+  // Legal
+  vatNumber      String?
+  billingAddress String?
+  siretNumber    String?
+
+  // Stripe — partner gets Connect, advertiser gets Customer
+  stripeConnectAccountId String? @unique
+  stripeCustomerId       String? @unique
+
+  // Partner-specific
+  commissionRate Float? // platform take rate, e.g. 0.30 = 30%
+
+  // Onboarding
+  onboardingCompletedAt DateTime?
+
+  // Fraud flags
+  isFlagged  Boolean   @default(false)
+  flaggedAt  DateTime?
+  flagReason String?
+
+  // Relations
+  memberships          Membership[]
+  screens              Screen[]              @relation("ScreenOwner")
+  venues               Venue[]               @relation("VenueOwner")
+  campaigns            Campaign[]
+  bookingsAsAdv        Booking[]             @relation("BookingAdvertiser")
+  bookingScreens       BookingScreen[]       @relation("BookingScreenPartner")
+  revenueRules         RevenueRule[]
+  revenueShares        RevenueShare[]
+  payouts              Payout[]
+  stripeCustomer       StripeCustomer[]
+  subscriptions        StripeSubscription[]
+  invoices             StripeInvoice[]
+  aiWallet             AIWallet?
+  partnerPayoutProfile PartnerPayoutProfile?
+  taxProfile           TaxProfile?
+  tvConfigs            TvConfig[]
+  tvMacros             TvMacro[]
+  activityPlaces       ActivityPlace[]
+  conversations        Conversation[]
+
+  // Third-party integrations (e.g. Canva)
+  thirdPartyIntegrations ThirdPartyIntegration[]
+  canvaDesigns           CanvaDesign[]
+
+  // Partner extended profile
+  partnerProfile PartnerProfile?
+
+  // Device pairing claims by this org
+  pairingClaims DevicePairingRequest[] @relation("PairingClaimOrg")
+
+  // Advertiser catalogue listings
+  catalogueListings CatalogueListing[] @relation("AdvertiserCatalogueListings")
+
+  // Sites (grouping of screens)
+  sites Site[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([slug])
+  @@map("organizations")
+}
+
+model Site {
+  id   String @id @default(cuid())
+  name String
+
+  // Location
+  address  String?
+  city     String?
+  postCode String?
+  country  String @default("FR")
+  timezone String @default("Europe/Paris")
+
+  // Category
+  category String @default("other") // hotel, cinema, conciergerie, airbnb, restaurant, other
+
+  // Owner
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Relations
+  screens Screen[] @relation("ScreenSite")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([city])
+  @@map("sites")
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MANAGER
+  MEMBER
+  VIEWER
+}
+
+model Membership {
+  id    String  @id @default(cuid())
+  role  OrgRole @default(MEMBER)
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  invitedBy  String?
+  acceptedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@map("memberships")
+}
+
+model RefreshToken {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceInfo String?
+  ipAddress  String?
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+  replacedBy String?
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  2. SCREEN VS DEVICE SEPARATION                                         ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+enum ScreenStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  SUSPENDED
+  DECOMMISSIONED
+}
+
+enum ScreenEnvironment {
+  CINEMA_LOBBY
+  CINEMA_HALLWAY
+  HOTEL_LOBBY
+  HOTEL_ROOM
+  RESTAURANT
+  RETAIL
+  OUTDOOR
+  OTHER
+}
+
+enum ScreenType {
+  SMART_TV
+  ANDROID_STICK
+  ANDROID_TV
+  OTHER
+}
+
+// ─── Venue (Site / Lieu d'installation) ─────────────────────
+model Venue {
+  id       String @id @default(cuid())
+  name     String
+  category VenueCategory @default(OTHER)
+
+  // Location
+  address  String?
+  city     String?
+  postCode String?
+  country  String @default("FR")
+  timezone String @default("Europe/Paris")
+
+  // Owner
+  partnerOrgId String
+  partnerOrg   Organization @relation("VenueOwner", fields: [partnerOrgId], references: [id], onDelete: Cascade)
+
+  // Relations
+  screens Screen[] @relation("ScreenVenue")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([partnerOrgId])
+  @@index([city])
+  @@map("venues")
+}
+
+enum VenueCategory {
+  HOTEL
+  CONCIERGERIE
+  AIRBNB
+  RESTAURANT
+  OTHER
+}
+
+model Screen {
+  id          String            @id @default(cuid())
+  name        String
+  externalRef String?           @unique // partner's own reference code
+
+  // Hardware type
+  screenType ScreenType @default(OTHER)
+
+  // Location
+  address     String?
+  city        String?
+  postCode    String?
+  country     String            @default("FR")
+  latitude    Float?
+  longitude   Float?
+  environment ScreenEnvironment @default(OTHER)
+
+  // Configuration
+  resolution  String?           // e.g. "1920x1080"
+  orientation String            @default("LANDSCAPE") // LANDSCAPE | PORTRAIT
+  timezone    String            @default("Europe/Paris")
+
+  // Business
+  status            ScreenStatus @default(INACTIVE)
+  monthlyPriceCents Int          @default(0)
+  currency          String       @default("EUR")
+
+  // Capacity (max distinct advertisers allowed to target this screen)
+  capacityMaxAdvertisers Int @default(40)
+
+  // Maintenance mode
+  maintenanceMode   Boolean      @default(false)
+  maintenanceReason String?
+
+  // Approval tracking
+  approvedAt        DateTime?
+  approvedBy        String?
+  suspendedAt       DateTime?
+  suspensionReason  String?
+
+  // Venue (optional site grouping)
+  venueId String?
+  venue   Venue? @relation("ScreenVenue", fields: [venueId], references: [id], onDelete: SetNull)
+
+  // Owner
+  partnerOrgId String
+  partnerOrg   Organization @relation("ScreenOwner", fields: [partnerOrgId], references: [id], onDelete: Cascade)
+
+  // Site (optional grouping)
+  siteId String?
+  site   Site?   @relation("ScreenSite", fields: [siteId], references: [id], onDelete: SetNull)
+
+  // Active device (denormalized for fast lookup)
+  activeDeviceId String? @unique
+  activeDevice   Device? @relation("ActiveDevice", fields: [activeDeviceId], references: [id])
+
+  // Relations
+  devices         Device[]        @relation("DeviceScreenHistory")
+  schedules       Schedule[]
+  bookingScreens  BookingScreen[]
+  diffusionLogs   DiffusionLog[]
+  screenLiveStatus ScreenLiveStatus?
+  tvConfig        TvConfig?
+  tvMacro         TvMacro?
+  targetIncluded  CampaignTargeting[] @relation("IncludedScreens")
+  targetExcluded  CampaignTargeting[] @relation("ExcludedScreens")
+  blackouts       ScheduleBlackout[]  @relation("ScreenBlackouts")
+  pairingRequests DevicePairingRequest[] @relation("PairingScreen")
+  catalogueListings CatalogueListingScreen[] @relation("CatalogueListingScreens")
+  screenFill      ScreenFill?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([partnerOrgId])
+  @@index([city])
+  @@index([status])
+  @@index([latitude, longitude])
+  @@map("screens")
+}
+
+/// Projection table for screen advertiser capacity tracking.
+/// MAX 40 advertisers per screen. Updated on booking create/cancel.
+model ScreenFill {
+  id                    String   @id @default(cuid())
+  screenId              String   @unique
+  screen                Screen   @relation(fields: [screenId], references: [id], onDelete: Cascade)
+  activeAdvertiserCount Int      @default(0)
+  updatedAt             DateTime @updatedAt
+
+  @@map("screen_fills")
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  PROVISIONING
+  ERROR
+  DECOMMISSIONED
+}
+
+model Device {
+  id           String       @id @default(cuid())
+  serialNumber String       @unique
+  androidId    String?      @unique  // Android hardware ID — survives app reinstall
+  status       DeviceStatus @default(PROVISIONING)
+  macAddress   String?
+
+  // Provisioning
+  provisioningToken String?  @unique
+  pairedAt          DateTime?
+  unpairedAt        DateTime?
+
+  // Software
+  appVersion      String?
+  firmwareVersion String?
+  osVersion       String?
+  otaVersion      String?
+
+  // Network
+  ipAddress    String?
+  lastPingAt   DateTime?
+
+  // Screen assignment
+  screenId String?
+  screen   Screen? @relation("DeviceScreenHistory", fields: [screenId], references: [id])
+
+  // Reverse relation for active device
+  activeOnScreen Screen? @relation("ActiveDevice")
+
+  // Pairing request that created this device
+  pairingRequest DevicePairingRequest? @relation("PairingDevice")
+
+  // Relations
+  heartbeats    DeviceHeartbeat[]
+  metrics       DeviceMetrics[]
+  errorLogs     DeviceErrorLog[]
+  diffusionLogs DiffusionLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([screenId])
+  @@index([status])
+  @@index([lastPingAt])
+  @@map("devices")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  3. CAMPAIGN MODEL                                                      ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+enum CampaignStatus {
+  PENDING_REVIEW
+  APPROVED
+  ACTIVE
+  REJECTED
+  FINISHED
+}
+
+enum CampaignType {
+  AD_SPOT
+  CATALOG_LISTING
+}
+
+model Campaign {
+  id          String         @id @default(cuid())
+  name        String
+  description String?
+  objective   String         @default("")
+  category    String         @default("")
+  status      CampaignStatus @default(ACTIVE)
+  type        CampaignType   @default(AD_SPOT)
+  startDate   DateTime
+  endDate     DateTime
+  budgetCents Int
+  spentCents  Int            @default(0)
+  currency    String         @default("EUR")
+  groupId        String?        // Links campaigns created together from the same wizard session
+  durationMonths Int            @default(6)  // engagement: 6 or 12
+
+  // Owner
+  advertiserOrgId String
+  advertiserOrg   Organization @relation(fields: [advertiserOrgId], references: [id], onDelete: Cascade)
+
+  // Review
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNotes String?
+
+  // Relations
+  creatives          Creative[]
+  targeting          CampaignTargeting?
+  scheduleSlots      ScheduleSlot[]
+  diffusionLogs      DiffusionLog[]
+  bookings           Booking[]
+  activitySponsors   ActivitySponsor[]
+  catalogueListings  CatalogueListing[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([advertiserOrgId])
+  @@index([status])
+  @@index([type])
+  @@index([groupId])
+  @@index([startDate, endDate])
+  @@map("campaigns")
+}
+
+model CampaignTargeting {
+  id         String @id @default(cuid())
+  campaignId String @unique
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  // Geo targeting
+  geoRadiusKm    Float?
+  geoLatitude    Float?
+  geoLongitude   Float?
+  cities         String[]  // ["Paris", "Lyon", "Marseille"]
+
+  // Screen targeting
+  includedScreens Screen[] @relation("IncludedScreens")
+  excludedScreens Screen[] @relation("ExcludedScreens")
+
+  // Environment targeting
+  environments ScreenEnvironment[]
+
+  // Schedule windows (JSON array of { dayOfWeek, startTime, endTime })
+  scheduleWindows Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("campaign_targeting")
+}
+
+enum CreativeType {
+  VIDEO
+  IMAGE
+}
+
+enum CreativeSource {
+  UPLOAD
+  CANVA
+  AI_GENERATED
+}
+
+enum IntegrationProvider {
+  CANVA
+}
+
+enum CreativeStatus {
+  UPLOADING
+  PROCESSING
+  READY
+  REJECTED
+  ARCHIVED
+}
+
+enum ModerationStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  FLAGGED
+}
+
+model Creative {
+  id            String         @id @default(cuid())
+  name          String
+  type          CreativeType
+  status        CreativeStatus @default(UPLOADING)
+
+  // File info
+  fileUrl       String
+  fileHash      String?        // SHA-256 for integrity verification
+  fileSizeBytes Int?
+  mimeType      String?
+
+  // Media dimensions
+  durationMs Int?
+  width      Int?
+  height     Int?
+
+  // Review
+  isApproved Boolean @default(false)
+  reviewedBy String?
+  reviewedAt DateTime?
+
+  // Moderation
+  moderationStatus ModerationStatus @default(PENDING_REVIEW)
+  moderationReason String?
+  moderatedBy      String?
+  moderatedAt      DateTime?
+
+  // Source tracking
+  source        CreativeSource @default(UPLOAD)
+  canvaDesignId String?
+
+  // Relations
+  campaignId    String
+  campaign      Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  canvaDesign   CanvaDesign? @relation(fields: [canvaDesignId], references: [id])
+  scheduleSlots ScheduleSlot[]
+  diffusionLogs DiffusionLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([campaignId])
+  @@index([status])
+  @@index([fileHash])
+  @@index([canvaDesignId])
+  @@map("creatives")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  4. SCHEDULES & PLAYLISTS                                               ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+model Schedule {
+  id       String  @id @default(cuid())
+  name     String
+  isActive Boolean @default(true)
+
+  screenId String
+  screen   Screen @relation(fields: [screenId], references: [id], onDelete: Cascade)
+
+  slots ScheduleSlot[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([screenId])
+  @@map("schedules")
+}
+
+model ScheduleSlot {
+  id        String   @id @default(cuid())
+  startTime DateTime
+  endTime   DateTime
+  dayOfWeek Int?     // 0=Sunday, 6=Saturday; null=every day
+  priority  Int      @default(0)
+
+  scheduleId String
+  schedule   Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  creativeId String
+  creative   Creative @relation(fields: [creativeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([scheduleId, startTime, endTime])
+  @@index([campaignId])
+  @@map("schedule_slots")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  5. COMMERCIAL BOOKING MODEL                                            ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+enum BookingStatus {
+  DRAFT
+  PENDING
+  ACTIVE
+  PAUSED
+  CANCELLED
+  EXPIRED
+}
+
+enum ProductScope {
+  DIFFUSION
+  CATALOGUE
+  BOTH
+}
+
+enum UptimePolicy {
+  PAY_REGARDLESS
+  PAY_PRO_RATA_UPTIME
+  PAY_ONLY_IF_DELIVERED
+}
+
+enum ResumePolicy {
+  AUTO_RESUME
+  MANUAL_RESUME
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+model Booking {
+  id               String        @id @default(cuid())
+  status           BookingStatus @default(DRAFT)
+  monthlyPriceCents Int
+  currency         String        @default("EUR")
+  billingCycle     BillingCycle  @default(MONTHLY)
+  startDate        DateTime
+  endDate          DateTime?
+  autoRenew        Boolean       @default(true)
+
+  // Stripe references
+  stripeSubscriptionId    String? @unique
+  stripeCheckoutSessionId String? @unique
+
+  // Pack pricing (NeoFilm business model)
+  diffusionTvCount    Int?          // 50,100,150,200,300 or null
+  catalogueTvCount    Int?          // 50,100,150,200,300 or null
+  durationMonths      Int?          // engagement: 6 or 12
+  monthlyAmountEur    Float?        // computed by PricingEngine (euros)
+  breakdown           Json?         // {diffusionAmount, catalogueAmount}
+  productScope        ProductScope? // DIFFUSION | CATALOGUE | BOTH
+
+  // Policies
+  resumePolicy ResumePolicy @default(AUTO_RESUME)
+
+  // Fraud
+  isFlagged Boolean @default(false)
+
+  // Relations
+  advertiserOrgId String
+  advertiserOrg   Organization @relation("BookingAdvertiser", fields: [advertiserOrgId], references: [id])
+
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id])
+
+  bookingScreens BookingScreen[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([advertiserOrgId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("bookings")
+}
+
+model BookingScreen {
+  id                 String @id @default(cuid())
+  unitPriceCents     Int    // snapshot of screen price at booking time
+  currency           String @default("EUR")
+
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  screenId String
+  screen   Screen @relation(fields: [screenId], references: [id])
+
+  partnerOrgId String
+  partnerOrg   Organization @relation("BookingScreenPartner", fields: [partnerOrgId], references: [id])
+
+  // Product scope for this screen assignment
+  productScope ProductScope @default(DIFFUSION)
+
+  // Mid-cycle tracking
+  addedAt   DateTime  @default(now())
+  removedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([bookingId, screenId])
+  @@index([screenId])
+  @@index([partnerOrgId])
+  @@map("booking_screens")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  6. BILLING MODEL (STRIPE)                                              ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+model StripeCustomer {
+  id               String @id @default(cuid())
+  stripeCustomerId String @unique
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name  String?
+  email String?
+
+  subscriptions StripeSubscription[]
+  invoices      StripeInvoice[]
+  payments      StripePayment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@map("stripe_customers")
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  PAUSED
+  CANCELLED
+  UNPAID
+  INCOMPLETE
+}
+
+model StripeSubscription {
+  id                   String             @id @default(cuid())
+  stripeSubscriptionId String             @unique
+  status               SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean            @default(false)
+
+  customerId     String
+  customer       StripeCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("stripe_subscriptions")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+model StripeInvoice {
+  id              String        @id @default(cuid())
+  stripeInvoiceId String        @unique
+  invoiceNumber   String?       @unique
+  status          InvoiceStatus @default(DRAFT)
+  amountDueCents  Int
+  amountPaidCents Int           @default(0)
+  currency        String        @default("EUR")
+  periodStart     DateTime
+  periodEnd       DateTime
+  dueDate         DateTime?
+  paidAt          DateTime?
+  hostedUrl       String?
+  pdfUrl          String?
+
+  customerId     String
+  customer       StripeCustomer @relation(fields: [customerId], references: [id])
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  lineItems Json?
+  payments  StripePayment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([periodStart, periodEnd])
+  @@map("stripe_invoices")
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+model StripePayment {
+  id                    String        @id @default(cuid())
+  stripePaymentIntentId String        @unique
+  status                PaymentStatus @default(PENDING)
+  amountCents           Int
+  currency              String        @default("EUR")
+  paymentMethod         String?
+
+  customerId String
+  customer   StripeCustomer @relation(fields: [customerId], references: [id])
+
+  invoiceId String?
+  invoice   StripeInvoice? @relation(fields: [invoiceId], references: [id])
+
+  failureCode    String?
+  failureMessage String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+  @@map("stripe_payments")
+}
+
+model StripeWebhookEvent {
+  id              String   @id @default(cuid())
+  stripeEventId   String   @unique
+  eventType       String
+  payload         Json
+  processed       Boolean  @default(false)
+  processedAt     DateTime?
+  failureReason   String?
+  retryCount      Int      @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([eventType])
+  @@index([processed])
+  @@index([createdAt])
+  @@map("stripe_webhook_events")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  7. REVENUE SHARING MODEL                                               ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+model RevenueRule {
+  id             String   @id @default(cuid())
+  platformRate   Float    // platform take, e.g. 0.30 = 30%
+  partnerRate    Float    // partner share, e.g. 0.70 = 70%
+  effectiveFrom  DateTime
+  effectiveTo    DateTime?
+
+  // Can be global (null) or per-partner
+  partnerOrgId String?
+  partnerOrg   Organization? @relation(fields: [partnerOrgId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([partnerOrgId])
+  @@index([effectiveFrom, effectiveTo])
+  @@map("revenue_rules")
+}
+
+enum RevenueShareStatus {
+  PENDING
+  CALCULATED
+  APPROVED
+  PAID
+}
+
+model RevenueShare {
+  id                  String             @id @default(cuid())
+  status              RevenueShareStatus @default(PENDING)
+  periodStart         DateTime
+  periodEnd           DateTime
+  totalRevenueCents   Int
+  platformShareCents  Int
+  partnerShareCents   Int
+  platformRate        Float              // snapshot of rate used
+  currency            String             @default("EUR")
+  calculatedAt        DateTime?
+  approvedBy          String?
+
+  partnerOrgId String
+  partnerOrg   Organization @relation(fields: [partnerOrgId], references: [id])
+
+  payout   Payout? @relation(fields: [payoutId], references: [id])
+  payoutId String?
+
+  // Source invoice that funded this share
+  invoiceId String?
+
+  // Breakdown stored as JSON for auditability
+  breakdown Json? // [{ bookingScreenId, screenName, revenueCents }]
+
+  // Relational line items for detailed audit
+  lineItems RevenueShareLineItem[]
+
+  // Payout line items
+  payoutLineItems PayoutLineItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([partnerOrgId, periodStart, periodEnd])
+  @@index([status])
+  @@index([periodStart, periodEnd])
+  @@map("revenue_shares")
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+}
+
+model Payout {
+  id                     String       @id @default(cuid())
+  status                 PayoutStatus @default(PENDING)
+  amountCents            Int
+  currency               String       @default("EUR")
+  stripeTransferId       String?      @unique
+  stripePayoutId         String?      @unique
+  failureReason          String?
+
+  partnerOrgId String
+  partnerOrg   Organization @relation(fields: [partnerOrgId], references: [id])
+
+  revenueShares RevenueShare[]
+  lineItems     PayoutLineItem[]
+
+  paidAt    DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([partnerOrgId])
+  @@index([status])
+  @@map("payouts")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  7b. PARTNER PAYOUT PROFILE & TAX                                       ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+model PartnerPayoutProfile {
+  id                      String  @id @default(cuid())
+  stripeConnectAccountId  String  @unique
+  chargesEnabled          Boolean @default(false)
+  payoutsEnabled          Boolean @default(false)
+  detailsSubmitted        Boolean @default(false)
+  frozen                  Boolean @default(false) // Admin freeze
+
+  uptimePolicy UptimePolicy @default(PAY_REGARDLESS)
+
+  partnerOrgId String       @unique
+  partnerOrg   Organization @relation(fields: [partnerOrgId], references: [id])
+
+  onboardedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("partner_payout_profiles")
+}
+
+model TaxProfile {
+  id             String  @id @default(cuid())
+  organizationId String  @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  vatNumber      String?
+  vatNumberValid Boolean  @default(false)
+  vatValidatedAt DateTime?
+  taxExempt      Boolean  @default(false)
+
+  taxCountry  String  @default("FR")
+  taxRegion   String?
+  stripeTaxId String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tax_profiles")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  7c. REVENUE SHARE & PAYOUT LINE ITEMS                                  ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+model RevenueShareLineItem {
+  id             String @id @default(cuid())
+  revenueShareId String
+  revenueShare   RevenueShare @relation(fields: [revenueShareId], references: [id], onDelete: Cascade)
+
+  bookingId           String
+  bookingScreenId     String
+  screenId            String
+  screenName          String
+
+  unitPriceCents      Int
+  daysActive          Int
+  totalDaysInPeriod   Int
+  proratedAmountCents Int
+  finalAmountCents    Int
+  uptimePolicyApplied Boolean @default(false)
+  uptimeRatio         Float?
+
+  // Proof reference
+  verifiedDiffusionCount Int?
+  invoiceId              String?
+
+  createdAt DateTime @default(now())
+
+  @@index([revenueShareId])
+  @@index([bookingScreenId])
+  @@index([screenId])
+  @@map("revenue_share_line_items")
+}
+
+model PayoutLineItem {
+  id             String @id @default(cuid())
+  payoutId       String
+  payout         Payout @relation(fields: [payoutId], references: [id], onDelete: Cascade)
+
+  revenueShareId String
+  revenueShare   RevenueShare @relation(fields: [revenueShareId], references: [id])
+
+  amountCents Int
+  currency    String @default("EUR")
+
+  createdAt DateTime @default(now())
+
+  @@unique([payoutId, revenueShareId])
+  @@index([revenueShareId])
+  @@map("payout_line_items")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  8. DIFFUSION PROOF MODEL                                               ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+enum DiffusionTrigger {
+  POWER_ON
+  OPEN_APP
+  CHANGE_APP
+  CATALOG_OPEN
+  SCHEDULED
+  MANUAL
+}
+
+/// Append-only, auditable. Designed for future partitioning by month.
+model DiffusionLog {
+  id        String   @id @default(cuid())
+
+  screenId  String
+  screen    Screen   @relation(fields: [screenId], references: [id])
+
+  deviceId  String
+  device    Device   @relation(fields: [deviceId], references: [id])
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+
+  creativeId String
+  creative   Creative @relation(fields: [creativeId], references: [id])
+
+  // Playback proof
+  startTime      DateTime
+  endTime        DateTime
+  durationMs     Int
+  triggerContext  DiffusionTrigger
+  appVersion     String
+  mediaHash      String       // SHA-256 of the played media file
+
+  // Anti-fraud signature: HMAC(deviceId + creativeId + startTime + endTime, deviceSecret)
+  signature String
+
+  // Verification
+  verified   Boolean @default(false)
+  verifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  // CRITICAL INDEXES for time-based partitioning and queries
+  @@index([screenId, startTime])
+  @@index([campaignId, startTime])
+  @@index([deviceId, startTime])
+  @@index([creativeId, startTime])
+  @@index([startTime])
+  @@index([verified])
+  @@map("diffusion_logs")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  9. DEVICE HEALTH MODEL                                                 ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+model DeviceHeartbeat {
+  id       String   @id @default(cuid())
+  deviceId String
+  device   Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  isOnline    Boolean
+  appVersion  String?
+  uptime      Int?     // seconds since boot
+  timestamp   DateTime @default(now())
+
+  @@index([deviceId, timestamp])
+  @@index([timestamp])
+  @@map("device_heartbeats")
+}
+
+model DeviceMetrics {
+  id       String   @id @default(cuid())
+  deviceId String
+  device   Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  cpuPercent     Float?
+  memoryPercent  Float?
+  diskPercent    Float?
+  temperature    Float?  // Celsius
+  networkType    String? // wifi | ethernet
+  networkSpeed   Float?  // Mbps
+  signalStrength Int?    // dBm
+
+  timestamp DateTime @default(now())
+
+  @@index([deviceId, timestamp])
+  @@index([timestamp])
+  @@map("device_metrics")
+}
+
+model DeviceErrorLog {
+  id       String @id @default(cuid())
+  deviceId String
+  device   Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  severity  String  // ERROR | WARN | FATAL
+  code      String?
+  message   String
+  stackTrace String?
+  context    Json?
+
+  timestamp DateTime @default(now())
+
+  @@index([deviceId, timestamp])
+  @@index([severity, timestamp])
+  @@map("device_error_logs")
+}
+
+/// Projection table — updated by background worker from heartbeats.
+/// One row per screen, always overwritten (not append-only).
+model ScreenLiveStatus {
+  id       String @id @default(cuid())
+  screenId String @unique
+  screen   Screen @relation(fields: [screenId], references: [id], onDelete: Cascade)
+
+  isOnline          Boolean  @default(false)
+  currentDeviceId   String?
+  lastHeartbeatAt   DateTime?
+  appVersion        String?
+  cpuPercent        Float?
+  memoryPercent     Float?
+  currentCampaignId String?
+  currentCreativeId String?
+  networkType       String?
+  errorCount24h     Int      @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("screen_live_status")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  10. AI CREDITS SYSTEM                                                  ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+model AIWallet {
+  id             String @id @default(cuid())
+  organizationId String @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  balanceCredits Int @default(0) // current credit balance
+
+  transactions AITransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ai_wallets")
+}
+
+enum AITransactionType {
+  RECHARGE
+  USAGE
+  REFUND
+  BONUS
+  EXPIRY
+}
+
+model AITransaction {
+  id       String            @id @default(cuid())
+  type     AITransactionType
+  credits  Int               // positive for credit, negative for debit
+  balance  Int               // balance after this transaction
+
+  walletId String
+  wallet   AIWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  // Context
+  description String?
+  metadata    Json?    // e.g. { "model": "gpt-4", "prompt_tokens": 500 }
+
+  // Payment reference (for recharges)
+  stripePaymentIntentId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([walletId, createdAt])
+  @@index([type])
+  @@map("ai_transactions")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  11. ANALYTICS / EVENTS (APPEND-ONLY)                                   ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+/// High-volume append-only event table.
+/// Designed for monthly partitioning in production.
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  eventType String   // catalog_open, cta_click, app_launch, system_error, etc.
+  payload   Json?
+
+  // Contextual foreign keys (nullable — not all events have all)
+  screenId   String?
+  deviceId   String?
+  campaignId String?
+  creativeId String?
+  userId     String?
+
+  // Denormalized for fast filtering
+  orgId     String?
+  orgType   OrgType?
+
+  sessionId String?  // client-side session correlation
+  ipAddress String?
+  userAgent String?
+
+  timestamp DateTime @default(now())
+
+  @@index([eventType, timestamp])
+  @@index([screenId, timestamp])
+  @@index([deviceId, timestamp])
+  @@index([campaignId, timestamp])
+  @@index([orgId, timestamp])
+  @@index([timestamp])
+  @@map("analytics_events")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  12. AUDIT LOG                                                          ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+model AuditLog {
+  id       String @id @default(cuid())
+  action   String // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, etc.
+  entity   String // User, Campaign, Screen, etc.
+  entityId String
+
+  userId String?
+  user   User?   @relation("AuditActor", fields: [userId], references: [id])
+
+  // Multi-tenant context
+  orgId String?
+
+  oldData   Json?
+  newData   Json?
+  ipAddress String?
+  userAgent String?
+  severity  String @default("INFO") // INFO, WARN, CRITICAL
+
+  timestamp DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([orgId, timestamp])
+  @@index([action, timestamp])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  13. NOTIFICATIONS                                                      ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  PUSH
+}
+
+model Notification {
+  id      String              @id @default(cuid())
+  channel NotificationChannel @default(IN_APP)
+  type    String
+  title   String
+  message String
+  isRead  Boolean             @default(false)
+  data    Json?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  14. PLATFORM SETTINGS                                                  ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+model PlatformSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("platform_settings")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  15. SCHEDULE BLACKOUTS                                                 ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+model ScheduleBlackout {
+  id       String   @id @default(cuid())
+  name     String
+  reason   String?
+  startAt  DateTime
+  endAt    DateTime
+
+  // null = global, specific = one screen only
+  screenId String?
+  screen   Screen? @relation("ScreenBlackouts", fields: [screenId], references: [id], onDelete: Cascade)
+
+  createdById String?
+  createdBy   User?  @relation("BlackoutCreator", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([startAt, endAt])
+  @@index([screenId])
+  @@map("schedule_blackouts")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  16. TV SMART-TV CONFIGURATION                                          ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+enum TvDefaultTab {
+  TNT
+  STREAMING
+  ACTIVITIES
+  SETTINGS
+}
+
+/// Per-screen Smart TV configuration — owned by the partner org.
+/// One row per screen (unique screenId).
+model TvConfig {
+  id       String @id @default(cuid())
+
+  screenId String @unique
+  screen   Screen @relation(fields: [screenId], references: [id], onDelete: Cascade)
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Modules toggle — JSON array of enabled module keys
+  // e.g. ["TNT","STREAMING","ACTIVITIES"]
+  enabledModules Json @default("[\"TNT\",\"STREAMING\",\"ACTIVITIES\"]")
+
+  defaultTab     TvDefaultTab @default(TNT)
+
+  // Branding
+  partnerLogoUrl String?
+  welcomeMessage String?
+  tickerText     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId])
+  @@map("tv_configs")
+}
+
+/// TNT / IPTV channel available on Smart TV screens.
+/// Global catalog — partner can later enable/disable per-screen via TvConfig.
+model TvChannel {
+  id       String @id @default(cuid())
+
+  name     String           // e.g. "TF1", "France 2"
+  number   Int              // Logical channel number (1, 2, 3…)
+  logoUrl  String?
+  streamUrl String?         // HLS / DASH URL (null = placeholder)
+  category String @default("general") // general, news, sport, kids, music…
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([number])
+  @@index([category])
+  @@index([isActive])
+  @@map("tv_channels")
+}
+
+/// Streaming service tile displayed on the Streaming tab.
+/// Global catalog.
+model StreamingService {
+  id       String @id @default(cuid())
+
+  name     String           // e.g. "Netflix", "Disney+"
+  logoUrl  String?
+  launchUrl String?         // Deep-link or web URL
+  color    String?          // Brand color hex, e.g. "#E50914"
+  sortOrder Int @default(0)
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@map("streaming_services")
+}
+
+enum ActivityCategory {
+  RESTAURANT
+  SPA
+  SPORT
+  CULTURE
+  NIGHTLIFE
+  SHOPPING
+  TRANSPORT
+  OTHER
+}
+
+/// Activity / place displayed on the Activities tab.
+/// Scoped to an organization (partner) so each partner has their own catalog.
+model ActivityPlace {
+  id       String @id @default(cuid())
+
+  name        String
+  description String?
+  category    ActivityCategory @default(OTHER)
+  imageUrl    String?
+  address     String?
+  phone       String?
+  website     String?
+  sortOrder   Int @default(0)
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  isActive Boolean @default(true)
+
+  // Sponsoring
+  sponsors ActivitySponsor[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId, category])
+  @@index([orgId, isActive])
+  @@map("activity_places")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  17. INTERNAL MESSAGING (SUPPORT INBOX)                                 ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+enum ConversationStatus {
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+enum ParticipantRole {
+  REQUESTER
+  ADMIN
+}
+
+enum MessageType {
+  TEXT
+}
+
+model Conversation {
+  id      String             @id @default(cuid())
+  subject String?
+  status  ConversationStatus @default(OPEN)
+
+  lastMessageAt DateTime @default(now())
+
+  createdByUserId String
+  createdBy       User   @relation("ConversationCreator", fields: [createdByUserId], references: [id])
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, lastMessageAt(sort: Desc)])
+  @@index([status, lastMessageAt(sort: Desc)])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String          @id @default(cuid())
+  conversationId String
+  conversation   Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role       ParticipantRole
+  lastReadAt DateTime        @default(now())
+
+  createdAt DateTime @default(now())
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderUserId String
+  sender       User   @relation(fields: [senderUserId], references: [id])
+
+  body     String
+  type     MessageType @default(TEXT)
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  18. TV MACROS (PARTNER-CONFIGURABLE AD BEHAVIOR)                       ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+/// Per-screen macros — dynamic configuration values that override frontend defaults.
+/// Owned by partner org, one row per screen.
+model TvMacro {
+  id String @id @default(cuid())
+
+  screenId String @unique
+  screen   Screen @relation(fields: [screenId], references: [id], onDelete: Cascade)
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Ad spot durations
+  spotDuration15s Boolean @default(true)
+  spotDuration30s Boolean @default(true)
+  skipDelayMs     Int     @default(7000)
+  adRotationMs    Int     @default(15000)
+  splitRatio      Int     @default(70)
+
+  // Ad context enablement
+  adOnBoot        Boolean @default(true)
+  adOnTabChange   Boolean @default(true)
+  adOnAppOpen     Boolean @default(true)
+  adOnCatalogOpen Boolean @default(false)
+
+  // Activities tab
+  activitiesSplit    Boolean @default(true)
+  activitiesAdNoSkip Boolean @default(true)
+
+  // Limits
+  maxAdsPerHour              Int @default(20)
+  maxInterstitialsPerSession Int @default(10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId])
+  @@map("tv_macros")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  19. ACTIVITY SPONSORS (ADVERTISER UPSELL)                              ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+/// Sponsored activity — links an advertiser campaign to an activity place.
+/// The activity gets a "Sponsorise" badge and priority sorting on the TV.
+model ActivitySponsor {
+  id String @id @default(cuid())
+
+  activityPlaceId String
+  activityPlace   ActivityPlace @relation(fields: [activityPlaceId], references: [id], onDelete: Cascade)
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  // Sponsorship validity
+  startDate DateTime
+  endDate   DateTime
+
+  // Priority boost for sorting (higher = shown first)
+  priorityBoost Int @default(100)
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([activityPlaceId, campaignId])
+  @@index([campaignId])
+  @@index([startDate, endDate])
+  @@map("activity_sponsors")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  16. THIRD-PARTY INTEGRATIONS (Canva, etc.)                             ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+model ThirdPartyIntegration {
+  id              String              @id @default(cuid())
+  userId          String
+  organizationId  String
+  provider        IntegrationProvider
+
+  // Encrypted tokens (AES-256-GCM)
+  accessTokenEnc  String
+  refreshTokenEnc String
+  tokenIv         String
+  tokenTag        String
+
+  expiresAt       DateTime
+  scopes          String[]
+  providerUserId  String?
+
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, organizationId, provider])
+  @@index([organizationId, provider])
+  @@map("third_party_integrations")
+}
+
+model CanvaDesign {
+  id              String   @id @default(cuid())
+  organizationId  String
+  canvaDesignId   String   @unique
+  title           String?
+  editUrl         String?
+  thumbnailUrl    String?
+  lastExportedAt  DateTime?
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creatives       Creative[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@map("canva_designs")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  17. PARTNER PROFILE & DEVICE PAIRING REQUESTS                          ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+/// Extended partner profile (complements Organization for display/branding)
+model PartnerProfile {
+  id String @id @default(cuid())
+
+  // Links to the partner's Organization
+  orgId String @unique
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Branding
+  companyName  String?
+  logoUrl      String?
+
+  // Contact
+  contactEmail String?
+  contactPhone String?
+
+  // Rich address / geoloc (may differ from org billing address)
+  address   String?
+  city      String?
+  postCode  String?
+  country   String @default("FR")
+  latitude  Float?
+  longitude Float?
+
+  // Preferences
+  timezone String @default("Europe/Paris")
+
+  // Compliance documents (uploaded by partner, viewable by admin)
+  kbisUrl          String?   // KBIS extract URL (S3)
+  directorFullName String?   // Full name of legal director
+  directorIdCardUrl String?  // Identity document URL (S3)
+  siretNumber      String?   // SIRET / registration number (may also be on Org)
+
+  // Verification status (set by admin)
+  isVerified   Boolean   @default(false)
+  verifiedAt   DateTime?
+  verifiedBy   String?   // admin userId
+
+  // Account status (set by admin)
+  isSuspended   Boolean   @default(false)
+  suspendedAt   DateTime?
+  suspensionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("partner_profiles")
+}
+
+enum PairingRequestStatus {
+  PENDING   // device waiting to be claimed
+  CLAIMED   // partner has claimed it
+  EXPIRED   // PIN expired
+}
+
+/// A TV device requests pairing by posting its PIN here.
+/// Partner then claims it via the PIN to associate with a Screen.
+model DevicePairingRequest {
+  id String @id @default(cuid())
+
+  // The device serial / fingerprint that requested pairing
+  serialNumber String
+  deviceType   ScreenType @default(OTHER) // same enum for convenience
+
+  // 6-digit PIN displayed on screen
+  pin        String
+  pinExpiresAt DateTime
+
+  status PairingRequestStatus @default(PENDING)
+
+  // Filled when partner claims
+  claimedAt    DateTime?
+  claimedByOrgId String?
+  claimedByOrg   Organization? @relation("PairingClaimOrg", fields: [claimedByOrgId], references: [id])
+
+  // Resulting Device (filled after claim)
+  deviceId String? @unique
+  device   Device? @relation("PairingDevice", fields: [deviceId], references: [id])
+
+  // Resulting Screen assignment (set when partner claims + picks screen)
+  screenId String?
+  screen   Screen? @relation("PairingScreen", fields: [screenId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([pin])
+  @@index([status])
+  @@index([claimedByOrgId])
+  @@map("device_pairing_requests")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  20a. APP UPDATE (OTA)                                                  ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+model AppRelease {
+  id             String   @id @default(cuid())
+  versionName    String   // e.g. "0.3.0"
+  versionCode    Int      // e.g. 3 — numeric, must be higher than current
+  apkUrl         String   // S3/MinIO URL to the APK file
+  releaseNotes   String?  // What changed
+  isRequired     Boolean  @default(true)  // Force update or optional
+  targetVariant  String   @default("all") // "all", "standard", "legacy"
+  createdAt      DateTime @default(now())
+
+  @@map("app_releases")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  20. CATALOGUE LISTINGS (ADVERTISER-OWNED)                              ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+enum VisibilityMode {
+  PUB_ONLY
+  CATALOGUE_ONLY
+  PUB_AND_CATALOGUE
+}
+
+enum CatalogueStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+}
+
+/// A "fiche catalogue" created by an advertiser, displayed in the TV Activities tab.
+/// Unlike ActivityPlace (partner-owned), these are advertiser-owned and screen-targeted.
+model CatalogueListing {
+  id          String          @id @default(cuid())
+  title       String
+  description String?
+  category    String          @default("OTHER")
+  imageUrl    String?
+  ctaUrl      String?
+  promoCode   String?
+  phone       String?
+  address     String?
+  keywords    String[]
+
+  status         CatalogueStatus @default(DRAFT)
+  visibilityMode VisibilityMode  @default(PUB_AND_CATALOGUE)
+
+  advertiserOrgId String
+  advertiserOrg   Organization @relation("AdvertiserCatalogueListings", fields: [advertiserOrgId], references: [id], onDelete: Cascade)
+
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  screens CatalogueListingScreen[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([advertiserOrgId, status, visibilityMode])
+  @@index([campaignId])
+  @@map("catalogue_listings")
+}
+
+/// Screen targeting for a catalogue listing (M2M).
+model CatalogueListingScreen {
+  id                 String @id @default(cuid())
+
+  catalogueListingId String
+  catalogueListing   CatalogueListing @relation(fields: [catalogueListingId], references: [id], onDelete: Cascade)
+
+  screenId String
+  screen   Screen @relation("CatalogueListingScreens", fields: [screenId], references: [id], onDelete: Cascade)
+
+  @@unique([catalogueListingId, screenId])
+  @@index([screenId])
+  @@map("catalogue_listing_screens")
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  21. ADS DELIVERY ENGINE (ADD-ON — DOES NOT MODIFY EXISTING MODELS)     ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+enum AdPlacementStatus {
+  ELIGIBLE
+  COOLDOWN
+  CAPPED
+  SERVED
+  BLOCKED
+}
+
+enum AdTier {
+  FORCED
+  PREMIUM
+  STANDARD
+  HOUSE
+}
+
+/// Tracks which campaigns are placed on which screens, with real-time state.
+/// This is the operational table that the AdsScheduler reads to build decisions.
+model AdPlacement {
+  id         String            @id @default(cuid())
+
+  campaignId String
+  screenId   String
+
+  // Denormalized for fast queries
+  advertiserId String          // advertiserOrgId from Campaign
+  tier         AdTier          @default(STANDARD)
+  priority     Int             @default(50) // 0–100
+
+  status       AdPlacementStatus @default(ELIGIBLE)
+
+  // Frequency tracking (rolling window)
+  playsToday    Int            @default(0)
+  playsThisHour Int            @default(0)
+  lastPlayedAt  DateTime?
+  cooldownUntil DateTime?
+
+  // Caps
+  maxPlaysPerHour Int          @default(10)
+  maxPlaysPerDay  Int          @default(100)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([campaignId, screenId])
+  @@index([screenId, status])
+  @@index([screenId, tier, priority])
+  @@index([advertiserId, screenId])
+  @@index([lastPlayedAt])
+  @@index([cooldownUntil])
+  @@map("ad_placements")
+}
+
+/// Rule sets for ad delivery behavior — configurable per campaign or globally.
+model AdRuleSet {
+  id          String  @id @default(cuid())
+  name        String
+  isGlobal    Boolean @default(false)
+
+  // Optional campaign scope (null = global rule)
+  campaignId  String? @unique
+
+  // Frequency rules
+  maxPlaysPerScreenPerHour Int @default(6)
+  maxPlaysPerScreenPerDay  Int @default(60)
+
+  // Cooldown rules
+  cooldownAfterPlayMs      Int @default(300000) // 5 min default
+  noConsecutiveSameAdv     Boolean @default(true)
+
+  // Tier split
+  premiumRatio             Int @default(60) // 60% premium, 40% standard
+  standardRatio            Int @default(40)
+
+  // Capacity
+  maxAdvertisersPerScreen  Int @default(40)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ad_rule_sets")
+}
+
+/// Cached ad decision per screen — avoids recomputation for every request.
+/// TTL-based: recomputed when stale or invalidated.
+model AdDecisionCache {
+  id         String   @id @default(cuid())
+  screenId   String   @unique
+
+  // The cached decision payload (JSON array of ranked creatives)
+  decision   Json     // RankedCreative[]
+
+  // Cache metadata
+  version      Int    @default(1)
+  computedAt   DateTime
+  expiresAt    DateTime
+  triggerType  String  @default("SCHEDULED")
+
+  // Invalidation tracking
+  invalidatedAt DateTime?
+  invalidReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+  @@index([screenId, version])
+  @@map("ad_decision_cache")
+}
+
+enum AdEventType {
+  IMPRESSION
+  SKIP
+  COMPLETE
+  CLICK
+  ERROR
+  DECISION_SERVED
+  CACHE_HIT
+  CACHE_MISS
+}
+
+/// High-volume append-only event log for the ads engine.
+/// Designed for monthly partitioning at 100K+ TV scale.
+model AdEvent {
+  id          String      @id @default(cuid())
+
+  screenId    String
+  deviceId    String
+  campaignId  String?
+  creativeId  String?
+  advertiserId String?
+
+  eventType    AdEventType
+  triggerType  String?     // POWER_ON, CHANGE_APP, etc.
+
+  // Event data
+  durationMs       Int?
+  completionPercent Int?
+  skipped          Boolean?
+
+  // Anti-fraud
+  signature    String?
+  verified     Boolean    @default(false)
+
+  // Idempotency
+  idempotencyKey String?  @unique
+
+  timestamp DateTime @default(now())
+
+  @@index([screenId, timestamp])
+  @@index([campaignId, timestamp])
+  @@index([deviceId, timestamp])
+  @@index([eventType, timestamp])
+  @@index([advertiserId, screenId, timestamp])
+  @@index([timestamp])
+  @@map("ad_events")
+}
+
+/// Periodic snapshot of screen capacity — used for analytics and monitoring.
+/// One row per screen per day, capturing advertiser fill state.
+model ScreenCapacitySnapshot {
+  id       String   @id @default(cuid())
+
+  screenId String
+  date     DateTime @db.Date
+
+  activeAdvertiserCount Int
+  maxCapacity           Int @default(40)
+  fillPercent           Float
+
+  // Top advertisers on this screen
+  topAdvertiserIds String[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([screenId, date])
+  @@index([date])
+  @@index([screenId, date])
+  @@map("screen_capacity_snapshots")
+}

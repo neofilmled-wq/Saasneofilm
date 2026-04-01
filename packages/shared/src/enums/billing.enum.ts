@@ -1,0 +1,58 @@
+export enum BookingStatus {
+  DRAFT = 'DRAFT',
+  PENDING = 'PENDING',
+  ACTIVE = 'ACTIVE',
+  PAUSED = 'PAUSED',
+  CANCELLED = 'CANCELLED',
+  EXPIRED = 'EXPIRED',
+}
+
+export enum SubscriptionStatus {
+  TRIALING = 'TRIALING',
+  ACTIVE = 'ACTIVE',
+  PAST_DUE = 'PAST_DUE',
+  PAUSED = 'PAUSED',
+  CANCELLED = 'CANCELLED',
+  UNPAID = 'UNPAID',
+  INCOMPLETE = 'INCOMPLETE',
+}
+
+export enum PaymentStatus {
+  PENDING = 'PENDING',
+  PROCESSING = 'PROCESSING',
+  SUCCEEDED = 'SUCCEEDED',
+  FAILED = 'FAILED',
+  REFUNDED = 'REFUNDED',
+  PARTIALLY_REFUNDED = 'PARTIALLY_REFUNDED',
+}
+
+export enum PayoutStatus {
+  PENDING = 'PENDING',
+  PROCESSING = 'PROCESSING',
+  PAID = 'PAID',
+  FAILED = 'FAILED',
+}
+
+export enum RevenueShareStatus {
+  PENDING = 'PENDING',
+  CALCULATED = 'CALCULATED',
+  APPROVED = 'APPROVED',
+  PAID = 'PAID',
+}
+
+export enum UptimePolicy {
+  PAY_REGARDLESS = 'PAY_REGARDLESS',
+  PAY_PRO_RATA_UPTIME = 'PAY_PRO_RATA_UPTIME',
+  PAY_ONLY_IF_DELIVERED = 'PAY_ONLY_IF_DELIVERED',
+}
+
+export enum ResumePolicy {
+  AUTO_RESUME = 'AUTO_RESUME',
+  MANUAL_RESUME = 'MANUAL_RESUME',
+}
+
+export enum BillingCycle {
+  MONTHLY = 'MONTHLY',
+  QUARTERLY = 'QUARTERLY',
+  YEARLY = 'YEARLY',
+}

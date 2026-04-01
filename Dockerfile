@@ -4,7 +4,10 @@ WORKDIR /app
 
 COPY . .
 
-# Install all dependencies (keep original workspace)
+# Debug: list what was copied
+RUN ls -la /app/packages/ && cat /app/pnpm-workspace.yaml && cat /app/packages/config/package.json
+
+# Install all dependencies
 RUN pnpm install --no-frozen-lockfile
 
 # Build shared packages

@@ -2,11 +2,15 @@ FROM node:20-alpine
 RUN corepack enable && corepack prepare pnpm@10.30.2 --activate
 WORKDIR /app
 
+# Copy workspace config first
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY packages/api/package.json packages/api/
-COPY packages/shared/package.json packages/shared/
-COPY packages/config/package.json packages/config/
-COPY packages/database/package.json packages/database/
+
+# Create directories and copy package.json files
+RUN mkdir -p packages/api packages/shared packages/config packages/database
+COPY packages/api/package.json packages/api/package.json
+COPY packages/shared/package.json packages/shared/package.json
+COPY packages/config/package.json packages/config/package.json
+COPY packages/database/package.json packages/database/package.json
 
 RUN pnpm install --frozen-lockfile --shamefully-hoist
 

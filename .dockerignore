@@ -4,7 +4,6 @@ dist
 .turbo
 .git
 .github
-*.md
 coverage
 e2e
 infra

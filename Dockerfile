@@ -6,7 +6,7 @@ WORKDIR /app
 COPY . .
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile --shamefully-hoist
+RUN pnpm install --no-frozen-lockfile --shamefully-hoist
 
 # Build shared packages
 RUN pnpm --filter @neofilm/shared build || true

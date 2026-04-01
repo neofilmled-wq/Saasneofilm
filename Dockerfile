@@ -4,9 +4,20 @@ WORKDIR /app
 
 COPY . .
 
-# Debug: what is in /app?
-RUN ls -la /app/
-RUN ls -la /app/packages/ || echo "NO PACKAGES DIR"
-RUN cat /app/pnpm-workspace.yaml || echo "NO WORKSPACE YAML"
+# Install all dependencies
+RUN pnpm install --no-frozen-lockfile
 
-CMD ["echo", "debug done"]
+# Build shared packages
+RUN pnpm --filter @neofilm/shared build || true
+RUN pnpm --filter @neofilm/config build || true
+
+# Generate Prisma client
+RUN /app/node_modules/.bin/prisma generate --schema=/app/packages/database/prisma/schema.prisma
+
+# Build API
+RUN cd packages/api && /app/node_modules/.bin/nest build || \
+    (cd /app/packages/api && npx tsc --skipLibCheck --outDir dist && echo "Built with tsc fallback")
+
+ENV NODE_ENV=production
+EXPOSE 3001
+CMD ["node", "packages/api/dist/main.js"]

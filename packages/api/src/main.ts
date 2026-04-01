@@ -40,14 +40,7 @@ async function bootstrap() {
   app.use(compression());
   app.use(cookieParser());
   app.enableCors({
-    origin: process.env.API_CORS_ORIGINS?.split(',') || [
-      'http://localhost:3000',
-      'http://localhost:3002',
-      'http://localhost:3003',
-      'http://localhost:3004',
-      'http://10.0.2.2:3004',   // Android emulator
-      'http://10.0.3.2:3004',   // Genymotion emulator
-    ],
+    origin: true,
     credentials: true,
   });
 

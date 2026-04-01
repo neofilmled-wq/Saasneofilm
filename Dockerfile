@@ -2,11 +2,11 @@ FROM node:20-alpine
 RUN corepack enable && corepack prepare pnpm@10.30.2 --activate
 WORKDIR /app
 
-# Copy everything
+# Copy everything in one step
 COPY . .
 
-# Override workspace to only include packages needed by the API
-COPY docker-workspace.yaml pnpm-workspace.yaml
+# Override workspace to only include packages (not apps)
+RUN cp docker-workspace.yaml pnpm-workspace.yaml
 
 # Install dependencies
 RUN pnpm install --no-frozen-lockfile --shamefully-hoist

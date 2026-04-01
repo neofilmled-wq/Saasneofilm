@@ -37,6 +37,7 @@
     "bullmq": "^5.70.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
+    "multer": "^2.0.0",
     "compression": "^1.7.0",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.3.1",

@@ -12,10 +12,10 @@ RUN pnpm --filter @neofilm/shared build || true
 RUN pnpm --filter @neofilm/config build || true
 
 # Generate Prisma client
-RUN /app/node_modules/.bin/prisma generate --schema=/app/packages/database/prisma/schema.prisma
+RUN npx prisma generate --schema=/app/packages/database/prisma/schema.prisma
 
 # Build API
-RUN cd packages/api && /app/node_modules/.bin/nest build || \
+RUN cd packages/api && npx nest build || \
     (cd /app/packages/api && npx tsc --skipLibCheck --outDir dist && echo "Built with tsc fallback")
 
 ENV NODE_ENV=production

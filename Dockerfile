@@ -11,12 +11,12 @@ RUN pnpm install --no-frozen-lockfile
 RUN pnpm --filter @neofilm/shared build || true
 RUN pnpm --filter @neofilm/config build || true
 
-# Generate Prisma client
-RUN npx prisma generate --schema=/app/packages/database/prisma/schema.prisma
+# Generate Prisma client (use project's version via pnpm exec)
+RUN pnpm --filter @neofilm/database exec prisma generate
 
 # Build API
-RUN cd packages/api && npx nest build || \
-    (cd /app/packages/api && npx tsc --skipLibCheck --outDir dist && echo "Built with tsc fallback")
+RUN pnpm --filter @neofilm/api exec nest build || \
+    (cd /app/packages/api && pnpm exec tsc --skipLibCheck --outDir dist && echo "Built with tsc fallback")
 
 ENV NODE_ENV=production
 EXPOSE 3001

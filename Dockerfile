@@ -4,11 +4,8 @@ WORKDIR /app
 
 COPY . .
 
-# Override workspace to only include packages (not apps)
-RUN echo "packages:" > pnpm-workspace.yaml && echo '  - "packages/*"' >> pnpm-workspace.yaml && cat pnpm-workspace.yaml
-
-# Install dependencies
-RUN pnpm install --no-frozen-lockfile --shamefully-hoist
+# Install all dependencies (keep original workspace)
+RUN pnpm install --no-frozen-lockfile
 
 # Build shared packages
 RUN pnpm --filter @neofilm/shared build || true

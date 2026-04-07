@@ -149,7 +149,6 @@ function ScreenRow({ screen, onAction, onDelete, onPair }: {
           </span>
         </div>
       </TableCell>
-      <TableCell className="text-right text-sm">{fmt(screen.monthlyPriceCents)}</TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
           {!screen.maintenanceMode ? (
@@ -343,7 +342,7 @@ export default function PartnerDetailPage() {
     city: '',
     postCode: '',
     environment: '',
-    monthlyPriceEuros: '',
+    siteId: '',
     resolution: '1920x1080',
     orientation: 'LANDSCAPE',
   });
@@ -359,7 +358,7 @@ export default function PartnerDetailPage() {
 
   // ── Venue dialog state ──
   const [createVenueOpen, setCreateVenueOpen] = useState(false);
-  const [venueForm, setVenueForm] = useState({ name: '', category: '', address: '', city: '' });
+  const [venueForm, setVenueForm] = useState({ name: '', category: 'other', address: '', city: '', postCode: '' });
   const [editVenueOpen, setEditVenueOpen] = useState(false);
   const [editVenueId, setEditVenueId] = useState<string | null>(null);
   const [editVenueForm, setEditVenueForm] = useState({ name: '', category: '', address: '', city: '' });
@@ -459,9 +458,7 @@ export default function PartnerDetailPage() {
         city: screenForm.city || undefined,
         postCode: screenForm.postCode || undefined,
         environment: screenForm.environment || undefined,
-        monthlyPriceCents: screenForm.monthlyPriceEuros
-          ? Math.round(parseFloat(screenForm.monthlyPriceEuros) * 100)
-          : undefined,
+        siteId: screenForm.siteId || undefined,
         resolution: screenForm.resolution || undefined,
         orientation: screenForm.orientation || undefined,
       }),
@@ -470,7 +467,7 @@ export default function PartnerDetailPage() {
       setCreateScreenOpen(false);
       setScreenForm({
         name: '', address: '', city: '', postCode: '',
-        environment: '', monthlyPriceEuros: '', resolution: '1920x1080', orientation: 'LANDSCAPE',
+        environment: '', siteId: '', resolution: '1920x1080', orientation: 'LANDSCAPE',
       });
       queryClient.invalidateQueries({ queryKey: ['admin', 'partner-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'partners'] });
@@ -511,11 +508,12 @@ export default function PartnerDetailPage() {
         category: venueForm.category || undefined,
         address: venueForm.address || undefined,
         city: venueForm.city || undefined,
+        postCode: venueForm.postCode || undefined,
       }),
     onSuccess: () => {
       toast.success('Site créé avec succès');
       setCreateVenueOpen(false);
-      setVenueForm({ name: '', category: '', address: '', city: '' });
+      setVenueForm({ name: '', category: 'other', address: '', city: '', postCode: '' });
       queryClient.invalidateQueries({ queryKey: ['admin', 'partner-venues', id] });
     },
     onError: () => toast.error('Erreur lors de la création du site'),
@@ -715,9 +713,11 @@ export default function PartnerDetailPage() {
                   <CardTitle className="text-base">Liste des écrans</CardTitle>
                   <CardDescription>Capacité : max {'{capacityMax}'} annonceurs par écran</CardDescription>
                 </div>
-                <Button size="sm" onClick={() => setCreateScreenOpen(true)}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Ajouter un écran
+                <Button size="sm" asChild>
+                  <Link href={`/admin/partners/${id}/screens/new`}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Ajouter un écran
+                  </Link>
                 </Button>
               </div>
             </CardHeader>
@@ -735,7 +735,6 @@ export default function PartnerDetailPage() {
                       <TableHead>Lieu</TableHead>
                       <TableHead>Statut live</TableHead>
                       <TableHead>Pubs actives</TableHead>
-                      <TableHead className="text-right">Prix/mois</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1325,18 +1324,24 @@ export default function PartnerDetailPage() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-2">
-                <Label>Prix/mois (EUR)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  placeholder="99.00"
-                  value={screenForm.monthlyPriceEuros}
-                  onChange={(e) => setScreenForm((p) => ({ ...p, monthlyPriceEuros: e.target.value }))}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>Site</Label>
+              <Select
+                value={screenForm.siteId}
+                onValueChange={(val) => setScreenForm((p) => ({ ...p, siteId: val }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Aucun site (optionnel)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Aucun</SelectItem>
+                  {venues.map((v: any) => (
+                    <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Résolution</Label>
                 <Input
@@ -1429,47 +1434,68 @@ export default function PartnerDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Create Venue Dialog ── */}
+      {/* ── Create Venue/Site Dialog ── */}
       <Dialog open={createVenueOpen} onOpenChange={setCreateVenueOpen}>
-        <DialogContent className="bg-popover max-w-md">
+        <DialogContent className="bg-popover sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Ajouter un site</DialogTitle>
             <DialogDescription>
-              Créer un nouveau site/lieu pour {partner.name}.
+              Renseignez les informations du nouveau site pour {partner.name}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Nom *</Label>
+              <Label>Nom du site *</Label>
               <Input
-                placeholder="Ex: Cinéma Pathé Opéra"
+                placeholder="Ex: Hôtel Le Marais"
                 value={venueForm.name}
                 onChange={(e) => setVenueForm((p) => ({ ...p, name: e.target.value }))}
               />
             </div>
             <div className="space-y-2">
               <Label>Catégorie</Label>
-              <Input
-                placeholder="Ex: Cinéma, Hôtel, Restaurant..."
-                value={venueForm.category}
-                onChange={(e) => setVenueForm((p) => ({ ...p, category: e.target.value }))}
-              />
+              <Select
+                value={venueForm.category || 'other'}
+                onValueChange={(val) => setVenueForm((p) => ({ ...p, category: val }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choisir une catégorie" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cinema">Cinéma</SelectItem>
+                  <SelectItem value="hotel">Hôtel</SelectItem>
+                  <SelectItem value="conciergerie">Conciergerie</SelectItem>
+                  <SelectItem value="airbnb">Airbnb / Location courte durée</SelectItem>
+                  <SelectItem value="restaurant">Restaurant</SelectItem>
+                  <SelectItem value="other">Autre</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
-              <Label>Adresse</Label>
+              <Label>Adresse *</Label>
               <Input
-                placeholder="12 boulevard des Capucines"
+                placeholder="15 Rue des Archives, 75004 Paris"
                 value={venueForm.address}
                 onChange={(e) => setVenueForm((p) => ({ ...p, address: e.target.value }))}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Ville</Label>
-              <Input
-                placeholder="Paris"
-                value={venueForm.city}
-                onChange={(e) => setVenueForm((p) => ({ ...p, city: e.target.value }))}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Ville *</Label>
+                <Input
+                  placeholder="Paris"
+                  value={venueForm.city}
+                  onChange={(e) => setVenueForm((p) => ({ ...p, city: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Code postal</Label>
+                <Input
+                  placeholder="75004"
+                  value={venueForm.postCode ?? ''}
+                  onChange={(e) => setVenueForm((p) => ({ ...p, postCode: e.target.value }))}
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>

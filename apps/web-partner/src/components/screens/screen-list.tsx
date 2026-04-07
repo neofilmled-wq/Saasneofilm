@@ -38,7 +38,6 @@ export function ScreenList({ screens }: ScreenListProps) {
             <TableHead>Site</TableHead>
             <TableHead>Statut</TableHead>
             <TableHead>Appareil</TableHead>
-            <TableHead className="text-center">Santé</TableHead>
             <TableHead>Revenu/mois</TableHead>
             <TableHead>Vu il y a</TableHead>
             <TableHead className="w-10" />
@@ -73,15 +72,6 @@ export function ScreenList({ screens }: ScreenListProps) {
                       <WifiOff className="h-3.5 w-3.5 text-gray-400" />
                       <span className="text-xs text-muted-foreground">Non appairé</span>
                     </div>
-                  )}
-                </TableCell>
-                <TableCell className="text-center">
-                  {screen.healthScore !== undefined ? (
-                    <span className={cn('font-semibold text-sm', getHealthScoreColor(screen.healthScore))}>
-                      {screen.healthScore}%
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">—</span>
                   )}
                 </TableCell>
                 <TableCell className="text-sm">

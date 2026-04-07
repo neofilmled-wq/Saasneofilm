@@ -129,6 +129,12 @@ class AdActivity : Activity() {
     private fun playNextAd(surface: Surface? = null) {
         if (adQueue.isEmpty()) {
             Log.i(TAG, "All ads done — closing")
+            // Sync cache in background after ad sequence
+            val adsJson = getSharedPreferences("neofilm_tv_prefs", MODE_PRIVATE)
+                .getString("ads_data_json", null)
+            if (!adsJson.isNullOrBlank()) {
+                AdCacheManager.precacheAds(applicationContext, adsJson)
+            }
             finish()
             return
         }
@@ -158,7 +164,15 @@ class AdActivity : Activity() {
 
         try {
             mp.setSurface(useSurface)
-            mp.setDataSource(this, Uri.parse(ad.fileUrl))
+            // Use cached file if available, otherwise stream from URL
+            val cachedFile = AdCacheManager.getCachedFile(this, ad.fileUrl)
+            if (cachedFile != null) {
+                Log.i(TAG, "Playing from cache: ${cachedFile.name}")
+                mp.setDataSource(cachedFile.absolutePath)
+            } else {
+                Log.i(TAG, "Streaming from URL (not cached)")
+                mp.setDataSource(this, Uri.parse(ad.fileUrl))
+            }
             mp.isLooping = false
 
             mp.setOnPreparedListener {

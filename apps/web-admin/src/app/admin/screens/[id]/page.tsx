@@ -369,13 +369,6 @@ export default function ScreenDetailPage() {
             </div>
             <Separator />
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Prix mensuel</p>
-              <p className="text-lg font-bold mt-0.5">
-                {formatCurrency(screen.monthlyPriceCents ?? 0)}
-              </p>
-            </div>
-            <Separator />
-            <div>
               <p className="text-sm font-medium text-muted-foreground">Créé le</p>
               <p className="text-sm mt-0.5 flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5 text-muted-foreground" />

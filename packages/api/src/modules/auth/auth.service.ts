@@ -269,10 +269,19 @@ export class AuthService {
   }
 
   private async generateTokens(user: any, ipAddress?: string, deviceInfo?: string) {
+    // Fetch org membership to include orgRole in token
+    const membership = await this.prisma.membership.findFirst({
+      where: { userId: user.id },
+      select: { role: true, orgId: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
     const payload = {
       sub: user.id,
       email: user.email,
       platformRole: user.platformRole,
+      orgRole: membership?.role ?? null,
+      orgId: membership?.orgId ?? null,
       type: 'access',
     };
     const accessToken = this.jwtService.sign(payload);

@@ -65,7 +65,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     setTimeout(() => { authErrorHandledRef.current = false; }, 2000);
   }, [clearToken, reset]);
 
-  const { schedule, isLoading: isScheduleLoading, fetchSchedule, handleScheduleUpdate } =
+  const { schedule, isLoading: isScheduleLoading, fetchSchedule, handleScheduleUpdate, invalidateAndRefetch } =
     useSchedule(deviceInfo?.deviceId ?? null, token, handleAuthError);
 
   const handleCommand = useCallback(
@@ -80,10 +80,11 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
         window.location.reload();
       } else if (command === 'REFRESH_ADS') {
         // Re-fetch ads without full reload
+        invalidateAndRefetch();
         adsUpdateCallbackRef.current?.();
       }
     },
-    [clearToken, reset, fetchSchedule],
+    [clearToken, reset, fetchSchedule, invalidateAndRefetch],
   );
 
   // Callbacks for new TV WS events — these will be set by consumers via context
@@ -97,8 +98,9 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     tvConfigUpdateCallbackRef.current?.();
   }, []);
   const handleAdsUpdate = useCallback(() => {
+    invalidateAndRefetch();
     adsUpdateCallbackRef.current?.();
-  }, []);
+  }, [invalidateAndRefetch]);
   const handleActivitiesUpdate = useCallback(() => {
     activitiesUpdateCallbackRef.current?.();
   }, []);
@@ -184,18 +186,15 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     }
   }, [state, schedule, transition]);
 
-  // Detect offline
+  // Detect offline — notify native APK after 30s of no WebSocket connection
   useEffect(() => {
     if (state === DeviceState.ACTIVE && !isConnected) {
       const timer = setTimeout(() => {
-        if (!isConnected) transition(DeviceState.OFFLINE);
-      }, 60_000); // Wait 1 min before showing offline
+        try { window.NeoFilmAndroid?.setApiOffline?.(); } catch {}
+      }, 30_000);
       return () => clearTimeout(timer);
     }
-    if (state === DeviceState.OFFLINE && isConnected) {
-      transition(DeviceState.ACTIVE);
-    }
-  }, [state, isConnected, transition]);
+  }, [state, isConnected]);
 
   const authenticate = useCallback(
     async (provisioningToken: string) => {

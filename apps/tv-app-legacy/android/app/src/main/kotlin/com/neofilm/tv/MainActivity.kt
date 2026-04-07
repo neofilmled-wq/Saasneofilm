@@ -100,6 +100,27 @@ class MainActivity : AppCompatActivity() {
 
         prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+        // Request overlay permission (needed for ad overlay over YouTube etc.)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
+            // Try granting via shell command first (works if ADB debugging is enabled)
+            try {
+                Runtime.getRuntime().exec("appops set $packageName SYSTEM_ALERT_WINDOW allow")
+                Log.i(TAG, "Attempted to self-grant overlay permission via appops")
+            } catch (_: Exception) {}
+
+            // If still not granted, try opening settings
+            if (!android.provider.Settings.canDrawOverlays(this)) {
+                try {
+                    startActivity(Intent(
+                        android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        android.net.Uri.parse("package:$packageName")
+                    ))
+                } catch (_: Exception) {
+                    Log.w(TAG, "Overlay permission settings not available on this device")
+                }
+            }
+        }
+
         // Load URL: custom pref > BuildConfig > emulator auto-detect
         tvAppUrl = resolveStartUrl()
         Log.i(TAG, "Resolved start URL: $tvAppUrl (isEmulator=${isEmulator()})")
@@ -489,10 +510,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun hideOfflineOverlay() {
-        offlineOverlay.visibility = View.GONE
-        webView.visibility = View.VISIBLE
-        // Tell ad service we're back online
-        prefs.edit().putBoolean("webview_connected", true).apply()
+        // Reload fresh page, then show WebView after 15s to let it render
+        webView.loadUrl(tvAppUrl)
+        handler.postDelayed({
+            offlineOverlay.visibility = View.GONE
+            webView.visibility = View.VISIBLE
+            prefs.edit().putBoolean("webview_connected", true).apply()
+        }, 15_000)
         handler.removeCallbacks(retryRunnable)
     }
 
@@ -502,9 +526,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun performRetry() {
-        Log.i(TAG, "Retry: attempting to reload $tvAppUrl")
-        hideOfflineOverlay()
+        Log.i(TAG, "Retry: loading $tvAppUrl behind overlay, will show after 15s if valid")
+        // Load page behind overlay
         webView.loadUrl(tvAppUrl)
+        // Wait 15s then check if page is valid before showing
+        handler.postDelayed({
+            webView.evaluateJavascript("document.body.innerText.substring(0, 300)") { content ->
+                val c = content?.trim('"') ?: ""
+                val isBad = c.contains("Synology", ignoreCase = true) || c.contains("introuvable", ignoreCase = true) || c.isBlank()
+                if (isBad) {
+                    Log.w(TAG, "Page still invalid after 15s — keeping overlay, scheduling next retry")
+                    scheduleRetry()
+                } else {
+                    Log.i(TAG, "Page valid after 15s — showing WebView")
+                    hideOfflineOverlay()
+                }
+            }
+        }, 15_000)
     }
 
     // ══════════════════════════════════════════════════
@@ -892,6 +930,24 @@ class MainActivity : AppCompatActivity() {
                     webView.loadUrl(tvAppUrl)
                 }, 2000)
             }
+
+            // Check if the loaded page is Synology error (not NeoFilm)
+            if (url != null && !url.startsWith("about:")) {
+                handler.postDelayed({
+                    view?.evaluateJavascript("document.body.innerText.substring(0, 300)") { content ->
+                        val c = content?.trim('"') ?: ""
+                        val isSynology = c.contains("Synology", ignoreCase = true) || c.contains("introuvable", ignoreCase = true)
+                        if (isSynology) {
+                            Log.w(TAG, "Synology/error page detected — showing offline overlay")
+                            showOfflineOverlay()
+                        } else if (offlineOverlay.visibility == View.VISIBLE) {
+                            Log.i(TAG, "NeoFilm page loaded — hiding offline overlay")
+                            hideOfflineOverlay()
+                        }
+                    }
+                }, 2000) // Wait 2s for page to render
+            }
+
             // Inject viewport fix + CSS polyfills for old WebViews
             injectViewportFix(view)
             injectLegacyCssIfNeeded(view)
@@ -1026,6 +1082,12 @@ class MainActivity : AppCompatActivity() {
         browserWebView?.onResume()
         // Reset foreground app — we're back on NeoFilm
         prefs.edit().putString("last_foreground_app", packageName).apply()
+
+        // Sync ad cache: check stored ads vs cache, download missing, clean stale
+        val adsJson = prefs.getString("ads_data_json", null)
+        if (!adsJson.isNullOrBlank()) {
+            AdCacheManager.precacheAds(applicationContext, adsJson)
+        }
 
         // Ad service restart handled by BootReceiver, not onResume (avoids loop when set as launcher)
 
@@ -1416,6 +1478,24 @@ class MainActivity : AppCompatActivity() {
         }
 
         /**
+         * Called by the web app when the API is unreachable — show native offline overlay.
+         */
+        @JavascriptInterface
+        fun setApiOffline() {
+            Log.w(TAG, "Bridge: setApiOffline — showing offline overlay")
+            handler.post { showOfflineOverlay() }
+        }
+
+        /**
+         * Called by the web app when the API is back online — hide offline overlay.
+         */
+        @JavascriptInterface
+        fun setApiOnline() {
+            Log.i(TAG, "Bridge: setApiOnline — hiding offline overlay")
+            handler.post { hideOfflineOverlay() }
+        }
+
+        /**
          * Called by the web app to tell the native side how many ads are available.
          * The AdOverlayService reads this from SharedPreferences to decide whether to show.
          */
@@ -1429,6 +1509,8 @@ class MainActivity : AppCompatActivity() {
         fun setAdsData(json: String) {
             Log.i(TAG, "Bridge: setAdsData(${json.take(100)}...)")
             prefs.edit().putString("ads_data_json", json).apply()
+            // Pre-download ad videos in background
+            AdCacheManager.precacheAds(applicationContext, json)
         }
 
         @JavascriptInterface

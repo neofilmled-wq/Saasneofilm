@@ -43,7 +43,21 @@ export class DeviceAuthService {
   }
 
   async heartbeat(deviceId: string, ipAddress?: string) {
-    await this.prisma.device.update({ where: { id: deviceId }, data: { lastPingAt: new Date(), ipAddress: ipAddress || undefined, status: 'ONLINE' } });
+    const device = await this.prisma.device.update({
+      where: { id: deviceId },
+      data: { lastPingAt: new Date(), ipAddress: ipAddress || undefined, status: 'ONLINE' },
+      select: { screenId: true },
+    });
+
+    // Update ScreenLiveStatus so the partner dashboard shows "En ligne"
+    if (device.screenId) {
+      await this.prisma.screenLiveStatus.upsert({
+        where: { screenId: device.screenId },
+        update: { isOnline: true, lastHeartbeatAt: new Date(), currentDeviceId: deviceId },
+        create: { screenId: device.screenId, isOnline: true, lastHeartbeatAt: new Date(), currentDeviceId: deviceId },
+      });
+    }
+
     return { status: 'ok', timestamp: new Date().toISOString() };
   }
 }

@@ -54,7 +54,10 @@ function exportCSV(data: Array<Record<string, unknown>>, filename: string) {
 }
 
 export default function RevenuePage() {
-  const [period, setPeriod] = useState('2026-03');
+  const [period, setPeriod] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   const permissions = useOrgPermissions();
   const { data: summary, isLoading: loadingSummary } = useRevenueSummary(period);
   const { data: byScreen } = useRevenueByScreen(period);
@@ -78,11 +81,13 @@ export default function RevenuePage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="2026-03">Mars 2026</SelectItem>
-              <SelectItem value="2026-02">Février 2026</SelectItem>
-              <SelectItem value="2026-01">Janvier 2026</SelectItem>
-              <SelectItem value="2025-12">Décembre 2025</SelectItem>
-              <SelectItem value="2025-11">Novembre 2025</SelectItem>
+              {Array.from({ length: 12 }, (_, i) => {
+                const d = new Date();
+                d.setMonth(d.getMonth() - i);
+                const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                const label = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+                return <SelectItem key={value} value={value}>{label.charAt(0).toUpperCase() + label.slice(1)}</SelectItem>;
+              })}
             </SelectContent>
           </Select>
           {permissions.canExportRevenue && (

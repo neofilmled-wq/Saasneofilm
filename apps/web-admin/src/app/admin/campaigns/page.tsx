@@ -183,65 +183,81 @@ export default function CampaignsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {campaigns.map((campaign) => (
-                  <TableRow key={campaign.id}>
-                    <TableCell className="font-medium">
-                      <Link
-                        href={`/admin/campaigns/${campaign.id}`}
-                        className="hover:text-primary hover:underline"
-                      >
-                        {campaign.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{campaign.advertiserOrg?.name ?? '-'}</TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_COLORS[campaign.status] || 'secondary'}>
-                        {STATUS_LABELS[campaign.status] || campaign.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(campaign.budgetCents ?? 0)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(campaign.spentCents ?? 0)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {campaign.startDate ? formatDate(campaign.startDate) : '-'} →{' '}
-                      {campaign.endDate ? formatDate(campaign.endDate) : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/admin/campaigns/${campaign.id}`}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Voir détails
-                            </Link>
-                          </DropdownMenuItem>
-                          {campaign.status === 'PENDING_REVIEW' && (
-                            <>
-                              <DropdownMenuItem
-                                onClick={() => approveMutation.mutate(campaign.id)}
-                              >
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Approuver
+                {(() => {
+                  const groups = new Map<string, typeof campaigns>();
+                  for (const c of campaigns) {
+                    const key = c.groupId || c.id;
+                    const existing = groups.get(key) ?? [];
+                    existing.push(c);
+                    groups.set(key, existing);
+                  }
+                  return Array.from(groups.values()).map((group) => {
+                    const primary = group[0];
+                    const totalBudget = group.reduce((sum, c) => sum + (c.budgetCents ?? 0), 0);
+                    const totalSpent = group.reduce((sum, c) => sum + (c.spentCents ?? 0), 0);
+                    return (
+                      <TableRow key={primary.groupId || primary.id}>
+                        <TableCell className="font-medium">
+                          <Link
+                            href={`/admin/campaigns/${primary.id}`}
+                            className="hover:text-primary hover:underline"
+                          >
+                            {primary.name}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{primary.advertiserOrg?.name ?? '-'}</TableCell>
+                        <TableCell>
+                          <Badge variant={STATUS_COLORS[primary.status] || 'secondary'}>
+                            {STATUS_LABELS[primary.status] || primary.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(totalBudget)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(totalSpent)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {primary.startDate ? formatDate(primary.startDate) : '-'} →{' '}
+                          {primary.endDate ? formatDate(primary.endDate) : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem asChild>
+                                <Link href={`/admin/campaigns/${primary.id}`}>
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  Voir détails
+                                </Link>
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openRejectDialog(campaign)}>
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Rejeter
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                              {primary.status === 'PENDING_REVIEW' && (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      for (const c of group) approveMutation.mutate(c.id);
+                                    }}
+                                  >
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Approuver
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => openRejectDialog(primary)}>
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    Rejeter
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  });
+                })()}
               </TableBody>
             </Table>
           )}

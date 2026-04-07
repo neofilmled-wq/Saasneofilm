@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TV_CONFIG } from '@/lib/constants';
 import { deviceApi, DeviceAuthError, type ScheduleBundle } from '@/lib/device-api';
-import { cacheSchedule, getCachedSchedule } from '@/lib/schedule-cache';
+import { cacheSchedule, getCachedSchedule, clearScheduleCache } from '@/lib/schedule-cache';
 
 export function useSchedule(deviceId: string | null, token: string | null, onAuthError?: () => void) {
   const [schedule, setSchedule] = useState<ScheduleBundle | null>(null);
@@ -25,7 +25,7 @@ export function useSchedule(deviceId: string | null, token: string | null, onAut
         onAuthError?.();
         return null;
       }
-      // On failure, try cache
+      // On failure, try cache only if we have nothing yet
       const cached = getCachedSchedule();
       if (cached && !schedule) {
         setSchedule(cached);
@@ -36,6 +36,13 @@ export function useSchedule(deviceId: string | null, token: string | null, onAut
       setIsLoading(false);
     }
   }, [deviceId, token, schedule, onAuthError]);
+
+  /** Force clear cache and refetch from API */
+  const invalidateAndRefetch = useCallback(async () => {
+    versionRef.current = undefined;
+    clearScheduleCache();
+    return fetchSchedule();
+  }, [fetchSchedule]);
 
   const handleScheduleUpdate = useCallback((newSchedule: ScheduleBundle) => {
     versionRef.current = newSchedule.version;
@@ -57,5 +64,5 @@ export function useSchedule(deviceId: string | null, token: string | null, onAut
     return () => clearInterval(interval);
   }, [deviceId, token, fetchSchedule]);
 
-  return { schedule, isLoading, fetchSchedule, handleScheduleUpdate };
+  return { schedule, isLoading, fetchSchedule, handleScheduleUpdate, invalidateAndRefetch };
 }

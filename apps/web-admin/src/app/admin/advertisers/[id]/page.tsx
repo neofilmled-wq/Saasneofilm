@@ -198,15 +198,32 @@ export default function AdvertiserDetailPage() {
   });
 
   const updateCampaignMutation = useMutation({
-    mutationFn: ({ campaignId, formData }: { campaignId: string; formData: CampaignFormData }) =>
-      adminApi.updateCampaignFromAdmin(campaignId, {
+    mutationFn: async ({ campaignId, formData }: { campaignId: string; formData: CampaignFormData }) => {
+      const updateData = {
         name: formData.name,
         description: formData.description || undefined,
         type: formData.type,
         startDate: formData.startDate,
         endDate: formData.endDate,
-        budgetCents: Math.round(parseFloat(formData.budgetEuros) * 100),
-      } as Partial<Campaign>),
+      } as Partial<Campaign>;
+
+      // Update the primary campaign
+      await adminApi.updateCampaignFromAdmin(campaignId, updateData);
+
+      // Also update sibling campaigns in the same group
+      const campaign = campaigns.find((c) => c.id === campaignId);
+      if (campaign?.groupId) {
+        const siblings = campaigns.filter((c) => c.groupId === campaign.groupId && c.id !== campaignId);
+        for (const sibling of siblings) {
+          await adminApi.updateCampaignFromAdmin(sibling.id, {
+            name: formData.name,
+            description: formData.description || undefined,
+            startDate: formData.startDate,
+            endDate: formData.endDate,
+          } as Partial<Campaign>);
+        }
+      }
+    },
     onSuccess: () => {
       invalidateCampaigns();
       toast.success('Campagne mise à jour');
@@ -219,7 +236,18 @@ export default function AdvertiserDetailPage() {
   });
 
   const deleteCampaignMutation = useMutation({
-    mutationFn: (campaignId: string) => adminApi.deleteCampaignFromAdmin(campaignId),
+    mutationFn: async (campaignId: string) => {
+      const campaign = campaigns.find((c) => c.id === campaignId);
+      if (campaign?.groupId) {
+        // Delete all campaigns in the same group
+        const siblings = campaigns.filter((c) => c.groupId === campaign.groupId);
+        for (const sibling of siblings) {
+          await adminApi.deleteCampaignFromAdmin(sibling.id);
+        }
+      } else {
+        await adminApi.deleteCampaignFromAdmin(campaignId);
+      }
+    },
     onSuccess: () => {
       invalidateCampaigns();
       toast.success('Campagne supprimée');
@@ -530,65 +558,86 @@ export default function AdvertiserDetailPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {campaigns.map((campaign) => (
-                      <TableRow key={campaign.id}>
-                        <TableCell className="font-medium">
-                          <Link
-                            href={`/admin/campaigns/${campaign.id}`}
-                            className="hover:text-primary"
-                          >
-                            {campaign.name}
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={campaign.status} />
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{campaign.type}</Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatDate(campaign.startDate)}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatDate(campaign.endDate)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(campaign.budgetCents, campaign.currency)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(campaign.spentCents, campaign.currency)}
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem asChild>
-                                <Link href={`/admin/campaigns/${campaign.id}`}>
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  Voir le détail
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openEditCampaignDialog(campaign)}>
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Modifier
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={() => openDeleteCampaignDialog(campaign)}
+                    {(() => {
+                      // Group campaigns by groupId
+                      const groups = new Map<string, Campaign[]>();
+                      for (const c of campaigns) {
+                        const key = c.groupId || c.id;
+                        const existing = groups.get(key) ?? [];
+                        existing.push(c);
+                        groups.set(key, existing);
+                      }
+                      return Array.from(groups.values()).map((group) => {
+                        const primary = group[0];
+                        const totalBudget = group.reduce((sum, c) => sum + c.budgetCents, 0);
+                        const totalSpent = group.reduce((sum, c) => sum + c.spentCents, 0);
+                        return (
+                          <TableRow key={primary.groupId || primary.id}>
+                            <TableCell className="font-medium">
+                              <Link
+                                href={`/admin/campaigns/${primary.id}`}
+                                className="hover:text-primary"
                               >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Supprimer
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                                {primary.name}
+                              </Link>
+                            </TableCell>
+                            <TableCell>
+                              <StatusBadge status={primary.status} />
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1 flex-wrap">
+                                {group.map((c) => (
+                                  <Badge key={c.id} variant="outline" className="text-xs">
+                                    {c.type === 'AD_SPOT' ? 'Vidéo' : c.type === 'CATALOG_LISTING' ? 'Catalogue' : c.type}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {formatDate(primary.startDate)}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {formatDate(primary.endDate)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(totalBudget, primary.currency)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(totalSpent, primary.currency)}
+                            </TableCell>
+                            <TableCell>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem asChild>
+                                    <Link href={`/admin/campaigns/${primary.id}`}>
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      Voir le détail
+                                    </Link>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => openEditCampaignDialog(primary)}>
+                                    <Pencil className="h-4 w-4 mr-2" />
+                                    Modifier
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => openDeleteCampaignDialog(primary)}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Supprimer
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      });
+                    })()}
                   </TableBody>
                 </Table>
               )}
@@ -873,24 +922,6 @@ export default function AdvertiserDetailPage() {
                     <SelectItem value="CATALOG_LISTING">CATALOG_LISTING</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-campaign-budget">
-                  <span className="flex items-center gap-1">
-                    Budget (€) *
-                    <Euro className="h-3.5 w-3.5 text-muted-foreground" />
-                  </span>
-                </Label>
-                <Input
-                  id="edit-campaign-budget"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  placeholder="100.00"
-                  value={campaignForm.budgetEuros}
-                  onChange={(e) => handleCampaignChange('budgetEuros', e.target.value)}
-                  required
-                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-campaign-start">

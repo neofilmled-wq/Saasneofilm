@@ -19,6 +19,8 @@ declare global {
       setDeviceCredentials?: (token: string, apiUrl: string, deviceId: string, screenId: string) => void;
       showNativeVideo?: (url: string, x: number, y: number, width: number, height: number) => void;
       hideNativeVideo?: () => void;
+      setApiOffline?: () => void;
+      setApiOnline?: () => void;
     };
   }
 }

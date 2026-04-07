@@ -39,6 +39,7 @@ export class ScreensService {
         include: {
           partnerOrg: { select: { name: true } },
           screenLiveStatus: { select: { isOnline: true, lastHeartbeatAt: true, cpuPercent: true, memoryPercent: true } },
+          screenFill: { select: { activeAdvertiserCount: true } },
           _count: { select: { devices: true, schedules: true, targetIncluded: true } },
         },
         orderBy: { createdAt: 'desc' },

@@ -76,7 +76,7 @@ export function useRevenueByScreen(period: string) {
           }
         }
       }
-      return Array.from(screenMap.values());
+      return Array.from(screenMap.values()).sort((a, b) => b.revenueCents - a.revenueCents);
     },
     enabled: !!orgId,
   });
@@ -119,7 +119,11 @@ export function useRevenueHistory() {
   return useQuery({
     queryKey: ['revenue', 'history', orgId],
     queryFn: async () => {
-      const months = ['2026-03', '2026-02', '2026-01', '2025-12', '2025-11', '2025-10'];
+      const months = Array.from({ length: 6 }, (_, i) => {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      });
       const results = await Promise.all(
         months.map(async (month) => {
           try {

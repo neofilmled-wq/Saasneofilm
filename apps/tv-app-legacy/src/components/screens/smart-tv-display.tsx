@@ -278,15 +278,29 @@ export function SmartTvDisplay({ layout, onHlsChannelOpen, onWebChannelOpen, onC
                 }}
               />
               <div
-                className="min-h-0 min-w-0 overflow-hidden"
+                className="min-h-0 min-w-0 overflow-hidden flex flex-col"
                 style={{ flex: layout.adFlex }}
               >
-                <AdZone
-                  houseAds={houseAds}
-                  targetedAds={rotationAds}
-                  rotationMs={macros?.adRotationMs}
-                  onImpression={reportImpression}
-                />
+                <div style={{ flex: 1 }} />
+                <div style={{ width: '100%', padding: '0 0.5em' }}>
+                  <p
+                    className="text-muted-foreground"
+                    style={{ fontSize: '0.7em', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5em' }}
+                  >
+                    Nos partenaires
+                  </p>
+                  <div className="overflow-hidden rounded-xl" style={{ position: 'relative', width: '100%', paddingBottom: '56.25%' }}>
+                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+                      <AdZone
+                        houseAds={houseAds}
+                        targetedAds={rotationAds}
+                        rotationMs={macros?.adRotationMs}
+                        onImpression={reportImpression}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div style={{ flex: 1 }} />
               </div>
             </>
           )}

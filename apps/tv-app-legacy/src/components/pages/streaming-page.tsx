@@ -266,63 +266,7 @@ export function StreamingPage({ services }: StreamingPageProps) {
           </>
         )}
 
-        {/* Configured services from backend */}
-        {hasConfiguredServices && (
-          <>
-            <h2
-              className="mb-[0.75em] font-semibold text-muted-foreground"
-              style={{ fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-            >
-              {hasInstalledApps ? 'Autres services' : 'Services de streaming'}
-            </h2>
-            <div
-              className="grid gap-[1em]"
-              style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}
-            >
-              {services.map((service) => (
-                <button
-                  key={service.id}
-                  data-tv-focusable
-                  className="tv-card tv-card--service flex flex-col items-center justify-center"
-                  style={{
-                    backgroundColor: service.color ? `${service.color}22` : undefined,
-                    borderColor: service.color ? `${service.color}` : undefined,
-                    padding: '1.5em 1em',
-                    aspectRatio: '16/9',
-                  }}
-                  onClick={() => handleServiceClick(service)}
-                >
-                  {service.logoUrl ? (
-                    <img
-                      src={service.logoUrl}
-                      alt={service.name}
-                      className="mb-[0.5em] h-[3em] w-auto object-contain"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <div
-                      className="mb-[0.5em] flex items-center justify-center rounded-xl font-bold"
-                      style={{
-                        width: '3em',
-                        height: '3em',
-                        fontSize: '1.25em',
-                        backgroundColor: service.color || 'var(--primary)',
-                        color: '#fff',
-                      }}
-                    >
-                      {service.name.charAt(0)}
-                    </div>
-                  )}
-                  <span className="text-center font-semibold text-foreground" style={{ fontSize: '1em' }}>
-                    {service.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
+        {/* Backend services hidden — only show installed apps */}
       </div>
     </div>
   );

@@ -33,11 +33,6 @@ export function ScreenDetailOverview({ screen, device }: ScreenDetailOverviewPro
           icon={Monitor}
         />
         <StatCard
-          label="Score de santé"
-          value={screen.healthScore !== undefined ? `${screen.healthScore}%` : '—'}
-          icon={Cpu}
-        />
-        <StatCard
           label="Erreurs (24h)"
           value={screen.liveStatus?.errorCount24h?.toString() ?? '0'}
           icon={HardDrive}

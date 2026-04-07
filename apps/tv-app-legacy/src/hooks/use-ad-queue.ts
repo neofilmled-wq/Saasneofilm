@@ -86,9 +86,9 @@ export function useAdQueue({ screenId, macros: externalMacros }: UseAdQueueOptio
       // Check if trigger is enabled in macros
       if (!isTriggerEnabled(trigger)) return false;
 
-      // Check 5-minute cooldown between interstitials
+      // Check 1-minute cooldown between interstitials
       const now = Date.now();
-      if (now - lastInterstitialTimeRef.current < 5 * 60_000) return false;
+      if (now - lastInterstitialTimeRef.current < 60_000) return false;
 
       // Check session cap
       if (interstitialCountRef.current >= macros.maxInterstitialsPerSession) return false;
@@ -141,6 +141,9 @@ export function useAdQueue({ screenId, macros: externalMacros }: UseAdQueueOptio
     try {
       const response = await deviceApi.getAds('SCHEDULED', 10);
       setRotationAds(response.ads);
+      if (response.ads.length === 0) {
+        recentCreativesRef.current.clear();
+      }
       // Notify native Android service of ads availability + data
       try {
         window.NeoFilmAndroid?.setAdsAvailable?.(response.ads.length);

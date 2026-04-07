@@ -65,7 +65,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     setTimeout(() => { authErrorHandledRef.current = false; }, 2000);
   }, [clearToken, reset]);
 
-  const { schedule, isLoading: isScheduleLoading, fetchSchedule, handleScheduleUpdate } =
+  const { schedule, isLoading: isScheduleLoading, fetchSchedule, handleScheduleUpdate, invalidateAndRefetch } =
     useSchedule(deviceInfo?.deviceId ?? null, token, handleAuthError);
 
   const handleCommand = useCallback(
@@ -80,10 +80,11 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
         window.location.reload();
       } else if (command === 'REFRESH_ADS') {
         // Re-fetch ads without full reload
+        invalidateAndRefetch();
         adsUpdateCallbackRef.current?.();
       }
     },
-    [clearToken, reset, fetchSchedule],
+    [clearToken, reset, fetchSchedule, invalidateAndRefetch],
   );
 
   // Callbacks for new TV WS events — these will be set by consumers via context
@@ -97,8 +98,10 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     tvConfigUpdateCallbackRef.current?.();
   }, []);
   const handleAdsUpdate = useCallback(() => {
+    // Invalidate schedule cache + refetch so stale ads are removed
+    invalidateAndRefetch();
     adsUpdateCallbackRef.current?.();
-  }, []);
+  }, [invalidateAndRefetch]);
   const handleActivitiesUpdate = useCallback(() => {
     activitiesUpdateCallbackRef.current?.();
   }, []);

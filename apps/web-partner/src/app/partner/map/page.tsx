@@ -55,7 +55,7 @@ const PartnerScreenMap = nextDynamic(
 
 export default function MapPage() {
   const { orgId } = usePartnerOrg();
-  const { data: screens, isLoading } = useScreens({ limit: 1000, partnerOrgId: orgId ?? undefined });
+  const { data: screens, isLoading } = useScreens({ limit: 5000, partnerOrgId: orgId ?? undefined });
   const { data: summary } = useScreenStatusSummary();
   const [selected, setSelected] = useState<ScreenWithStatus | null>(null);
 

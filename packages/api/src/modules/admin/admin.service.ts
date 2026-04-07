@@ -1444,6 +1444,14 @@ export class AdminService {
    * List venues/sites for a partner.
    */
   async getPartnerVenues(partnerOrgId: string) {
+    // Return both venues and sites for compatibility
+    const sites = await this.prisma.site.findMany({
+      where: { organizationId: partnerOrgId },
+      include: { _count: { select: { screens: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (sites.length > 0) return sites;
+    // Fallback to venues if no sites exist
     return this.prisma.venue.findMany({
       where: { partnerOrgId },
       include: { _count: { select: { screens: true } } },
@@ -1465,11 +1473,11 @@ export class AdminService {
     const org = await this.prisma.organization.findUnique({ where: { id: data.partnerOrgId } });
     if (!org || org.type !== 'PARTNER') throw new NotFoundException('Partenaire introuvable');
 
-    return this.prisma.venue.create({
+    return this.prisma.site.create({
       data: {
         name: data.name,
-        partnerOrgId: data.partnerOrgId,
-        category: (data.category as any) || 'OTHER',
+        organizationId: data.partnerOrgId,
+        category: data.category || 'other',
         address: data.address || null,
         city: data.city || null,
         postCode: data.postCode || null,

@@ -29,9 +29,9 @@ const ICONS = {
   degraded: createIcon('#f59e0b'),
   inactive: createIcon('#9ca3af'),
   maintenance: createIcon('#6366f1'),
-  full: createIcon('#dc2626'),      // 40/40 advertisers (red = full)
-  partial: createIcon('#3b82f6'),   // has advertisers but not full (blue)
-  empty: createIcon('#9ca3af'),     // 0 advertisers (gray)
+  full: createIcon('#dc2626'),
+  partial: createIcon('#3b82f6'),
+  empty: createIcon('#9ca3af'),
 };
 
 // ─── Fit bounds helper ──────────────────────────────────
@@ -107,18 +107,6 @@ export function PartnerScreenMap({ screens, flyTo, onMarkerClick, selectedScreen
     [screens],
   );
 
-  // Group screens by same coordinates (same address)
-  const groupedScreens = useMemo(() => {
-    const groups = new Map<string, ScreenWithOccupancy[]>();
-    for (const s of geoScreens) {
-      const key = `${s.latitude!.toFixed(5)},${s.longitude!.toFixed(5)}`;
-      const existing = groups.get(key) ?? [];
-      existing.push(s);
-      groups.set(key, existing);
-    }
-    return Array.from(groups.values());
-  }, [geoScreens]);
-
   return (
     <MapContainer
       center={[46.603354, 1.888334]}
@@ -137,57 +125,44 @@ export function PartnerScreenMap({ screens, flyTo, onMarkerClick, selectedScreen
       />
       <FitBounds screens={geoScreens} />
       <FlyToHandler flyTo={flyTo} />
-      {groupedScreens.map((group) => {
-        const first = group[0];
-        const iconKey = getIconKey(first, showOccupancy);
-        const icon = group.length > 1
-          ? createIcon('#6366f1') // purple for multi-screen locations
-          : ICONS[iconKey];
+      {geoScreens.map((screen) => {
+        const iconKey = getIconKey(screen, showOccupancy);
+        const icon = ICONS[iconKey];
+
+        const statusLabel =
+          !screen.activeDeviceId ? 'Non appairé' :
+          screen.status === 'ACTIVE' ? 'Actif' : 'Inactif';
+        const statusColor =
+          !screen.activeDeviceId ? 'secondary' as const :
+          screen.status === 'ACTIVE' ? 'default' as const : 'destructive' as const;
 
         return (
           <Marker
-            key={`${first.latitude}-${first.longitude}`}
-            position={[first.latitude!, first.longitude!]}
+            key={screen.id}
+            position={[screen.latitude!, screen.longitude!]}
             icon={icon}
             eventHandlers={{
-              click: () => onMarkerClick?.(first),
+              click: () => onMarkerClick?.(screen),
             }}
           >
-            <Popup minWidth={260} maxHeight={300}>
+            <Popup minWidth={260}>
               <div className="space-y-2 p-1">
-                {group.length > 1 && (
-                  <div className="text-xs font-semibold text-indigo-600 mb-1">{group.length} écrans à cette adresse</div>
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-bold text-sm">{screen.name}</h3>
+                  <Badge variant={statusColor} className="text-[10px]">
+                    {statusLabel}
+                  </Badge>
+                </div>
+                <p className="text-xs text-gray-600">{screen.city}</p>
+                {screen.address && (
+                  <p className="text-xs text-gray-500">{screen.address}</p>
                 )}
-                {group.map((screen) => {
-                  const sIconKey = getIconKey(screen, showOccupancy);
-                  const statusLabel =
-                    !screen.activeDeviceId ? 'Non appairé' :
-                    screen.status === 'ACTIVE' ? 'Actif' : 'Inactif';
-                  const statusColor =
-                    !screen.activeDeviceId ? 'secondary' as const :
-                    screen.status === 'ACTIVE' ? 'default' as const : 'destructive' as const;
-
-                  return (
-                    <div key={screen.id} className={`${group.length > 1 ? 'border-b last:border-b-0 pb-2 last:pb-0' : ''}`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="font-bold text-sm">{screen.name}</h3>
-                        <Badge variant={statusColor} className="text-[10px]">
-                          {statusLabel}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-gray-600">{screen.city}</p>
-                      {screen.address && (
-                        <p className="text-xs text-gray-500">{screen.address}</p>
-                      )}
-                      <button
-                        className="text-xs text-indigo-600 hover:underline mt-1 cursor-pointer"
-                        onClick={() => onMarkerClick?.(screen)}
-                      >
-                        Voir les détails
-                      </button>
-                    </div>
-                  );
-                })}
+                <button
+                  className="text-xs text-indigo-600 hover:underline mt-1 cursor-pointer"
+                  onClick={() => onMarkerClick?.(screen)}
+                >
+                  Voir les détails
+                </button>
               </div>
             </Popup>
           </Marker>

@@ -97,8 +97,10 @@ export function useTvConfig({ token, onAuthError }: UseTvConfigOptions) {
       console.warn('[TvConfig] bootstrap failed, falling back to individual fetches:', err);
 
       try {
+        let failCount = 0;
         const safeCatch = <T>(fallback: T) => (e: unknown) => {
           if (e instanceof DeviceAuthError) throw e;
+          failCount++;
           console.warn('[TvConfig] fetch error (using fallback):', e);
           return fallback;
         };
@@ -111,6 +113,13 @@ export function useTvConfig({ token, onAuthError }: UseTvConfigOptions) {
           deviceApi.getCatalogue().catch(safeCatch<CatalogueListing[]>([])),
           deviceApi.getMacros().catch(safeCatch<TvMacroResponse | null>(null)),
         ]);
+
+        // If ALL individual fetches failed too → API is offline (handled natively by APK)
+        if (failCount >= 6) {
+          console.warn('[TvConfig] All API calls failed — API appears offline');
+          setState((s) => ({ ...s, isLoading: false }));
+          return;
+        }
 
         setState({
           config: config ?? {

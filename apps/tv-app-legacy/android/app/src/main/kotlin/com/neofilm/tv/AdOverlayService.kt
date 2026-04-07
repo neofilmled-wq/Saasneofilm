@@ -18,7 +18,7 @@ class AdOverlayService : Service() {
         private const val TAG = "AdOverlayService"
         private const val CHANNEL_ID = "neofilm_ad_overlay"
         private const val NOTIFICATION_ID = 42
-        private const val INTERVAL_MS = 90L * 1000  // 1 min 30
+        private const val INTERVAL_MS = 2L * 60 * 1000  // 2 min
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -56,7 +56,7 @@ class AdOverlayService : Service() {
 
         Thread {
             try {
-                val url = java.net.URL("$apiUrl/tv/heartbeat")
+                val url = java.net.URL("$apiUrl/auth/device/heartbeat")
                 val conn = url.openConnection() as java.net.HttpURLConnection
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json")

@@ -24,9 +24,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     sub: string;
     email?: string;
     platformRole?: string | null;
+    orgRole?: string | null;
+    orgId?: string;
     type?: string;
     screenId?: string;
-    orgId?: string;
   }) {
     // Reject MFA pending tokens from accessing protected routes
     if (payload.type === 'mfa_pending') {
@@ -77,6 +78,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       id: user.id,
       email: user.email,
       platformRole: user.platformRole,
+      orgRole: payload.orgRole ?? null,
+      orgId: payload.orgId ?? null,
     };
   }
 }

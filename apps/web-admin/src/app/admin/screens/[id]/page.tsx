@@ -51,10 +51,6 @@ import { adminApi, type Screen } from '@/lib/admin-api';
 
 // ─── Helpers ──────────────────────────────────────────────
 
-function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(cents / 100);
-}
-
 function formatDate(date: string): string {
   return new Intl.DateTimeFormat('fr-FR', {
     day: 'numeric',

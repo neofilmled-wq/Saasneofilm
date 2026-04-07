@@ -95,6 +95,7 @@ export interface Campaign {
   description: string | null;
   status: string;
   type: string;
+  groupId: string | null;
   startDate: string;
   endDate: string;
   budgetCents: number;

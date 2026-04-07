@@ -13,6 +13,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'devices:read', 'devices:write',
     'analytics:read',
     'invoices:read', 'invoices:write',
+    'billing:read', 'billing:write',
   ],
   SUPPORT: [
     'users:read',
@@ -23,6 +24,15 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'analytics:read',
     'invoices:read',
   ],
+};
+
+// Org role permissions (for partner/advertiser users)
+const ORG_ROLE_PERMISSIONS: Record<string, string[]> = {
+  OWNER: ['billing:read', 'billing:write', 'campaigns:read', 'campaigns:write', 'screens:read', 'screens:write', 'analytics:read', 'invoices:read'],
+  ADMIN: ['billing:read', 'billing:write', 'campaigns:read', 'campaigns:write', 'screens:read', 'screens:write', 'analytics:read', 'invoices:read'],
+  MANAGER: ['billing:read', 'campaigns:read', 'campaigns:write', 'screens:read', 'analytics:read'],
+  MEMBER: ['billing:read', 'campaigns:read', 'screens:read', 'analytics:read'],
+  VIEWER: ['campaigns:read', 'screens:read'],
 };
 
 @Injectable()
@@ -43,19 +53,23 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('Access denied');
     }
 
+    // Check platform role permissions
     const userRole = user.platformRole;
-    if (!userRole) {
-      throw new ForbiddenException('Insufficient permissions');
+    if (userRole) {
+      const platformPerms = ROLE_PERMISSIONS[userRole] || [];
+      if (platformPerms.includes('*')) return true;
+      const hasAll = requiredPermissions.every((perm) => platformPerms.includes(perm));
+      if (hasAll) return true;
     }
 
-    const userPermissions = ROLE_PERMISSIONS[userRole] || [];
-    if (userPermissions.includes('*')) return true;
-
-    const hasAll = requiredPermissions.every((perm) => userPermissions.includes(perm));
-    if (!hasAll) {
-      throw new ForbiddenException('Insufficient permissions');
+    // Check org role permissions (for partner/advertiser users)
+    const orgRole = user.orgRole;
+    if (orgRole) {
+      const orgPerms = ORG_ROLE_PERMISSIONS[orgRole] || [];
+      const hasAll = requiredPermissions.every((perm) => orgPerms.includes(perm));
+      if (hasAll) return true;
     }
 
-    return true;
+    throw new ForbiddenException('Insufficient permissions');
   }
 }

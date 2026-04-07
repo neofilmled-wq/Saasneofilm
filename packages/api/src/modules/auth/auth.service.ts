@@ -272,7 +272,7 @@ export class AuthService {
     // Fetch org membership to include orgRole in token
     const membership = await this.prisma.membership.findFirst({
       where: { userId: user.id },
-      select: { role: true, orgId: true },
+      select: { role: true, organizationId: true },
       orderBy: { createdAt: 'asc' },
     });
 
@@ -281,7 +281,7 @@ export class AuthService {
       email: user.email,
       platformRole: user.platformRole,
       orgRole: membership?.role ?? null,
-      orgId: membership?.orgId ?? null,
+      orgId: membership?.organizationId ?? null,
       type: 'access',
     };
     const accessToken = this.jwtService.sign(payload);

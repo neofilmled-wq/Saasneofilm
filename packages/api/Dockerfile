@@ -16,7 +16,7 @@ RUN pnpm --filter @neofilm/shared build || true
 RUN pnpm --filter @neofilm/config build || true
 RUN /app/node_modules/.bin/prisma generate --schema=/app/packages/database/prisma/schema.prisma
 RUN cd packages/api && /app/node_modules/.bin/nest build || \
-    (cd /app/packages/api && /app/node_modules/.bin/tsc --skipLibCheck --outDir dist && echo "Built with tsc fallback")
+    (cd /app/packages/api && find src -type d -name __tests__ -exec rm -rf {} + 2>/dev/null; /app/node_modules/.bin/tsc --skipLibCheck --outDir dist && echo "Built with tsc fallback")
 
 ENV NODE_ENV=production
 EXPOSE 3001

@@ -158,8 +158,45 @@ export function StepReview() {
         reset();
         router.push(`/campaigns/${editingCampaignId}`);
       } else {
+        // 1. Create the campaign first
         const firstId = await createCampaigns();
-        toast.success('Campagne soumise pour vérification ! Vous serez notifié une fois validée.');
+
+        // 2. Create a subscription draft (booking) linked to the campaign
+        const allScreenIds = [
+          ...new Set([...draft.selectedScreenIds, ...draft.catalogSelectedScreenIds]),
+        ];
+
+        const bookingDraft = await apiFetch<any>('/billing/subscription-draft', {
+          method: 'POST',
+          body: JSON.stringify({
+            diffusionTvCount: diffusionTvCount || undefined,
+            catalogueTvCount: catalogueTvCount || undefined,
+            durationMonths,
+            screenIds: allScreenIds,
+            campaignId: firstId,
+          }),
+        });
+
+        // 3. Create Stripe checkout session
+        const currentUrl = window.location.origin;
+        const checkout = await apiFetch<{ sessionId: string; url: string }>('/billing/checkout', {
+          method: 'POST',
+          body: JSON.stringify({
+            bookingId: bookingDraft.id,
+            successUrl: `${currentUrl}/campaigns/${firstId}?payment=success`,
+            cancelUrl: `${currentUrl}/campaigns/${firstId}?payment=cancelled`,
+          }),
+        });
+
+        // 4. Redirect to Stripe checkout
+        if (checkout?.url) {
+          reset();
+          window.location.href = checkout.url;
+          return;
+        }
+
+        // Fallback if no checkout URL
+        toast.success('Campagne créée ! Finalisez le paiement depuis votre espace facturation.');
         reset();
         router.push(firstId ? `/campaigns/${firstId}` : '/campaigns');
       }
@@ -471,8 +508,8 @@ export function StepReview() {
             disabled={isEditing ? isSubmitting : (!allChecksPass || !draft.agreedToTerms || isSubmitting)}
           >
             {isSubmitting
-              ? (isEditing ? 'Enregistrement...' : 'Soumission...')
-              : (isEditing ? 'Sauvegarder' : 'Soumettre pour validation')}
+              ? (isEditing ? 'Enregistrement...' : 'Redirection vers le paiement...')
+              : (isEditing ? 'Sauvegarder' : 'Payer et soumettre')}
           </Button>
         </div>
       </div>

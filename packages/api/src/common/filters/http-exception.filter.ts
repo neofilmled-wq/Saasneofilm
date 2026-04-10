@@ -27,13 +27,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exception.getResponse()
         : 'Internal server error';
 
-    const errorResponse = {
+    const messageObj = typeof message === 'object' && message !== null ? (message as any) : null;
+    const errorResponse: Record<string, any> = {
       statusCode: status,
       timestamp: new Date().toISOString(),
       path: request.url,
       method: request.method,
-      message: typeof message === 'string' ? message : (message as any).message || message,
+      message: typeof message === 'string' ? message : messageObj?.message || message,
     };
+    if (messageObj?.errors) {
+      errorResponse.errors = messageObj.errors;
+    }
 
     if (status >= 500) {
       this.logger.error(

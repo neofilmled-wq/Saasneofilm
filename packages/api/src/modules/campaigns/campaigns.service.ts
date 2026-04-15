@@ -74,9 +74,19 @@ export class CampaignsService {
         include: {
           advertiserOrg: { select: { name: true } },
           _count: { select: { creatives: true } },
+          creatives: {
+            select: { id: true, type: true, fileUrl: true },
+            take: 1,
+          },
+          catalogueListings: {
+            select: { id: true, title: true, imageUrl: true },
+            take: 1,
+          },
           targeting: {
             select: {
-              includedScreens: { select: { id: true, name: true, city: true } },
+              includedScreens: {
+                select: { id: true, name: true, city: true, latitude: true, longitude: true },
+              },
             },
           },
         },

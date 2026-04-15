@@ -10,6 +10,7 @@ import { LoadingPage } from '@/components/common/loading-state';
 import { ErrorState } from '@/components/common/error-state';
 import { CampaignStatusBadge } from '@/components/common/status-badge';
 import { useCampaign, useCampaignGroup, usePublishCampaign } from '@/lib/api/hooks/use-campaigns';
+import { useAdvertiserAnalytics } from '@/lib/api/hooks/use-analytics';
 
 import { formatCurrency, formatDate, formatNumber } from '@/lib/utils';
 
@@ -20,6 +21,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   // If this campaign has a groupId, fetch sibling campaigns
   const { data: groupCampaigns = [] } = useCampaignGroup(campaign?.groupId);
   const isGroup = !!campaign?.groupId && groupCampaigns.length > 1;
+
+  // Real views per creative (from DiffusionLog) — same source as Analytics page
+  const { data: analytics } = useAdvertiserAnalytics();
 
   const publishCampaign = usePublishCampaign();
 
@@ -33,7 +37,13 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
 
   const totalBudget = allCampaigns.reduce((sum: number, c: any) => sum + (c.budgetCents ?? 0), 0);
   const totalScreens = allCampaigns.reduce((sum: number, c: any) => sum + (c.screensCount ?? c.targeting?.includedScreens?.length ?? 0), 0);
-  const totalImpressions = allCampaigns.reduce((sum: number, c: any) => sum + (c.impressions ?? 0), 0);
+
+  // Total views: sum the real views of all creatives belonging to campaigns in this view
+  // Source = /analytics/advertiser (same as Analytics page — based on DiffusionLog)
+  const campaignIdsInView = new Set(allCampaigns.map((c: any) => c.id));
+  const totalImpressions = (analytics?.viewsByCreative ?? [])
+    .filter((v) => v.campaignId && campaignIdsInView.has(v.campaignId))
+    .reduce((sum, v) => sum + (v.totalViews ?? 0), 0);
 
   // Calculate number of months and total budget over the full period
   const start = new Date(campaign.startDate);
@@ -103,14 +113,28 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
         )}
       </div>
 
-      {/* KPI cards */}
-      <div className={`mb-6 grid gap-4 ${isGroup ? 'sm:grid-cols-4' : 'sm:grid-cols-5'}`}>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Diffusions</p>
-            <p className="text-2xl font-bold">{formatNumber(totalImpressions)}</p>
-          </CardContent>
-        </Card>
+      {/* KPI cards — adapted to campaign composition:
+           - Spot TV présent → card "Diffusions"
+           - Catalogue présent → card "Clics catalogue"
+           - Les deux → les deux cards
+      */}
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+        {adSpotCampaign && (
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Diffusions</p>
+              <p className="text-2xl font-bold">{formatNumber(totalImpressions)}</p>
+            </CardContent>
+          </Card>
+        )}
+        {catalogCampaign && (
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Clics catalogue</p>
+              <p className="text-2xl font-bold">0</p>
+            </CardContent>
+          </Card>
+        )}
         {!isGroup && (
           <Card>
             <CardContent className="p-4">

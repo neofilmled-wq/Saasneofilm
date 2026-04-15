@@ -10,6 +10,7 @@ export interface CreativeViews {
   creativeName: string;
   creativeType: string;
   fileUrl: string | null;
+  campaignId: string | null;
   campaignName: string;
   totalViews: number;
   screensCount: number;

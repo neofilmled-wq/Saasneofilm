@@ -127,6 +127,7 @@ export class AnalyticsService {
         creativeName: creative?.name ?? 'Inconnu',
         creativeType: creative?.type ?? 'VIDEO',
         fileUrl: creative?.fileUrl ?? null,
+        campaignId: creative?.campaignId ?? null,
         campaignName: campaign?.name ?? 'Inconnu',
         totalViews: v._count.id,
         screensCount: screensPerCreative.get(v.creativeId) ?? 0,

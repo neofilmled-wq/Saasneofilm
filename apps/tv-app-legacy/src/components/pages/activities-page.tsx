@@ -149,9 +149,10 @@ export function ActivitiesPage({ activities, catalogue = [], macros, targetedAds
                         {CATEGORY_ICONS[cat] || '🏪'}
                       </div>
                     )}
-                    <div className="flex min-w-0 flex-col">
+                    <div className="flex min-w-0 flex-col gap-[0.15em]">
                       <span className="font-semibold text-foreground" style={{ fontSize: '0.9em' }}>{listing.title}</span>
                       {listing.description && <span className="line-clamp-2 text-muted-foreground" style={{ fontSize: '0.75em' }}>{listing.description}</span>}
+                      {listing.address && <span className="line-clamp-1 text-muted-foreground" style={{ fontSize: '0.7em' }}>{listing.address}</span>}
                       {listing.promoCode && <span className="mt-auto rounded bg-green-500/20 px-1.5 py-0.5 font-mono font-bold text-green-400" style={{ fontSize: '0.65em', alignSelf: 'flex-start' }}>{listing.promoCode}</span>}
                     </div>
                   </div>

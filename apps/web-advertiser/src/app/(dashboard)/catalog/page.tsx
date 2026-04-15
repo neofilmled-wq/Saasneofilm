@@ -233,47 +233,151 @@ export default function CatalogPage() {
         </div>
       )}
 
-      {/* TV Preview simulation — shows first active listing */}
+      {/* TV Preview simulation — replicates the real TV ListingDetailPage */}
       {listings.some((l) => l.status === 'ACTIVE') && (
         <Card className="mt-8">
           <CardContent className="p-6">
             <h3 className="mb-4 font-semibold flex items-center gap-2">
               <Eye className="h-4 w-4" /> Aperçu sur écran TV
             </h3>
-            <div className="mx-auto max-w-2xl">
-              <div className="rounded-xl border-4 border-gray-800 bg-black p-4">
-                <div className="aspect-video rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 p-6">
-                  <p className="mb-4 text-lg font-bold text-white">Découvrir la ville</p>
-                  {listings
-                    .filter((l) => l.status === 'ACTIVE')
-                    .slice(0, 1)
-                    .map((listing) => (
-                      <div key={listing.id} className="rounded-lg bg-white/90 p-4">
-                        <div className="flex gap-4">
-                          {listing.imageUrl && (
-                            <div className="h-20 w-32 overflow-hidden rounded bg-muted flex-shrink-0">
-                              <img src={listing.imageUrl} alt="" className="h-full w-full object-cover" />
-                            </div>
-                          )}
-                          <div>
-                            <p className="font-semibold">{listing.title}</p>
-                            <p className="text-sm text-muted-foreground line-clamp-2">{listing.description}</p>
-                            {listing.promoCode && (
-                              <p className="mt-1 text-sm font-bold text-green-600">
-                                Code promo: {listing.promoCode}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                </div>
+            <div className="mx-auto max-w-4xl">
+              {/* TV frame */}
+              <div className="rounded-2xl border-[6px] border-gray-900 bg-gray-900 shadow-2xl overflow-hidden">
+                {listings
+                  .filter((l) => l.status === 'ACTIVE')
+                  .slice(0, 1)
+                  .map((listing) => (
+                    <TvListingDetailPreview key={listing.id} listing={listing} />
+                  ))}
               </div>
-              <p className="mt-2 text-center text-xs text-muted-foreground">Simulation de l'affichage sur écran TV</p>
+              <p className="mt-2 text-center text-xs text-muted-foreground">Simulation de l'affichage sur écran TV (aperçu statique)</p>
             </div>
           </CardContent>
         </Card>
       )}
     </>
+  );
+}
+
+/* ══════════════════════════════ TV PREVIEW ══════════════════════════════
+ * Mirrors apps/tv-app/src/components/pages/listing-detail-page.tsx
+ * Kept in sync manually — if the TV version changes, update here too.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+const TV_CATEGORY_ICONS: Record<string, string> = {
+  RESTAURANT: '🍽', SPA: '💆', SPORT: '⚽', CULTURE: '🎭',
+  NIGHTLIFE: '🌙', SHOPPING: '🛍', TRANSPORT: '🚌', OTHER: '📍',
+};
+
+function TvListingDetailPreview({ listing }: { listing: CatalogueListing }) {
+  const category = listing.category || 'OTHER';
+  const icon = TV_CATEGORY_ICONS[category] ?? '📍';
+
+  return (
+    <div
+      className="relative flex aspect-video w-full items-start gap-[3%] overflow-hidden p-[3.5%]"
+      style={{
+        background: 'linear-gradient(135deg, #0a0e1a 0%, #111827 100%)',
+        color: '#e5e7eb',
+      }}
+    >
+      {/* Image / thumbnail */}
+      <div
+        className="relative shrink-0 overflow-hidden rounded-2xl bg-gray-800"
+        style={{ width: '38%', aspectRatio: '4/3' }}
+      >
+        {listing.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={listing.imageUrl}
+            alt={listing.title}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2">
+            <span style={{ fontSize: '3em' }}>{icon}</span>
+            <span className="text-gray-400" style={{ fontSize: '0.75em' }}>{category}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Info panel */}
+      <div className="flex min-w-0 flex-1 flex-col gap-[1.1em]">
+        {/* Category label */}
+        <span
+          className="text-orange-400"
+          style={{ fontSize: '0.75em', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}
+        >
+          {icon} {category}
+        </span>
+
+        {/* Title */}
+        <h1
+          className="font-bold"
+          style={{ fontSize: '1.75em', lineHeight: 1.15, margin: 0, color: '#f9fafb' }}
+        >
+          {listing.title}
+        </h1>
+
+        {/* Description */}
+        {listing.description && (
+          <p
+            className="text-gray-300"
+            style={{ fontSize: '0.85em', lineHeight: 1.5, maxWidth: '55ch' }}
+          >
+            {listing.description}
+          </p>
+        )}
+
+        {/* Meta info */}
+        <div className="flex flex-col gap-[0.4em]">
+          {listing.address && (
+            <span className="text-gray-400" style={{ fontSize: '0.8em' }}>
+              📍 {listing.address}
+            </span>
+          )}
+          {listing.phone && (
+            <span className="text-gray-400" style={{ fontSize: '0.8em' }}>
+              📞 {listing.phone}
+            </span>
+          )}
+          {listing.promoCode && (
+            <div className="flex items-center gap-2" style={{ marginTop: '0.25em' }}>
+              <span className="text-gray-400" style={{ fontSize: '0.75em' }}>Code promo :</span>
+              <span
+                className="rounded-lg bg-green-500/20 px-3 py-1 font-mono font-bold text-green-400"
+                style={{ fontSize: '0.85em', letterSpacing: '0.1em' }}
+              >
+                {listing.promoCode}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div className="mt-auto flex flex-col gap-[0.6em]" style={{ paddingTop: '0.8em' }}>
+          {listing.ctaUrl && (
+            <button
+              type="button"
+              disabled
+              className="flex items-center gap-2 rounded-xl border-2 border-cyan-400 bg-cyan-400/10 px-6 py-2.5 font-semibold text-cyan-300 shadow-[0_0_20px_rgba(34,211,238,0.25)]"
+              style={{ fontSize: '0.9em', maxWidth: '22em' }}
+            >
+              <span>🌐</span>
+              <span>Visiter le site</span>
+            </button>
+          )}
+          <button
+            type="button"
+            disabled
+            className="flex items-center gap-2 rounded-xl border border-gray-700 bg-gray-800/60 px-6 py-2.5 font-semibold text-gray-300"
+            style={{ fontSize: '0.9em', maxWidth: '22em' }}
+          >
+            <span>←</span>
+            <span>Retour</span>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

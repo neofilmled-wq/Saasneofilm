@@ -33,9 +33,9 @@ export default function MediaLibraryPage() {
         description="Gérez vos vidéos et images publicitaires"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-1.5" onClick={() => setCanvaOpen(true)}>
+            {/* <Button variant="outline" className="gap-1.5" onClick={() => setCanvaOpen(true)}>
               <Paintbrush className="h-4 w-4" /> Créer avec Canva
-            </Button>
+            </Button> */}
             <Button className="gap-1.5">
               <Upload className="h-4 w-4" /> Uploader un média
             </Button>
@@ -112,7 +112,7 @@ export default function MediaLibraryPage() {
                 {media.status === 'READY' && media.campaignId && (
                   <Link href={`/campaigns/${media.campaignId}`} className="mt-2 block">
                     <Button size="sm" variant="outline" className="w-full gap-1.5 text-xs">
-                      <Megaphone className="h-3 w-3" /> Diffuser ma campagne
+                      <Megaphone className="h-3 w-3" /> Voir la campagne
                     </Button>
                   </Link>
                 )}

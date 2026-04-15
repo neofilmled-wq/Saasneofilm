@@ -27,7 +27,7 @@ import { TransformInterceptor, LoggingInterceptor } from './common/interceptors'
 import { RedisIoAdapter } from './modules/realtime/redis-io-adapter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const logger = new Logger('Bootstrap');
 
   // Redis adapter for multi-instance Socket.IO

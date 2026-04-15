@@ -945,6 +945,7 @@ export class AdminService {
             screenLiveStatus: true,
             tvConfig: true,
             devices: { select: { id: true, status: true, appVersion: true, lastPingAt: true }, take: 1 },
+            screenFill: { select: { activeAdvertiserCount: true } },
             _count: { select: { bookingScreens: { where: { booking: { status: 'ACTIVE' } } } } },
           },
           orderBy: { createdAt: 'desc' },

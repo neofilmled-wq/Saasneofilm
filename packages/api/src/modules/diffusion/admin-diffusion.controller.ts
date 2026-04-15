@@ -7,7 +7,6 @@ import {
   Req,
   HttpCode,
   HttpStatus,
-  UsePipes,
   Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -59,9 +58,8 @@ export class AdminDiffusionController {
   @Post('override')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Force, block, or pause a campaign on screens' })
-  @UsePipes(new ZodValidationPipe(adminOverrideSchema))
   async createOverride(
-    @Body() body: any,
+    @Body(new ZodValidationPipe(adminOverrideSchema)) body: any,
     @CurrentUser() user: any,
     @Req() req: Request,
   ) {
@@ -99,9 +97,8 @@ export class AdminDiffusionController {
   @Post('pause-campaign')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Pause a campaign' })
-  @UsePipes(new ZodValidationPipe(pauseCampaignSchema))
   async pauseCampaign(
-    @Body() body: any,
+    @Body(new ZodValidationPipe(pauseCampaignSchema)) body: any,
     @CurrentUser() user: any,
   ) {
     const campaign = await this.prisma.campaign.findUnique({
@@ -151,9 +148,8 @@ export class AdminDiffusionController {
   @Post('block-screen')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Block a screen from showing ads' })
-  @UsePipes(new ZodValidationPipe(blockScreenSchema))
   async blockScreen(
-    @Body() body: any,
+    @Body(new ZodValidationPipe(blockScreenSchema)) body: any,
     @CurrentUser() user: any,
     @Req() req: Request,
   ) {

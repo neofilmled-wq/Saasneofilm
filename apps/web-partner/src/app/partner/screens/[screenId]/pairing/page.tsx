@@ -2,7 +2,7 @@
 
 import { use, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Smartphone, Tv, CheckCircle2, Loader2, ShieldOff, MonitorSmartphone } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2, ShieldOff, MonitorSmartphone, Download, PackageOpen, ArrowRight } from 'lucide-react';
 import {
   Button,
   Card,
@@ -23,7 +23,27 @@ import { useConfirmPairing, useRevokeDevice } from '@/hooks/use-device-pairing';
 import { useAuth } from '@/providers/auth-provider';
 import { formatRelative } from '@/lib/utils';
 
-type PairingStep = 'select_type' | 'enter_pin' | 'success';
+type PairingStep = 'download_apk' | 'enter_pin' | 'success';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+async function downloadApk() {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('neofilm_partner_token') : null;
+  if (!token) throw new Error('Non authentifié');
+  const res = await fetch(`${API_URL}/tv-app-download/apk`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`Téléchargement impossible (${res.status})`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'neofilm.apk';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 export default function PairingPage({
   params,
@@ -37,21 +57,25 @@ export default function PairingPage({
   const confirmPairing = useConfirmPairing();
   const revokeDevice = useRevokeDevice();
 
-  const [step, setStep] = useState<PairingStep>('enter_pin');
-  const [deviceType, setDeviceType] = useState<'android_stick' | 'smart_tv_app'>('android_stick');
+  const [step, setStep] = useState<PairingStep>('download_apk');
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [revokeOpen, setRevokeOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadApk = async () => {
+    try {
+      setDownloading(true);
+      await downloadApk();
+    } catch (err: any) {
+      alert(err.message ?? 'Erreur lors du téléchargement');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   if (isLoading) return <LoadingState />;
   if (!screen) return <ErrorState />;
-
-  const handleSelectType = (type: 'android_stick' | 'smart_tv_app') => {
-    setDeviceType(type);
-    setPin('');
-    setPinError('');
-    setStep('enter_pin');
-  };
 
   const handleConfirm = async () => {
     if (!pin.match(/^\d{6}$/)) {
@@ -68,7 +92,7 @@ export default function PairingPage({
   };
 
   const hasDevice = !!device;
-  const steps: PairingStep[] = ['select_type', 'enter_pin', 'success'];
+  const steps: PairingStep[] = ['download_apk', 'enter_pin', 'success'];
 
   return (
     <div className="space-y-6">
@@ -81,7 +105,7 @@ export default function PairingPage({
         </Button>
       </PageHeader>
 
-      {hasDevice && step === 'select_type' && (
+      {hasDevice && step === 'download_apk' && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Appareil actuel</CardTitle>
@@ -96,7 +120,7 @@ export default function PairingPage({
                 <StatusBadge status={device.status === 'ONLINE' ? 'online' : 'offline'} />
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => handleSelectType(deviceType)}>
+                <Button variant="outline" size="sm" onClick={() => setStep('enter_pin')}>
                   Remplacer l'appareil
                 </Button>
                 <Button variant="destructive" size="sm" onClick={() => setRevokeOpen(true)}>
@@ -130,34 +154,46 @@ export default function PairingPage({
         ))}
       </div>
 
-      {/* Step 1 — Select device type */}
-      {step === 'select_type' && !hasDevice && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
-          <Card
-            className="cursor-pointer hover:border-primary transition-colors"
-            onClick={() => handleSelectType('android_stick')}
-          >
-            <CardContent className="p-6 text-center">
-              <Smartphone className="h-12 w-12 mx-auto mb-4 text-primary" />
-              <CardTitle className="text-base mb-2">Android Stick</CardTitle>
-              <CardDescription>
-                Branchez un stick Android (Xiaomi, Fire TV, etc.) sur votre TV
-              </CardDescription>
-            </CardContent>
-          </Card>
-          <Card
-            className="cursor-pointer hover:border-primary transition-colors"
-            onClick={() => handleSelectType('smart_tv_app')}
-          >
-            <CardContent className="p-6 text-center">
-              <Tv className="h-12 w-12 mx-auto mb-4 text-primary" />
-              <CardTitle className="text-base mb-2">Smart TV App</CardTitle>
-              <CardDescription>
-                Installez l'app NeoFilm directement sur votre Smart TV
-              </CardDescription>
-            </CardContent>
-          </Card>
-        </div>
+      {/* Step 1 — Download APK (optional) */}
+      {step === 'download_apk' && !hasDevice && (
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <PackageOpen className="h-5 w-5" />
+              Installer l'application NeoFilm TV
+            </CardTitle>
+            <CardDescription>
+              Téléchargez l'APK et installez-la sur votre appareil Android (stick, box, Smart TV). Si l'app est déjà installée, passez directement à l'étape suivante.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <ol className="text-sm space-y-2 text-muted-foreground list-decimal list-inside">
+              <li>Téléchargez l'APK ci-dessous sur un ordinateur ou directement sur l'appareil</li>
+              <li>Autorisez l'installation depuis des <strong className="text-foreground">sources inconnues</strong> dans les paramètres Android</li>
+              <li>Installez l'APK puis ouvrez l'application <strong className="text-foreground">NeoFilm</strong></li>
+            </ol>
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleDownloadApk}
+              disabled={downloading}
+            >
+              {downloading ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Téléchargement…</>
+              ) : (
+                <><Download className="mr-2 h-4 w-4" /> Télécharger l'APK NeoFilm TV</>
+              )}
+            </Button>
+
+            <div className="flex gap-3">
+              <Button className="flex-1" onClick={() => setStep('enter_pin')}>
+                J'ai déjà l'application
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Step 2 — Enter PIN shown on TV */}
@@ -166,7 +202,7 @@ export default function PairingPage({
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <MonitorSmartphone className="h-5 w-5" />
-              {deviceType === 'android_stick' ? 'Android Stick' : 'Smart TV App'} — Entrez le code PIN
+              Entrez le code PIN
             </CardTitle>
             <CardDescription>
               Démarrez l'application NeoFilm sur votre appareil. Un code PIN à 6 chiffres s'affiche à l'écran.
@@ -200,7 +236,7 @@ export default function PairingPage({
             </div>
 
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setStep('select_type')}>
+              <Button variant="outline" className="flex-1" onClick={() => setStep('download_apk')}>
                 Retour
               </Button>
               <Button

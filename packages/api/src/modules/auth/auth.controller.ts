@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Get, Query, Req, Res, UsePipes, HttpCode, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Post, Get, Query, Req, Res, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
@@ -19,8 +19,10 @@ export class AuthController {
   @Public()
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
-  @UsePipes(new ZodValidationPipe(registerSchema))
-  async register(@Body() body: any, @Req() req: Request) {
+  async register(
+    @Body(new ZodValidationPipe(registerSchema)) body: any,
+    @Req() req: Request,
+  ) {
     const ipAddress = req.ip || req.socket.remoteAddress;
     return this.authService.register(body, ipAddress);
   }
@@ -38,8 +40,10 @@ export class AuthController {
       },
     },
   })
-  @UsePipes(new ZodValidationPipe(loginSchema))
-  async login(@Body() body: any, @Req() req: Request) {
+  async login(
+    @Body(new ZodValidationPipe(loginSchema)) body: any,
+    @Req() req: Request,
+  ) {
     const ipAddress = req.ip || req.socket.remoteAddress;
     const userAgent = req.headers['user-agent'];
     return this.authService.login(body.email, body.password, ipAddress, userAgent);
@@ -49,8 +53,10 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token using refresh token' })
-  @UsePipes(new ZodValidationPipe(refreshTokenSchema))
-  async refresh(@Body() body: any, @Req() req: Request) {
+  async refresh(
+    @Body(new ZodValidationPipe(refreshTokenSchema)) body: any,
+    @Req() req: Request,
+  ) {
     const ipAddress = req.ip || req.socket.remoteAddress;
     const userAgent = req.headers['user-agent'];
     return this.authService.refreshTokens(body.refreshToken, ipAddress, userAgent);

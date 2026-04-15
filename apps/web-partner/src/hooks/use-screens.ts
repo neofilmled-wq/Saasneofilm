@@ -57,6 +57,10 @@ function mapApiScreen(raw: any): ScreenWithStatus {
     updatedAt: raw.updatedAt,
     liveStatus,
     healthScore,
+    capacityMaxAdvertisers: raw.capacityMaxAdvertisers ?? 40,
+    screenFill: raw.screenFill
+      ? { activeAdvertiserCount: raw.screenFill.activeAdvertiserCount ?? 0 }
+      : undefined,
   };
 }
 

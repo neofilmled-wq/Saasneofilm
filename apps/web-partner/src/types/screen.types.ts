@@ -32,6 +32,8 @@ export interface ScreenWithStatus {
   updatedAt: string;
   liveStatus?: ScreenLiveStatus;
   healthScore?: number;
+  capacityMaxAdvertisers?: number;
+  screenFill?: { activeAdvertiserCount: number };
 }
 
 export interface ScreenFilters {

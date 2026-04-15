@@ -7,7 +7,6 @@ import {
   Req,
   HttpCode,
   HttpStatus,
-  UsePipes,
   Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -75,8 +74,7 @@ export class DeviceSyncController {
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Submit diffusion proof batch' })
   @Throttle({ default: { limit: 10, ttl: 60000 } })
-  @UsePipes(new ZodValidationPipe(diffusionLogBatchSchema))
-  async submitProofBatch(@Body() body: any) {
+  async submitProofBatch(@Body(new ZodValidationPipe(diffusionLogBatchSchema)) body: any) {
     const result = await this.deviceSyncService.processProofBatch(
       body.deviceId,
       body.batchId,
@@ -104,8 +102,7 @@ export class DeviceSyncController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Device heartbeat with playback status' })
   @Throttle({ default: { limit: 60, ttl: 60000 } })
-  @UsePipes(new ZodValidationPipe(diffusionHeartbeatSchema))
-  async heartbeat(@Body() body: any) {
+  async heartbeat(@Body(new ZodValidationPipe(diffusionHeartbeatSchema)) body: any) {
     return this.deviceSyncService.processHeartbeat(body);
   }
 
@@ -117,8 +114,7 @@ export class DeviceSyncController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Report cached creatives on device' })
   @Throttle({ default: { limit: 6, ttl: 3600000 } }) // 6 per hour
-  @UsePipes(new ZodValidationPipe(cacheReportSchema))
-  async cacheReport(@Body() body: any) {
+  async cacheReport(@Body(new ZodValidationPipe(cacheReportSchema)) body: any) {
     return this.deviceSyncService.processCacheReport(body);
   }
 }

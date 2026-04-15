@@ -133,21 +133,22 @@ function ScreenRow({ screen, onAction, onDelete, onPair }: {
         )}
       </TableCell>
       <TableCell>
-        <div className="flex items-center gap-1">
-          <div
-            className="h-2 rounded-full bg-primary/30 relative overflow-hidden"
-            style={{ width: '60px' }}
-            title={`${screen.activeAdsCount} / ${screen.capacityMax} annonceurs`}
-          >
-            <div
-              className="absolute inset-y-0 left-0 bg-primary rounded-full"
-              style={{ width: `${Math.min(100, (screen.activeAdsCount / Math.max(1, screen.capacityMax)) * 100)}%` }}
-            />
-          </div>
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
-            {screen.activeAdsCount}/{screen.capacityMax}
-          </span>
-        </div>
+        {(() => {
+          const fill = screen.screenFill?.activeAdvertiserCount ?? 0;
+          const max = screen.capacityMaxAdvertisers ?? 40;
+          const pct = Math.round((fill / max) * 100);
+          const color = fill >= max ? 'bg-red-500' : fill >= 1 ? 'bg-yellow-500' : 'bg-green-500';
+          return (
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-16 rounded-full bg-muted relative overflow-hidden">
+                <div className={`absolute inset-y-0 left-0 rounded-full ${color}`} style={{ width: `${pct}%` }} />
+              </div>
+              <span className="text-xs font-medium tabular-nums whitespace-nowrap">
+                {fill}/{max}
+              </span>
+            </div>
+          );
+        })()}
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-1">

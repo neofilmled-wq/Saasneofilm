@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Res, UsePipes } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { AdminGateway } from './admin.gateway';
@@ -42,8 +42,7 @@ export class AdminController {
   @Roles('ADMIN', 'SUPER_ADMIN')
   @Permissions('users:write')
   @ApiOperation({ summary: 'Create a platform user' })
-  @UsePipes(new ZodValidationPipe(adminCreateUserSchema))
-  async createUser(@Body() data: any) {
+  async createUser(@Body(new ZodValidationPipe(adminCreateUserSchema)) data: any) {
     const result = await this.adminService.createUser(data);
     this.adminGateway.emitUsersChanged();
     return result;

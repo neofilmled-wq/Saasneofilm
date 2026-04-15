@@ -5,7 +5,6 @@ import {
   Patch,
   Param,
   Body,
-  UsePipes,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -30,10 +29,9 @@ export class BillingController {
   @Post('booking-draft')
   @Permissions('billing:write')
   @ApiOperation({ summary: 'Create a booking draft with selected screens' })
-  @UsePipes(new ZodValidationPipe(createBookingDraftSchema))
   async createBookingDraft(
     @CurrentUser() user: any,
-    @Body() body: any,
+    @Body(new ZodValidationPipe(createBookingDraftSchema)) body: any,
   ) {
     return this.billingService.createBookingDraft(user.orgId, body);
   }
@@ -52,10 +50,9 @@ export class BillingController {
   @Permissions('billing:write')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Create a Stripe checkout session for a booking' })
-  @UsePipes(new ZodValidationPipe(createCheckoutSchema))
   async createCheckout(
     @CurrentUser() user: any,
-    @Body() body: any,
+    @Body(new ZodValidationPipe(createCheckoutSchema)) body: any,
   ) {
     return this.billingService.createCheckoutSession(
       body.bookingId,
@@ -82,11 +79,10 @@ export class BillingController {
   @Patch('booking/:bookingId/screens')
   @Permissions('billing:write')
   @ApiOperation({ summary: 'Add or remove screens from an active booking' })
-  @UsePipes(new ZodValidationPipe(updateBookingScreensSchema))
   async updateBookingScreens(
     @CurrentUser() user: any,
     @Param('bookingId') bookingId: string,
-    @Body() body: any,
+    @Body(new ZodValidationPipe(updateBookingScreensSchema)) body: any,
   ) {
     return this.billingService.updateBookingScreens(
       bookingId,
@@ -99,10 +95,9 @@ export class BillingController {
   @Post('subscription-draft')
   @Permissions('billing:write')
   @ApiOperation({ summary: 'Create a subscription draft with pack pricing (diffusion/catalogue)' })
-  @UsePipes(new ZodValidationPipe(createSubscriptionDraftSchema))
   async createSubscriptionDraft(
     @CurrentUser() user: any,
-    @Body() body: any,
+    @Body(new ZodValidationPipe(createSubscriptionDraftSchema)) body: any,
   ) {
     return this.billingService.createSubscriptionDraft(user.orgId, body);
   }
@@ -111,10 +106,9 @@ export class BillingController {
   @Permissions('billing:write')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Purchase AI credits via Stripe checkout' })
-  @UsePipes(new ZodValidationPipe(purchaseAiCreditsSchema))
   async purchaseAiCredits(
     @CurrentUser() user: any,
-    @Body() body: any,
+    @Body(new ZodValidationPipe(purchaseAiCreditsSchema)) body: any,
   ) {
     return this.billingService.purchaseAiCredits(
       user.orgId,

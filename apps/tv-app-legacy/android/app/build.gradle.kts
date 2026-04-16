@@ -20,11 +20,11 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "TV_APP_URL", "\"https://kiki.alkaya.fr/tv-legacy\"")
+            buildConfigField("String", "TV_APP_URL", "\"https://neofilmapi.alkaya.fr/tv-legacy\"")
             isDebuggable = true
         }
         release {
-            buildConfigField("String", "TV_APP_URL", "\"https://kiki.alkaya.fr/tv-legacy\"")
+            buildConfigField("String", "TV_APP_URL", "\"https://neofilmapi.alkaya.fr/tv-legacy\"")
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

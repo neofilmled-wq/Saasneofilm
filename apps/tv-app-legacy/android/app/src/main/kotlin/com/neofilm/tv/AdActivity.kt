@@ -21,6 +21,10 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.TextView
 import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.UUID
 
 class AdActivity : Activity() {
 
@@ -36,6 +40,8 @@ class AdActivity : Activity() {
     private var adQueue = mutableListOf<AdData>()
     private var totalAds = 0
     private var isTransitioning = false
+    private var adStartTime: Long = 0
+    private var currentAd: AdData? = null
 
     private lateinit var container: FrameLayout
     private lateinit var textureView: TextureView
@@ -141,6 +147,7 @@ class AdActivity : Activity() {
 
         isTransitioning = true
         val ad = adQueue.removeAt(0)
+        currentAd = ad
         val adNumber = totalAds - adQueue.size
 
         badge.text = "Publicite - ${ad.advertiserName} ($adNumber/$totalAds)"
@@ -177,16 +184,21 @@ class AdActivity : Activity() {
 
             mp.setOnPreparedListener {
                 isTransitioning = false
+                adStartTime = System.currentTimeMillis()
                 it.start()
                 Log.i(TAG, "Playing: ${ad.advertiserName} ($adNumber/$totalAds)")
                 startSkipCountdown()
             }
             mp.setOnCompletionListener {
-                Log.i(TAG, "Done: ${ad.advertiserName}")
+                val durationMs = System.currentTimeMillis() - adStartTime
+                Log.i(TAG, "Completed: ${ad.advertiserName} (${durationMs}ms)")
+                reportImpression(ad, durationMs)
                 handler.post { playNextAd() }
             }
             mp.setOnErrorListener { _, what, extra ->
-                Log.e(TAG, "Video error: what=$what extra=$extra")
+                val durationMs = System.currentTimeMillis() - adStartTime
+                Log.e(TAG, "Video error: what=$what extra=$extra (${durationMs}ms)")
+                if (durationMs > 1000) reportImpression(ad, durationMs)
                 handler.post { playNextAd() }
                 true
             }
@@ -213,6 +225,11 @@ class AdActivity : Activity() {
                 skip.isFocusable = true
                 skip.setOnClickListener {
                     if (isTransitioning) return@setOnClickListener
+                    val durationMs = System.currentTimeMillis() - adStartTime
+                    currentAd?.let { ad ->
+                        Log.i(TAG, "Skipped: ${ad.advertiserName} (${durationMs}ms)")
+                        reportImpression(ad, durationMs)
+                    }
                     try { currentPlayer?.stop() } catch (_: Exception) {}
                     handler.post { playNextAd() }
                 }
@@ -235,6 +252,59 @@ class AdActivity : Activity() {
         currentTimer?.cancel()
         try { currentPlayer?.release() } catch (_: Exception) {}
         super.onDestroy()
+    }
+
+    private fun reportImpression(ad: AdData, durationMs: Long) {
+        Thread {
+            try {
+                val prefs = getSharedPreferences("neofilm_tv_prefs", MODE_PRIVATE)
+                val apiUrl = prefs.getString("api_url", null) ?: return@Thread
+                val token = prefs.getString("device_token", null) ?: return@Thread
+                val deviceId = prefs.getString("device_id", null) ?: return@Thread
+                val screenId = prefs.getString("screen_id", null) ?: return@Thread
+
+                val now = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+                    .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+                val endTime = now.format(java.util.Date())
+                val startTime = now.format(java.util.Date(System.currentTimeMillis() - durationMs))
+
+                val proof = JSONObject().apply {
+                    put("proofId", UUID.randomUUID().toString())
+                    put("screenId", screenId)
+                    put("campaignId", ad.campaignId)
+                    put("creativeId", ad.creativeId)
+                    put("startTime", startTime)
+                    put("endTime", endTime)
+                    put("durationMs", durationMs)
+                    put("triggerContext", "SCHEDULED")
+                    put("appVersion", "0.2.0")
+                    put("mediaHash", ad.fileUrl.hashCode().toString(16))
+                    put("signature", "none")
+                }
+
+                val body = JSONObject().apply {
+                    put("deviceId", deviceId)
+                    put("batchId", UUID.randomUUID().toString())
+                    put("proofs", JSONArray().put(proof))
+                }
+
+                val url = URL("$apiUrl/diffusion/log")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.setRequestProperty("Authorization", "Bearer $token")
+                conn.connectTimeout = 10000
+                conn.readTimeout = 10000
+                conn.doOutput = true
+                conn.outputStream.write(body.toString().toByteArray())
+
+                val code = conn.responseCode
+                Log.i(TAG, "Impression reported: HTTP $code (campaign=${ad.campaignId.takeLast(6)})")
+                conn.disconnect()
+            } catch (e: Exception) {
+                Log.w(TAG, "Impression report failed: ${e.message}")
+            }
+        }.start()
     }
 
     private fun parseAds(json: String): List<AdData> {

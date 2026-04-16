@@ -131,7 +131,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
           <Card>
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground">Clics catalogue</p>
-              <p className="text-2xl font-bold">0</p>
+              <p className="text-2xl font-bold">{formatNumber(
+                (catalogCampaign.catalogueListings ?? []).reduce((sum: number, l: any) => sum + (l.clickCount ?? 0), 0)
+              )}</p>
             </CardContent>
           </Card>
         )}

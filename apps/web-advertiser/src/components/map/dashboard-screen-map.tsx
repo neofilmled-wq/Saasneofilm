@@ -33,11 +33,7 @@ interface DashboardScreen {
 }
 
 function isValidCoord(s: DashboardScreen) {
-  return (
-    s.latitude != null &&
-    s.longitude != null &&
-    !(s.latitude === 0 && s.longitude === 0)
-  );
+  return s.latitude != null && s.longitude != null;
 }
 
 function FitBounds({ screens }: { screens: DashboardScreen[] }) {
@@ -73,7 +69,7 @@ export function DashboardScreenMap({ screens, highlightedIds }: DashboardScreenM
       zoom={6}
       className="h-full w-full"
       style={{ minHeight: '300px' }}
-      scrollWheelZoom={false}
+      scrollWheelZoom={true}
     >
       <TileLayer
         attribution='&copy; OpenStreetMap'

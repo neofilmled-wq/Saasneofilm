@@ -8,11 +8,14 @@ import {
   Body,
   Query,
   Req,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CatalogueService } from './catalogue.service';
 import { StorageService } from '../storage/storage.service';
 import { SanitizePipe } from '../../common/pipes';
+import { Public } from '../../common/decorators';
 
 @ApiTags('Catalogue')
 @ApiBearerAuth()
@@ -65,6 +68,13 @@ export class CatalogueController {
   @ApiOperation({ summary: 'Delete a catalogue listing' })
   async remove(@Param('id') id: string, @Req() req: any) {
     return this.catalogueService.remove(id, req.user?.orgId);
+  }
+
+  @Post(':id/click')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Register a click on a catalogue listing (called by TV app, requires device or user token)' })
+  async registerClick(@Param('id') id: string) {
+    return this.catalogueService.registerClick(id);
   }
 
   /**

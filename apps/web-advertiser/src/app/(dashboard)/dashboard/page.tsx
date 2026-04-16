@@ -209,9 +209,14 @@ export default function AdvertiserDashboard() {
     [campaigns, statusFilter],
   );
 
-  // Nombre de clics sur le catalogue — pas encore de tracking côté API, on affiche 0
-  const clicks = 0;
-  const clickTrend: number[] = [];
+  // Nombre de clics sur le catalogue — somme de clickCount de tous les listings
+  const { data: catalogueData } = useQuery({
+    queryKey: ['advertiser-catalogue-clicks', user?.orgId],
+    queryFn: () => apiFetch(`/advertiser/catalogue${user?.orgId ? `?advertiserOrgId=${user.orgId}` : ''}`),
+    enabled: !!user,
+  });
+  const catalogueListings: any[] = Array.isArray(catalogueData?.data) ? catalogueData.data : Array.isArray(catalogueData) ? catalogueData : [];
+  const clicks = catalogueListings.reduce((sum: number, l: any) => sum + (l.clickCount ?? 0), 0);
 
   // ── Diffusions / Vues avec toggle période ──
   // Source: /analytics/advertiser (même endpoint que la page Analytiques)

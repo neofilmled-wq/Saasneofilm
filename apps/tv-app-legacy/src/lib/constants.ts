@@ -1,26 +1,13 @@
-// Use relative URL for API so it goes through the Next.js rewrite proxy.
-// This avoids firewall issues when running in the Android emulator.
-// The proxy in next.config.ts rewrites /api/v1/* → http://localhost:3001/api/v1/*
+// Use NEXT_PUBLIC_API_URL on both client and server to call the API directly
+// (e.g. https://neofilmapi.alkaya.fr/api/v1) instead of relying on the
+// hostname the TV app is served from.
 function getApiUrl() {
-  if (typeof window !== 'undefined') {
-    // Client-side: use relative URL (proxied by Next.js rewrite)
-    return '/api/v1';
-  }
-  // Server-side: call API directly
   return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 }
 
 function getWsUrl() {
-  if (typeof window !== 'undefined') {
-    const { protocol, hostname } = window.location;
-    // Production (HTTPS): WebSocket must also use HTTPS (wss://) to avoid mixed content.
-    // NPM reverse proxy routes /socket.io → api:3001 with WebSocket support.
-    if (protocol === 'https:') {
-      return `https://${hostname}`;
-    }
-    // Local dev (HTTP): connect directly to API on port 3001
-    return `http://${hostname}:3001`;
-  }
+  // Always use the configured NEXT_PUBLIC_WS_URL (e.g. https://neofilmapi.alkaya.fr)
+  // so the WebSocket targets the same API host as the REST calls.
   return process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001';
 }
 

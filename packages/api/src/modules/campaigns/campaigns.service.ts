@@ -177,6 +177,9 @@ export class CampaignsService {
       include: {
         advertiserOrg: true,
         creatives: true,
+        catalogueListings: {
+          select: { id: true, title: true, clickCount: true },
+        },
         targeting: {
           include: {
             includedScreens: {

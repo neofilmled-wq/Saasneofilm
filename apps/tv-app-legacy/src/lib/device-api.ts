@@ -375,6 +375,12 @@ export const deviceApi = {
   /** Get bootstrap data (all TV data in one call) */
   getBootstrap: () => deviceFetch<TvBootstrapResponse>('/tv/bootstrap'),
 
+  /** Register a click on a catalogue listing */
+  registerCatalogueClick: (listingId: string) =>
+    deviceFetch<{ id: string; clickCount: number }>(`/advertiser/catalogue/${listingId}/click`, {
+      method: 'POST',
+    }),
+
   /** Report an ad impression (diffusion proof batch format) */
   reportImpression: (data: {
     deviceId: string;

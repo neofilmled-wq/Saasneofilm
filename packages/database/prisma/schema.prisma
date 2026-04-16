@@ -1948,6 +1948,8 @@ model CatalogueListing {
   startDate DateTime?
   endDate   DateTime?
 
+  clickCount Int @default(0)
+
   screens CatalogueListingScreen[]
 
   createdAt DateTime @default(now())

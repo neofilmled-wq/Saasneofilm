@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { ActivityPlace, CatalogueListing, TvAdItem, TvMacroResponse } from '@/lib/device-api';
-import { resolveMediaUrl } from '@/lib/device-api';
+import { resolveMediaUrl, deviceApi } from '@/lib/device-api';
 import { AdZone } from '@/components/layout/ad-zone';
 import { useDpadNavigation } from '@/hooks/use-dpad-navigation';
 import { ListingDetailPage } from '@/components/pages/listing-detail-page';
@@ -138,8 +138,8 @@ export function ActivitiesPage({ activities, catalogue = [], macros, targetedAds
                   <div key={`cat-${listing.id}`} data-tv-focusable role="button" tabIndex={0}
                     className="tv-card relative flex w-full gap-[0.75em] text-left"
                     style={{ padding: '0.75em', borderRadius: '0.75rem', cursor: 'pointer' }}
-                    onClick={() => setSelectedItem(listing)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') setSelectedItem(listing); }}
+                    onClick={() => { deviceApi.registerCatalogueClick(listing.id).catch(() => {}); setSelectedItem(listing); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { deviceApi.registerCatalogueClick(listing.id).catch(() => {}); setSelectedItem(listing); } }}
                   >
                     {listing.imageUrl ? (
                       <img src={resolveMediaUrl(listing.imageUrl)} alt={listing.title} className="shrink-0 rounded-lg object-cover" style={{ width: '5em', height: '5em' }}

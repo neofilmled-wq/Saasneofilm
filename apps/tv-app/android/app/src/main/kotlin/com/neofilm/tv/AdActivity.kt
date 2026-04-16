@@ -85,7 +85,7 @@ class AdActivity : Activity() {
         setContentView(webView)
 
         val html = buildAdHtml(adsJson, SKIP_DELAY_MS, deviceToken, apiUrl, screenId, deviceId)
-        webView.loadDataWithBaseURL("https://kiki.alkaya.fr", html, "text/html", "utf-8", null)
+        webView.loadDataWithBaseURL("https://neofilmapi.alkaya.fr", html, "text/html", "utf-8", null)
     }
 
     private fun buildAdHtml(adsJson: String, skipDelay: Int, token: String, apiUrl: String, screenId: String, deviceId: String): String {

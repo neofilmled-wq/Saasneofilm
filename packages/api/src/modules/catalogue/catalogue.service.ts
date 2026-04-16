@@ -237,4 +237,18 @@ export class CatalogueService {
       orderBy: { updatedAt: 'desc' },
     });
   }
+
+  /** Increment click counter for a catalogue listing (called by TV app). */
+  async registerClick(id: string) {
+    const listing = await this.prisma.catalogueListing.findUnique({ where: { id }, select: { id: true } });
+    if (!listing) throw new NotFoundException('Catalogue listing not found');
+
+    const updated = await this.prisma.catalogueListing.update({
+      where: { id },
+      data: { clickCount: { increment: 1 } },
+      select: { id: true, clickCount: true },
+    });
+
+    return { id: updated.id, clickCount: updated.clickCount };
+  }
 }

@@ -54,4 +54,8 @@ export const queryKeys = {
     detail: (id: string) => ['conversations', 'detail', id] as const,
     unreadCount: ['conversations', 'unread-count'] as const,
   },
+  tvStreams: {
+    all: ['tvStreams'] as const,
+    list: (orgId: string) => ['tvStreams', 'list', orgId] as const,
+  },
 } as const;

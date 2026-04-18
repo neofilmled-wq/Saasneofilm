@@ -18,7 +18,7 @@ class AdOverlayService : Service() {
         private const val TAG = "AdOverlayService"
         private const val CHANNEL_ID = "neofilm_ad_overlay"
         private const val NOTIFICATION_ID = 42
-        private const val INTERVAL_MS = 2L * 60 * 1000  // 2 min
+        private const val INTERVAL_MS = 60L * 60 * 1000  // 1 h
     }
 
     private val handler = Handler(Looper.getMainLooper())

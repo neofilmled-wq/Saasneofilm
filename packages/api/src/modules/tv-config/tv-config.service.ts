@@ -2,6 +2,45 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DeviceGateway } from '../device-gateway/device.gateway';
 
+interface ParsedChannel {
+  name: string;
+  streamUrl: string;
+  logoUrl: string | null;
+  group: string | null;
+}
+
+function parseM3U(content: string): ParsedChannel[] {
+  const lines = content.split('\n').map((l) => l.trim());
+  const out: ParsedChannel[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line.startsWith('#EXTINF')) {
+      const name = line.split(',').slice(1).join(',').trim() || 'Chaîne';
+      const logoMatch = line.match(/tvg-logo="([^"]+)"/);
+      const groupMatch = line.match(/group-title="([^"]+)"/);
+      let urlLine = '';
+      for (let j = i + 1; j < lines.length; j++) {
+        if (lines[j] && !lines[j].startsWith('#')) {
+          urlLine = lines[j];
+          i = j;
+          break;
+        }
+      }
+      if (urlLine) {
+        out.push({
+          name,
+          streamUrl: urlLine,
+          logoUrl: logoMatch ? logoMatch[1] : null,
+          group: groupMatch ? groupMatch[1] : null,
+        });
+      }
+    }
+    i++;
+  }
+  return out;
+}
+
 @Injectable()
 export class TvConfigService {
   private readonly logger = new Logger(TvConfigService.name);
@@ -41,12 +80,94 @@ export class TvConfigService {
     };
   }
 
-  /** Get all active channels */
-  async getChannels() {
+  /**
+   * Get TNT channels for a given screen.
+   * Aggregates partner-provided `TvStreamSource` entries:
+   *   - isGlobal=true  → fetched and parsed (M3U8 playlist → multiple channels)
+   *   - isGlobal=false → single channel with provided channelName
+   * Falls back to the legacy `tv_channels` table when no partner sources exist.
+   */
+  async getChannels(screenId?: string | null) {
+    if (screenId) {
+      const screen = await this.prisma.screen.findUnique({
+        where: { id: screenId },
+        select: { partnerOrgId: true },
+      });
+      if (screen?.partnerOrgId) {
+        const sources = await this.prisma.tvStreamSource.findMany({
+          where: { partnerOrgId: screen.partnerOrgId },
+          orderBy: [{ isGlobal: 'desc' }, { createdAt: 'asc' }],
+        });
+        if (sources.length > 0) {
+          return this.aggregateFromSources(sources);
+        }
+      }
+    }
+
+    // Fallback: legacy global channels table
     return this.prisma.tvChannel.findMany({
       where: { isActive: true },
       orderBy: { number: 'asc' },
     });
+  }
+
+  private async aggregateFromSources(
+    sources: Array<{ id: string; url: string; isGlobal: boolean; channelName: string | null }>,
+  ) {
+    const channels: Array<{
+      id: string;
+      name: string;
+      number: number;
+      logoUrl: string | null;
+      streamUrl: string;
+      category: string;
+      isActive: boolean;
+    }> = [];
+    let number = 1;
+
+    for (const src of sources) {
+      if (!src.isGlobal) {
+        channels.push({
+          id: src.id,
+          name: src.channelName ?? 'Chaîne',
+          number: number++,
+          logoUrl: null,
+          streamUrl: src.url,
+          category: 'general',
+          isActive: true,
+        });
+        continue;
+      }
+
+      try {
+        const res = await fetch(src.url);
+        if (!res.ok) {
+          this.logger.warn(`Playlist fetch failed (${res.status}): ${src.url}`);
+          continue;
+        }
+        const text = await res.text();
+        if (!text.trimStart().startsWith('#EXTM3U')) {
+          this.logger.warn(`Playlist not a valid M3U8: ${src.url}`);
+          continue;
+        }
+        const parsed = parseM3U(text);
+        for (const ch of parsed) {
+          channels.push({
+            id: `${src.id}:${number}`,
+            name: ch.name,
+            number: number++,
+            logoUrl: ch.logoUrl,
+            streamUrl: ch.streamUrl,
+            category: ch.group?.toLowerCase() ?? 'general',
+            isActive: true,
+          });
+        }
+      } catch (err) {
+        this.logger.warn(`Playlist fetch error (${src.url}): ${(err as Error).message}`);
+      }
+    }
+
+    return channels;
   }
 
   /** Get all active streaming services */

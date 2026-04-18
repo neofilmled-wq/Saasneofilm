@@ -35,6 +35,7 @@ import { TvConfigModule } from './modules/tv-config/tv-config.module';
 import { CanvaModule } from './modules/canva/canva.module';
 import { PartnerGatewayModule } from './modules/partner-gateway/partner-gateway.module';
 import { PartnerProfileModule } from './modules/partner-profile/partner-profile.module';
+import { TvStreamsModule } from './modules/tv-streams/tv-streams.module';
 import { PartnerCommissionsModule } from './modules/partner-commissions/partner-commissions.module';
 import { CatalogueModule } from './modules/catalogue/catalogue.module';
 import { PricingModule } from './modules/pricing/pricing.module';
@@ -87,6 +88,7 @@ import { JwtAuthGuard, RolesGuard, PermissionsGuard } from './common/guards';
     CanvaModule,
     PartnerGatewayModule,
     PartnerProfileModule,
+    TvStreamsModule,
     PartnerCommissionsModule,
     CatalogueModule,
     PricingModule,

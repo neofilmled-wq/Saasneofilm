@@ -66,9 +66,10 @@ export class TvConfigController {
   }
 
   @Get('channels')
-  @ApiOperation({ summary: 'Get TNT channels from DB' })
-  async getChannels() {
-    return this.tvConfigService.getChannels();
+  @ApiOperation({ summary: 'Get TNT channels (aggregated from partner stream sources)' })
+  async getChannels(@Req() req: any) {
+    const { screenId } = this.requireDevice(req);
+    return this.tvConfigService.getChannels(screenId);
   }
 
   @Get('iptv/channels')
@@ -164,7 +165,7 @@ export class TvConfigController {
               welcomeMessage: null,
               tickerText: null,
             },
-        this.tvConfigService.getChannels(),
+        this.tvConfigService.getChannels(screenId),
         this.tvConfigService.getStreamingServices(),
         orgId
           ? this.activitySponsorsService.getActivitiesWithSponsors(orgId)

@@ -14,6 +14,7 @@ import {
   Building2,
   ChevronLeft,
   Tv,
+  Tv2,
   MessageSquare,
   User,
   Link2,
@@ -36,6 +37,7 @@ interface NavItem {
 const MENU_ITEMS: NavItem[] = [
   { href: '/partner/screens', label: 'Écrans', icon: Monitor },
   { href: '/partner/sites', label: 'Sites', icon: Building2 },
+  { href: '/partner/tnt', label: 'TNT', icon: Tv2 },
   { href: '/partner/map', label: 'Carte live', icon: Map },
   { href: '/partner/messages', label: 'Messages', icon: MessageSquare, badge: true },
   { href: '/partner/alerts', label: 'Alertes', icon: AlertTriangle },

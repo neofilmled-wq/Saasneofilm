@@ -177,16 +177,6 @@ export interface TvChannel {
   isActive: boolean;
 }
 
-export interface IptvChannel {
-  id: string;
-  name: string;
-  logoUrl: string | null;
-  group: string;
-  streamUrl: string;
-  country: string;
-  isLive: boolean;
-}
-
 export interface StreamingService {
   id: string;
   name: string;
@@ -349,16 +339,6 @@ export const deviceApi = {
 
   /** Get active advertiser catalogue listings targeting this screen */
   getCatalogue: () => deviceFetch<CatalogueListing[]>('/tv/catalogue'),
-
-  /** Get live IPTV channels from M3U playlist (cached backend) */
-  getIptvChannels: (options?: { q?: string; group?: string; limit?: number }) => {
-    const params = new URLSearchParams();
-    if (options?.q) params.set('q', options.q);
-    if (options?.group) params.set('group', options.group);
-    if (options?.limit) params.set('limit', String(options.limit));
-    const qs = params.toString();
-    return deviceFetch<IptvChannel[]>(`/tv/iptv/channels${qs ? `?${qs}` : ''}`);
-  },
 
   // ── Ad delivery ────────────────────────
 

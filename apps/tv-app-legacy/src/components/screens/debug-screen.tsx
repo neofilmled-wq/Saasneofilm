@@ -9,13 +9,11 @@ interface DiagnosticResult {
   detail: string;
 }
 
-const TEST_STREAM = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
-
 /**
  * NeoFilmDebugScreen — Diagnostic overlay for TV black screen debugging.
  *
- * Shows real-time status of: backend, catalogue, ads, IPTV stream, network,
- * localStorage, WebSocket, and WebView capabilities.
+ * Shows real-time status of: backend, catalogue, ads, network, localStorage,
+ * WebSocket, and WebView capabilities.
  */
 export function NeoFilmDebugScreen({ onClose }: { onClose?: () => void }) {
   const [results, setResults] = useState<DiagnosticResult[]>([]);
@@ -34,7 +32,6 @@ export function NeoFilmDebugScreen({ onClose }: { onClose?: () => void }) {
       { label: 'Channels (TNT)', status: 'loading', detail: 'Vérification...' },
       { label: 'Ads Endpoint', status: 'loading', detail: 'Vérification...' },
       { label: 'WebSocket', status: 'loading', detail: 'Vérification...' },
-      { label: 'IPTV Stream', status: 'loading', detail: 'Vérification...' },
       { label: 'Network', status: 'loading', detail: 'Vérification...' },
       { label: 'LocalStorage', status: 'loading', detail: 'Vérification...' },
       { label: 'WebView Caps', status: 'loading', detail: 'Vérification...' },
@@ -156,39 +153,22 @@ export function NeoFilmDebugScreen({ onClose }: { onClose?: () => void }) {
         updateResult(6, { status: 'error', detail: `${(e as Error).message}` });
       }
 
-      // 8. IPTV Test Stream
-      try {
-        const res = await fetch(TEST_STREAM, { method: 'GET', signal: AbortSignal.timeout(8000) });
-        if (res.ok) {
-          const text = await res.text();
-          const isM3U = text.includes('#EXTM3U') || text.includes('#EXTINF');
-          updateResult(7, {
-            status: isM3U ? 'ok' : 'warn',
-            detail: isM3U ? `M3U8 valide (${text.length} bytes)` : 'Réponse reçue mais pas M3U8',
-          });
-        } else {
-          updateResult(7, { status: 'error', detail: `HTTP ${res.status}` });
-        }
-      } catch (e) {
-        updateResult(7, { status: 'error', detail: `Stream inaccessible: ${(e as Error).message}` });
-      }
-
-      // 9. Network
+      // 8. Network
       const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
-      updateResult(8, {
+      updateResult(7, {
         status: online ? 'ok' : 'error',
         detail: online ? 'navigator.onLine = true' : 'HORS LIGNE',
       });
 
-      // 10. LocalStorage
+      // 9. LocalStorage
       const keys = ['neofilm_device_token', 'neofilm_device_id', 'neofilm_screen_id', 'neofilm_schedule_cache'];
       const present = keys.filter((k) => localStorage.getItem(k));
-      updateResult(9, {
+      updateResult(8, {
         status: present.length >= 2 ? 'ok' : 'warn',
         detail: `${present.length}/${keys.length} clés: ${present.join(', ') || 'aucune'}`,
       });
 
-      // 11. WebView Capabilities
+      // 10. WebView Capabilities
       const caps: string[] = [];
       if (typeof window !== 'undefined') {
         if ('serviceWorker' in navigator) caps.push('SW');
@@ -200,7 +180,7 @@ export function NeoFilmDebugScreen({ onClose }: { onClose?: () => void }) {
         if (v.canPlayType('application/vnd.apple.mpegurl')) caps.push('NativeHLS');
         if (v.canPlayType('video/mp4')) caps.push('MP4');
       }
-      updateResult(10, { status: caps.length >= 2 ? 'ok' : 'warn', detail: caps.join(', ') || 'aucune' });
+      updateResult(9, { status: caps.length >= 2 ? 'ok' : 'warn', detail: caps.join(', ') || 'aucune' });
 
       setRunning(false);
     };

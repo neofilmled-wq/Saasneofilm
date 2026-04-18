@@ -60,9 +60,8 @@ export function TvShell() {
   const scaleInfo = useTvScale();
   const layout = useAdaptiveLayout(scaleInfo);
 
-  // Full-screen channel overlays — managed at shell level to guarantee true full-screen
+  // Full-screen channel overlay — managed at shell level to guarantee true full-screen
   const [hlsChannel, setHlsChannel] = useState<{ name: string; streamUrl: string } | null>(null);
-  const [webChannel, setWebChannel] = useState<{ name: string; url: string } | null>(null);
   // Channel list for zapping
   const [channelList, setChannelList] = useState<{ name: string; streamUrl: string }[]>([]);
 
@@ -71,14 +70,12 @@ export function TvShell() {
     const handleBack = () => {
       if (hlsChannel) {
         setHlsChannel(null);
-      } else if (webChannel) {
-        setWebChannel(null);
       }
       // Always propagate — smart-tv-display listens too for tab navigation
     };
     window.addEventListener('neofilm-back', handleBack);
     return () => window.removeEventListener('neofilm-back', handleBack);
-  }, [hlsChannel, webChannel]);
+  }, [hlsChannel]);
 
   if (!isReady) {
     return (
@@ -114,40 +111,6 @@ export function TvShell() {
     );
   }
 
-  // Full-screen Web TV via Android native bridge (openWebPageFullscreen)
-  if (webChannel) {
-    const hasFullscreenBridge = typeof window !== 'undefined' && !!window.NeoFilmAndroid?.openWebPageFullscreen;
-    if (hasFullscreenBridge) {
-      window.NeoFilmAndroid!.openWebPageFullscreen!(webChannel.url);
-      // Reset state after handing off to native — use setTimeout to avoid setState during render
-      setTimeout(() => setWebChannel(null), 0);
-    }
-    // Show brief loading overlay while native bridge opens
-    return (
-      <div data-neofilm-ready style={{ width: '100vw', height: '100vh', background: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'channelEnter 0.35s cubic-bezier(0.22,1,0.36,1) both' }}>
-        <style dangerouslySetInnerHTML={{ __html: `@keyframes channelEnter { from { opacity:0; transform:scale(1.04); } to { opacity:1; transform:scale(1); } }` }} />
-        {!hasFullscreenBridge ? (
-          // Browser dev fallback
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 1rem', background: 'rgba(0,0,0,0.8)', width: '100%', boxSizing: 'border-box' }}>
-              <button onClick={() => setWebChannel(null)} style={{ width: '2.2em', height: '2.2em', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ width: '1.2em', height: '1.2em' }}><path d="M15 18l-6-6 6-6" /></svg>
-              </button>
-              <span style={{ fontWeight: 600, color: '#fff' }}>{webChannel.name}</span>
-            </div>
-            <iframe src={webChannel.url} style={{ flex: 1, width: '100%', border: 'none' }} allow="autoplay; fullscreen" title={webChannel.name} />
-          </>
-        ) : (
-          <div style={{ color: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>
-            <div style={{ width: '3rem', height: '3rem', borderRadius: '50%', border: '4px solid rgba(255,255,255,0.2)', borderTopColor: '#fff', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }} />
-            <style dangerouslySetInnerHTML={{ __html: `@keyframes spin{to{transform:rotate(360deg)}}` }} />
-            <p>Ouverture de {webChannel.name}...</p>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   // data-neofilm-ready dismisses the boot splash (see layout.tsx)
   let content;
   switch (state) {
@@ -164,7 +127,6 @@ export function TvShell() {
             layout={layout}
             onHlsChannelOpen={(ch) => { console.log('[TvShell] Channel opened:', ch.name); setHlsChannel(ch); }}
             onChannelListReady={(list) => { console.log('[TvShell] Channel list ready:', list.length); setChannelList(list); }}
-            onWebChannelOpen={(ch) => setWebChannel({ name: ch.name, url: ch.webUrl })}
           />
         </ScreenBoundary>
       ); break;

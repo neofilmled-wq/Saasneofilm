@@ -21,7 +21,6 @@ import type { AdaptiveLayout } from '@/hooks/use-adaptive-layout';
 interface SmartTvDisplayProps {
   layout: AdaptiveLayout;
   onHlsChannelOpen?: (ch: { name: string; streamUrl: string }) => void;
-  onWebChannelOpen?: (ch: { name: string; webUrl: string }) => void;
   onChannelListReady?: (channels: { name: string; streamUrl: string }[]) => void;
 }
 
@@ -43,7 +42,7 @@ interface SmartTvDisplayProps {
  *
  * Interstitial ads overlay the entire screen on boot, tab change, etc.
  */
-export function SmartTvDisplay({ layout, onHlsChannelOpen, onWebChannelOpen, onChannelListReady }: SmartTvDisplayProps) {
+export function SmartTvDisplay({ layout, onHlsChannelOpen, onChannelListReady }: SmartTvDisplayProps) {
   const { schedule, isConnected, token, screenId, registerTvCallbacks } = useDevice();
 
   const handleAuthError = useCallback(() => {
@@ -248,9 +247,7 @@ export function SmartTvDisplay({ layout, onHlsChannelOpen, onWebChannelOpen, onC
             {activeTab === 'TNT' && (
               <TntPage
                 channels={channels}
-                onAuthError={handleAuthError}
                 onChannelOpen={(ch) => onHlsChannelOpen?.({ name: ch.name, streamUrl: ch.streamUrl! })}
-                onWebChannelOpen={onWebChannelOpen}
               />
             )}
             {activeTab === 'STREAMING' && <StreamingPage services={streamingServices} />}

@@ -47,14 +47,17 @@ export function TntPage({ channels: dbChannels, onChannelOpen }: TntPageProps) {
 
   const { startInterval, stopInterval } = useAdInterval();
 
-  const displayChannels: DisplayChannel[] = dbChannels.map((ch) => ({
-    id: ch.id,
-    name: ch.name,
-    logoUrl: ch.logoUrl,
-    streamUrl: ch.streamUrl,
-    group: ch.category || 'general',
-    isLive: !!ch.streamUrl,
-  }));
+  // Only show channels where the partner has provided a streamUrl (m3u8/HLS).
+  const displayChannels: DisplayChannel[] = dbChannels
+    .filter((ch) => !!ch.streamUrl)
+    .map((ch) => ({
+      id: ch.id,
+      name: ch.name,
+      logoUrl: ch.logoUrl,
+      streamUrl: ch.streamUrl,
+      group: ch.category || 'general',
+      isLive: true,
+    }));
 
   // Group channels
   const grouped = displayChannels.reduce<Record<string, DisplayChannel[]>>((acc, ch) => {
@@ -78,12 +81,10 @@ export function TntPage({ channels: dbChannels, onChannelOpen }: TntPageProps) {
     return () => stopInterval();
   }, [stopInterval]);
 
-  const hasAnyStream = displayChannels.some((ch) => !!ch.streamUrl);
-
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div ref={containerRef} className="flex-1 overflow-y-auto" style={{ padding: 'var(--tv-safe-x, 1.5rem)' }}>
-        {!hasAnyStream ? (
+        {displayChannels.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-[0.5em] text-center">
             <p className="text-foreground" style={{ fontSize: '1.25em', fontWeight: 600 }}>
               Aucun lien M3U8/HLS fourni.
@@ -109,19 +110,14 @@ export function TntPage({ channels: dbChannels, onChannelOpen }: TntPageProps) {
                   className="grid gap-[0.75em]"
                   style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}
                 >
-                  {groupChannels.map((ch) => {
-                    const canWatch = !!ch.streamUrl;
-                    return (
+                  {groupChannels.map((ch) => (
                     <button
                       key={ch.id}
                       onClick={() => {
-                        if (ch.streamUrl) {
-                          startInterval();
-                          onChannelOpen?.(ch);
-                        }
+                        startInterval();
+                        onChannelOpen?.(ch);
                       }}
-                      disabled={!canWatch}
-                      data-tv-focusable className="tv-card tv-card--channel flex flex-col items-center justify-center disabled:cursor-not-allowed disabled:opacity-40"
+                      data-tv-focusable className="tv-card tv-card--channel flex flex-col items-center justify-center"
                       style={{ padding: '0.75em', aspectRatio: '4/3' }}
                     >
                       {ch.logoUrl ? (
@@ -145,19 +141,12 @@ export function TntPage({ channels: dbChannels, onChannelOpen }: TntPageProps) {
                       >
                         {ch.name}
                       </span>
-                      {ch.streamUrl ? (
-                        <span className="flex items-center gap-[0.2em] text-green-400" style={{ fontSize: '0.6em' }}>
-                          <span className="inline-block h-[0.5em] w-[0.5em] rounded-full bg-green-400" />
-                          En direct
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground" style={{ fontSize: '0.6em' }}>
-                          Indisponible
-                        </span>
-                      )}
+                      <span className="flex items-center gap-[0.2em] text-green-400" style={{ fontSize: '0.6em' }}>
+                        <span className="inline-block h-[0.5em] w-[0.5em] rounded-full bg-green-400" />
+                        En direct
+                      </span>
                     </button>
-                    );
-                  })}
+                  ))}
                 </div>
               </div>
             );

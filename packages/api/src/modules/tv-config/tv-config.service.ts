@@ -258,6 +258,20 @@ export class TvConfigService {
     });
   }
 
+  /** Get the partner's banner URL for a given screen (based on Screen.partnerOrgId). */
+  async getPartnerBannerForScreen(screenId: string): Promise<string | null> {
+    const screen = await this.prisma.screen.findUnique({
+      where: { id: screenId },
+      select: { partnerOrgId: true },
+    });
+    if (!screen?.partnerOrgId) return null;
+    const profile = await this.prisma.partnerProfile.findUnique({
+      where: { orgId: screen.partnerOrgId },
+      select: { bannerUrl: true },
+    });
+    return profile?.bannerUrl ?? null;
+  }
+
   /** Get activities for a specific org */
   async getActivities(orgId: string) {
     return this.prisma.activityPlace.findMany({

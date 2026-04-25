@@ -627,21 +627,9 @@ class MainActivity : AppCompatActivity() {
 
         if (jsKey != null) {
             if (event.action == KeyEvent.ACTION_DOWN) {
-                // Track secret access (7x Center within 3s)
-                if (jsKey == "Enter") {
-                    val now = System.currentTimeMillis()
-                    if (now - lastCenterPressTime > SECRET_WINDOW_MS) {
-                        centerPressCount = 0
-                    }
-                    lastCenterPressTime = now
-                    centerPressCount++
-                    Log.d(TAG, "Secret DPAD press: $centerPressCount/$SECRET_PRESS_COUNT")
-                    if (centerPressCount >= SECRET_PRESS_COUNT) {
-                        centerPressCount = 0
-                        showPinDialog()
-                        return true
-                    }
-                }
+                // Secret DPAD trigger (7x OK) disabled — fired accidentally when
+                // users clicked rapidly on channels. Admin access stays available
+                // via the 7-tap top-left touch gesture only.
 
                 // Direct spatial navigation in JS (bypasses React hooks
                 // which fight each other when multiple useDpadNavigation exist)
@@ -664,6 +652,27 @@ class MainActivity : AppCompatActivity() {
                         var cur = document.activeElement;
                         var idx = all.indexOf(cur);
                         if (idx < 0) { all[0].focus(); return; }
+
+                        // Descending from the top tab bar → pick the top-left-most visible
+                        // focusable located below the tab bar, regardless of the active tab.
+                        if (dir === 'ArrowDown' && cur.closest('[data-tv-nav-group="tabs"]')) {
+                            var tabR = cur.getBoundingClientRect();
+                            var below = all.filter(function(e){
+                                var r = e.getBoundingClientRect();
+                                return r.width > 0 && r.height > 0 && r.top > tabR.bottom + 4;
+                            });
+                            if (below.length > 0) {
+                                below.sort(function(a, b){
+                                    var ar = a.getBoundingClientRect();
+                                    var br = b.getBoundingClientRect();
+                                    if (Math.abs(ar.top - br.top) > 8) return ar.top - br.top;
+                                    return ar.left - br.left;
+                                });
+                                below[0].focus();
+                                below[0].scrollIntoView({behavior:'smooth',block:'nearest'});
+                                return;
+                            }
+                        }
 
                         // Build matrix from data-tv-row / data-tv-col attributes
                         var curRow = parseInt(cur.getAttribute('data-tv-row') || '-1');
@@ -690,13 +699,33 @@ class MainActivity : AppCompatActivity() {
                             }
                         }
 
-                        // Fallback: simple index navigation
-                        var next = idx;
-                        if (dir === 'ArrowRight') next = Math.min(idx + 1, all.length - 1);
-                        if (dir === 'ArrowLeft') next = Math.max(idx - 1, 0);
-                        if (dir === 'ArrowDown') next = Math.min(idx + 1, all.length - 1);
-                        if (dir === 'ArrowUp') next = Math.max(idx - 1, 0);
-                        if (next !== idx) { all[next].focus(); all[next].scrollIntoView({behavior:'smooth',block:'nearest'}); }
+                        // Spatial fallback: find nearest focusable in the requested geometric direction
+                        var cr = cur.getBoundingClientRect();
+                        var cxFB = cr.left + cr.width / 2;
+                        var cyFB = cr.top + cr.height / 2;
+                        var best = null;
+                        var bestScore = Infinity;
+                        for (var i = 0; i < all.length; i++) {
+                            var el = all[i];
+                            if (el === cur) continue;
+                            var r = el.getBoundingClientRect();
+                            var ex = r.left + r.width / 2;
+                            var ey = r.top + r.height / 2;
+                            var dx = ex - cxFB;
+                            var dy = ey - cyFB;
+                            var inDir = (dir === 'ArrowUp' && dy < -4) ||
+                                        (dir === 'ArrowDown' && dy > 4) ||
+                                        (dir === 'ArrowLeft' && dx < -4) ||
+                                        (dir === 'ArrowRight' && dx > 4);
+                            if (!inDir) continue;
+                            var primary = (dir === 'ArrowUp') ? -dy :
+                                          (dir === 'ArrowDown') ? dy :
+                                          (dir === 'ArrowLeft') ? -dx : dx;
+                            var secondary = (dir === 'ArrowUp' || dir === 'ArrowDown') ? Math.abs(dx) : Math.abs(dy);
+                            var score = primary + secondary * 2;
+                            if (score < bestScore) { bestScore = score; best = el; }
+                        }
+                        if (best) { best.focus(); best.scrollIntoView({behavior:'smooth',block:'nearest'}); }
                     })()""".trimIndent(),
                     null
                 )
@@ -712,52 +741,11 @@ class MainActivity : AppCompatActivity() {
         return super.dispatchKeyEvent(event)
     }
 
-    // ── Touch: 7 taps on top-left corner within 2s OR long press 3s ──
-
+    // Touch secret trigger (7 taps top-left OR long press 3s) fully disabled.
+    // These apps ship to commercial end-users who must NOT access admin settings.
+    @Suppress("UNUSED_PARAMETER")
     private fun handleTouchForSecret(event: MotionEvent) {
-        val cornerSize = dpToPx(CORNER_TAP_SIZE_DP)
-
-        // Only count taps in the top-left corner
-        if (event.x > cornerSize || event.y > cornerSize) {
-            if (event.action == MotionEvent.ACTION_UP) {
-                cornerTapCount = 0
-                isLongPressing = false
-            }
-            return
-        }
-
-        when (event.action) {
-            MotionEvent.ACTION_DOWN -> {
-                longPressStartTime = System.currentTimeMillis()
-                isLongPressing = true
-
-                val now = System.currentTimeMillis()
-                if (now - lastCornerTapTime > TOUCH_SECRET_WINDOW_MS) {
-                    cornerTapCount = 0
-                }
-                lastCornerTapTime = now
-            }
-            MotionEvent.ACTION_UP -> {
-                // Check long press first
-                if (isLongPressing && System.currentTimeMillis() - longPressStartTime >= LONG_PRESS_DURATION_MS) {
-                    isLongPressing = false
-                    cornerTapCount = 0
-                    Log.d(TAG, "Secret long press detected!")
-                    showPinDialog()
-                    return
-                }
-                isLongPressing = false
-
-                // Count tap
-                cornerTapCount++
-                Log.d(TAG, "Secret corner tap: $cornerTapCount/$TOUCH_SECRET_PRESS_COUNT")
-
-                if (cornerTapCount >= TOUCH_SECRET_PRESS_COUNT) {
-                    cornerTapCount = 0
-                    showPinDialog()
-                }
-            }
-        }
+        // no-op
     }
 
     // ══════════════════════════════════════════════════

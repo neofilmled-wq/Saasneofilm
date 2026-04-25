@@ -23,6 +23,7 @@ const catalogSchema = z.object({
   address: z.string().min(1, "L'adresse est requise").max(200),
   ctaUrl: z.string().url('URL invalide').optional().or(z.literal('')),
   promoCode: z.string().max(20).optional(),
+  promoDescription: z.string().max(200).optional(),
   keywords: z.string().optional(),
 });
 
@@ -61,6 +62,7 @@ export default function NewCatalogPage() {
         address: data.address,
         ctaUrl: data.ctaUrl || undefined,
         promoCode: data.promoCode || undefined,
+        promoDescription: data.promoDescription || undefined,
         keywords: data.keywords ? data.keywords.split(',').map((k) => k.trim()).filter(Boolean) : [],
       });
       toast.success('Fiche catalogue créée !');
@@ -148,6 +150,17 @@ export default function NewCatalogPage() {
                 <Label htmlFor="promoCode">Code promo (optionnel)</Label>
                 <Input id="promoCode" placeholder="Ex: NEOFILM10" {...register('promoCode')} />
               </div>
+
+              {(watch('promoCode') ?? '').trim() !== '' && (
+                <div className="space-y-2">
+                  <Label htmlFor="promoDescription">Description du code promo</Label>
+                  <Input
+                    id="promoDescription"
+                    placeholder="-15% sur toute nos carte"
+                    {...register('promoDescription')}
+                  />
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="keywords">Mots-clés (séparés par des virgules)</Label>

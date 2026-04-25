@@ -29,6 +29,7 @@ const catalogSchema = z.object({
   address: safeString(z.string().min(1, "L'adresse est requise").max(200)),
   ctaUrl: z.string().url('URL invalide').optional().or(z.literal('')),
   promoCode: safeString(z.string().max(20)).optional().or(z.literal('')),
+  promoDescription: safeString(z.string().max(200)).optional().or(z.literal('')),
   keywords: safeString(z.string()).optional().or(z.literal('')),
 });
 
@@ -73,6 +74,7 @@ export default function EditCatalogPage({ params }: { params: Promise<{ id: stri
         address: listing.address ?? '',
         ctaUrl: listing.ctaUrl ?? '',
         promoCode: listing.promoCode ?? '',
+        promoDescription: (listing as any).promoDescription ?? '',
         keywords: listing.keywords.join(', '),
       });
       setImageUrl(listing.imageUrl ?? null);
@@ -93,6 +95,7 @@ export default function EditCatalogPage({ params }: { params: Promise<{ id: stri
           address: data.address,
           ctaUrl: data.ctaUrl || undefined,
           promoCode: data.promoCode || undefined,
+          promoDescription: data.promoDescription || undefined,
           keywords: data.keywords ? data.keywords.split(',').map((k) => k.trim()).filter(Boolean) : [],
         },
       });
@@ -251,6 +254,17 @@ export default function EditCatalogPage({ params }: { params: Promise<{ id: stri
                 <Label htmlFor="promoCode">Code promo (optionnel)</Label>
                 <Input id="promoCode" placeholder="Ex: NEOFILM10" {...register('promoCode')} />
               </div>
+
+              {(watch('promoCode') ?? '').trim() !== '' && (
+                <div className="space-y-2">
+                  <Label htmlFor="promoDescription">Description du code promo</Label>
+                  <Input
+                    id="promoDescription"
+                    placeholder="-15% sur toute nos carte"
+                    {...register('promoDescription')}
+                  />
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="keywords">Mots-clés (séparés par des virgules) *</Label>

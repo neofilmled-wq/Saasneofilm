@@ -2,19 +2,12 @@
 
 import { useEffect, useRef } from 'react';
 import { useDpadNavigation } from '@/hooks/use-dpad-navigation';
-import type { TvAdItem, CreativeManifest } from '@/lib/device-api';
-import { resolveMediaUrl } from '@/lib/device-api';
-import { AdZone } from '@/components/layout/ad-zone';
 
 export type HomeDestination = 'TNT' | 'ACTIVITIES' | 'STREAMING' | 'APPS';
 
 interface HomePageProps {
   onNavigate: (dest: HomeDestination) => void;
   enabledModules: string[];
-  targetedAds?: TvAdItem[];
-  houseAds?: CreativeManifest[];
-  rotationMs?: number;
-  onImpression?: (ad: TvAdItem, startTime: Date, endTime: Date, skipped: boolean) => void;
 }
 
 /** Card config — each has a background image, gradient overlay, and accent */
@@ -64,82 +57,14 @@ const NAV_CARDS: {
   },
 ];
 
-type AdEntry = { id: string; fileUrl: string; mimeType: string; source?: TvAdItem };
-
-/** Single rotating ad slot — staggered start via slotIndex */
-function HomeAdSlot({ ads, slotIndex, rotationMs = 15000, onImpression }: {
-  ads: AdEntry[];
-  slotIndex: number;
-  rotationMs?: number;
-  onImpression?: (ad: TvAdItem, startTime: Date, endTime: Date, skipped: boolean) => void;
-}) {
-  const vidRef = useRef<HTMLVideoElement>(null);
-  const idxRef = useRef((slotIndex * 2) % Math.max(ads.length, 1));
-  const startTimeRef = useRef(new Date());
-
-  useEffect(() => {
-    if (ads.length === 0) return;
-    const show = (idx: number) => {
-      const ad = ads[idx % ads.length];
-      if (!ad) return;
-      // Report impression for the previous ad
-      const prevIdx = (idx - 1 + ads.length) % ads.length;
-      const prevAd = ads[prevIdx];
-      if (prevAd?.source && onImpression) {
-        onImpression(prevAd.source, startTimeRef.current, new Date(), false);
-      }
-      startTimeRef.current = new Date();
-      if (vidRef.current) { vidRef.current.src = ad.fileUrl; }
-    };
-    show(idxRef.current);
-    const t = setInterval(() => {
-      idxRef.current = (idxRef.current + 1) % ads.length;
-      show(idxRef.current);
-    }, rotationMs);
-    return () => clearInterval(t);
-  }, [ads, rotationMs, onImpression]);
-
-  const first = ads[idxRef.current % Math.max(ads.length, 1)] ?? null;
-
-  return (
-    <div className="relative overflow-hidden rounded-xl" style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)', width: '100%', paddingBottom: '56.25%' }}>
-      {first ? (
-        <video
-          key={first.id}
-          src={first.fileUrl}
-          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-          autoPlay
-          muted
-          playsInline
-          preload="auto"
-          loop
-        />
-      ) : (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-1">
-          <span className="font-bold text-primary" style={{ fontSize: '1.4em' }}>NEO</span>
-          <span className="font-bold" style={{ fontSize: '1.4em' }}>FILM</span>
-          <span className="text-muted-foreground" style={{ fontSize: '0.7em' }}>Espace pub</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
 /**
  * HomePage — TV entry point.
  *
- * Left (70%): 2x2 grid of visual cards with real photos + gradient overlays.
- * Right (30%): 3 vertical ad slots, non-skippable, rotating continuously.
+ * Full width: 2x2 grid of visual cards with real photos + gradient overlays.
+ * Ad rendering is handled by the global AdZone in smart-tv-display.
  * Focus: first card on mount.
  */
-export function HomePage({
-  onNavigate,
-  enabledModules,
-  targetedAds = [],
-  houseAds = [],
-  rotationMs = 15000,
-  onImpression,
-}: HomePageProps) {
+export function HomePage({ onNavigate, enabledModules }: HomePageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { focusFirst } = useDpadNavigation({ containerRef, autoFocus: true, initialIndex: 0 });
 
@@ -147,15 +72,6 @@ export function HomePage({
     const t = setTimeout(focusFirst, 120);
     return () => clearTimeout(t);
   }, [focusFirst]);
-
-  const adPool: AdEntry[] = [
-    ...targetedAds
-      .filter((a) => a.mimeType.startsWith('video/'))
-      .map((a) => ({ id: a.creativeId, fileUrl: resolveMediaUrl(a.fileUrl), mimeType: a.mimeType, source: a })),
-    ...houseAds
-      .filter((a) => a.mimeType.startsWith('video/'))
-      .map((a) => ({ id: a.creativeId, fileUrl: resolveMediaUrl(a.fileUrl), mimeType: a.mimeType })),
-  ];
 
   const visible = NAV_CARDS.filter((c) => !c.module || enabledModules.includes(c.module));
 
@@ -165,12 +81,12 @@ export function HomePage({
       className="flex h-full overflow-hidden tv-page-enter"
       style={{ padding: '1.5vw', gap: '1.2vw' }}
     >
-      {/* LEFT: visual card grid — 2x2 on 1080p+, 2x2 compact on 720p */}
+      {/* Card grid — fills the page (ad zone is global in smart-tv-display) */}
       <div
         data-tv-nav-group="home-cards"
         className="grid min-w-0"
         style={{
-          flex: 7,
+          flex: 1,
           gridTemplateColumns: 'repeat(2, 1fr)',
           gridTemplateRows: `repeat(${Math.ceil(visible.length / 2)}, 1fr)`,
           gap: '1vw',
@@ -262,29 +178,8 @@ export function HomePage({
         ))}
       </div>
 
-      {/* RIGHT: ad zone — 3 rows: spacer, ad (16:9), spacer */}
-      <div className="flex shrink-0 flex-col" style={{ flex: 3, minWidth: 0 }}>
-        <div style={{ flex: 1 }} />
-        <div style={{ width: '100%' }}>
-          <p
-            className="text-muted-foreground"
-            style={{ fontSize: '0.7em', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5em' }}
-          >
-            Nos partenaires
-          </p>
-          <div className="overflow-hidden rounded-xl" style={{ position: 'relative', width: '100%', paddingBottom: '56.25%' }}>
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
-              <AdZone
-                houseAds={houseAds}
-                targetedAds={targetedAds}
-                rotationMs={rotationMs}
-                onImpression={onImpression}
-              />
-            </div>
-          </div>
-        </div>
-        <div style={{ flex: 1 }} />
-      </div>
+      {/* Ad zone is now rendered ONCE at the smart-tv-display level, shared
+          across all tabs — see smart-tv-display.tsx. */}
     </div>
   );
 }

@@ -153,7 +153,7 @@ export class TvConfigController {
     const { screenId, orgId } = this.requireDevice(req);
 
     // Fetch all data in parallel
-    const [config, channels, streamingServices, activities, catalogue, macros, ads] =
+    const [config, channels, streamingServices, activities, catalogue, macros, ads, partnerBanner] =
       await Promise.all([
         screenId
           ? this.tvConfigService.getConfigForScreen(screenId)
@@ -179,6 +179,7 @@ export class TvConfigController {
         screenId
           ? this.tvAdsService.getAdsForScreen(screenId, 'POWER_ON', 5)
           : { ads: [], fallbackHouseAds: [] },
+        screenId ? this.tvConfigService.getPartnerBannerForScreen(screenId) : null,
       ]);
 
     this.logger.log(
@@ -193,6 +194,7 @@ export class TvConfigController {
       catalogue,
       macros,
       ads: ads.ads,
+      partnerBannerUrl: partnerBanner,
     };
   }
 }

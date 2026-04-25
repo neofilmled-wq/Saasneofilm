@@ -19,6 +19,7 @@ export interface CatalogueListing {
   imageUrl: string | null;
   ctaUrl: string | null;
   promoCode: string | null;
+  promoDescription: string | null;
   phone: string | null;
   address: string | null;
   keywords: string[];
@@ -37,6 +38,7 @@ export interface CatalogueListingInput {
   imageUrl?: string;
   ctaUrl?: string;
   promoCode?: string;
+  promoDescription?: string;
   phone: string;
   address: string;
   keywords?: string[];

@@ -24,6 +24,7 @@ export function useUpsertPartnerProfile() {
     mutationFn: async (data: {
       companyName?: string;
       logoUrl?: string;
+      bannerUrl?: string | null;
       contactEmail?: string;
       contactPhone?: string;
       address?: string;

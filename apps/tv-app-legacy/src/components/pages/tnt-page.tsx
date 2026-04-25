@@ -12,25 +12,14 @@ interface TntPageProps {
   onChannelOpen?: (channel: DisplayChannel) => void;
 }
 
-const GROUP_LABELS: Record<string, string> = {
-  france: 'France',
-  news: 'Information',
-  sport: 'Sport',
-  kids: 'Jeunesse',
-  music: 'Musique',
-  culture: 'Culture & Découverte',
-  entertainment: 'Divertissement',
-  general: 'Chaînes générales',
-  other: 'Autres',
-};
 
 /** Unified channel type for display */
 interface DisplayChannel {
   id: string;
+  number: number;
   name: string;
   logoUrl: string | null;
   streamUrl: string | null;
-  group: string;
   isLive: boolean;
 }
 
@@ -47,34 +36,18 @@ export function TntPage({ channels: dbChannels, onChannelOpen }: TntPageProps) {
 
   const { startInterval, stopInterval } = useAdInterval();
 
-  // Only show channels where the partner has provided a streamUrl (m3u8/HLS).
+  // Only show channels with a streamUrl, sorted by TNT channel number (1, 2, 3…).
   const displayChannels: DisplayChannel[] = dbChannels
     .filter((ch) => !!ch.streamUrl)
     .map((ch) => ({
       id: ch.id,
+      number: ch.number,
       name: ch.name,
       logoUrl: ch.logoUrl,
       streamUrl: ch.streamUrl,
-      group: ch.category || 'general',
       isLive: true,
-    }));
-
-  // Group channels
-  const grouped = displayChannels.reduce<Record<string, DisplayChannel[]>>((acc, ch) => {
-    const g = ch.group.toLowerCase() || 'other';
-    if (!acc[g]) acc[g] = [];
-    acc[g].push(ch);
-    return acc;
-  }, {});
-
-  const groupOrder = [
-    'france',
-    'general',
-    ...Object.keys(grouped)
-      .filter((k) => k !== 'france' && k !== 'general' && k !== 'other')
-      .sort(),
-    'other',
-  ].filter((k) => grouped[k]?.length);
+    }))
+    .sort((a, b) => a.number - b.number);
 
   // Stop ad interval when unmounted
   useEffect(() => {
@@ -94,63 +67,49 @@ export function TntPage({ channels: dbChannels, onChannelOpen }: TntPageProps) {
             </p>
           </div>
         ) : (
-          groupOrder.map((groupKey) => {
-            const groupChannels = grouped[groupKey];
-            if (!groupChannels?.length) return null;
-
-            return (
-              <div key={groupKey} className="mb-[1.5em]">
-                <h2
-                  className="mb-[0.5em] font-semibold text-muted-foreground"
-                  style={{ fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+          <div
+            className="grid gap-[0.75em]"
+            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}
+          >
+            {displayChannels.map((ch) => (
+              <button
+                key={ch.id}
+                onClick={() => {
+                  startInterval();
+                  onChannelOpen?.(ch);
+                }}
+                data-tv-focusable
+                className="tv-card tv-card--channel flex flex-col items-center justify-center"
+                style={{ padding: '0.75em', aspectRatio: '4/3' }}
+              >
+                {ch.logoUrl ? (
+                  <img
+                    src={ch.logoUrl}
+                    alt={ch.name}
+                    className="mb-[0.25em] h-[2.5em] w-auto object-contain"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  <div
+                    className="mb-[0.25em] flex items-center justify-center rounded-lg font-bold text-primary"
+                    style={{ width: '2.5em', height: '2.5em', fontSize: '1em', background: 'rgba(14, 165, 233, 0.15)', border: '1px solid rgba(14, 165, 233, 0.25)' }}
+                  >
+                    {ch.name.substring(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <span
+                  className="max-w-full truncate text-center font-medium text-foreground"
+                  style={{ fontSize: '0.75em' }}
                 >
-                  {GROUP_LABELS[groupKey] || groupKey}
-                </h2>
-                <div
-                  className="grid gap-[0.75em]"
-                  style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}
-                >
-                  {groupChannels.map((ch) => (
-                    <button
-                      key={ch.id}
-                      onClick={() => {
-                        startInterval();
-                        onChannelOpen?.(ch);
-                      }}
-                      data-tv-focusable className="tv-card tv-card--channel flex flex-col items-center justify-center"
-                      style={{ padding: '0.75em', aspectRatio: '4/3' }}
-                    >
-                      {ch.logoUrl ? (
-                        <img
-                          src={ch.logoUrl}
-                          alt={ch.name}
-                          className="mb-[0.25em] h-[2.5em] w-auto object-contain"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                      ) : (
-                        <div
-                          className="mb-[0.25em] flex items-center justify-center rounded-lg font-bold text-primary"
-                          style={{ width: '2.5em', height: '2.5em', fontSize: '1em', background: 'rgba(14, 165, 233, 0.15)', border: '1px solid rgba(14, 165, 233, 0.25)' }}
-                        >
-                          {ch.name.substring(0, 2).toUpperCase()}
-                        </div>
-                      )}
-                      <span
-                        className="max-w-full truncate text-center font-medium text-foreground"
-                        style={{ fontSize: '0.75em' }}
-                      >
-                        {ch.name}
-                      </span>
-                      <span className="flex items-center gap-[0.2em] text-green-400" style={{ fontSize: '0.6em' }}>
-                        <span className="inline-block h-[0.5em] w-[0.5em] rounded-full bg-green-400" />
-                        En direct
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })
+                  {ch.number}. {ch.name}
+                </span>
+                <span className="flex items-center gap-[0.2em] text-green-400" style={{ fontSize: '0.6em' }}>
+                  <span className="inline-block h-[0.5em] w-[0.5em] rounded-full bg-green-400" />
+                  En direct
+                </span>
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </div>

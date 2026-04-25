@@ -9,6 +9,7 @@ export interface CatalogueListingData {
   imageUrl?: string | null;
   ctaUrl?: string | null;
   promoCode?: string | null;
+  promoDescription?: string | null;
   phone?: string | null;
   address?: string | null;
   keywords?: string[];
@@ -63,6 +64,7 @@ export class CatalogueService {
         imageUrl: data.imageUrl,
         ctaUrl: data.ctaUrl,
         promoCode: data.promoCode,
+        promoDescription: data.promoDescription,
         phone: data.phone,
         address: data.address,
         keywords: data.keywords ?? [],
@@ -105,6 +107,7 @@ export class CatalogueService {
         ...(data.imageUrl !== undefined && { imageUrl: data.imageUrl }),
         ...(data.ctaUrl !== undefined && { ctaUrl: data.ctaUrl }),
         ...(data.promoCode !== undefined && { promoCode: data.promoCode }),
+        ...(data.promoDescription !== undefined && { promoDescription: data.promoDescription }),
         ...(data.phone !== undefined && { phone: data.phone }),
         ...(data.address !== undefined && { address: data.address }),
         ...(data.keywords !== undefined && { keywords: data.keywords }),
@@ -130,6 +133,7 @@ export class CatalogueService {
       ...(data.imageUrl !== undefined && { imageUrl: data.imageUrl }),
       ...(data.ctaUrl !== undefined && { ctaUrl: data.ctaUrl }),
       ...(data.promoCode !== undefined && { promoCode: data.promoCode }),
+      ...(data.promoDescription !== undefined && { promoDescription: data.promoDescription }),
       ...(data.phone !== undefined && { phone: data.phone }),
       ...(data.address !== undefined && { address: data.address }),
       ...(data.keywords !== undefined && { keywords: data.keywords }),
@@ -229,6 +233,7 @@ export class CatalogueService {
         imageUrl: true,
         ctaUrl: true,
         promoCode: true,
+        promoDescription: true,
         phone: true,
         address: true,
         keywords: true,

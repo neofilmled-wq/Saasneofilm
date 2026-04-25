@@ -23,6 +23,7 @@ export class PartnerProfileService {
         contactEmail: org.contactEmail,
         contactPhone: org.contactPhone ?? null,
         logoUrl: null,
+        bannerUrl: null,
         address: org.address ?? null,
         city: org.city ?? null,
         postCode: org.postCode ?? null,
@@ -40,6 +41,7 @@ export class PartnerProfileService {
   async upsertProfile(orgId: string, data: {
     companyName?: string;
     logoUrl?: string;
+    bannerUrl?: string | null;
     contactEmail?: string;
     contactPhone?: string;
     address?: string;
@@ -50,7 +52,7 @@ export class PartnerProfileService {
     longitude?: number;
     timezone?: string;
   }) {
-    const allowed = ['companyName', 'logoUrl', 'contactEmail', 'contactPhone', 'address', 'city', 'postCode', 'country', 'latitude', 'longitude', 'timezone'];
+    const allowed = ['companyName', 'logoUrl', 'bannerUrl', 'contactEmail', 'contactPhone', 'address', 'city', 'postCode', 'country', 'latitude', 'longitude', 'timezone'];
     const clean: any = {};
     for (const key of allowed) {
       if ((data as any)[key] !== undefined) clean[key] = (data as any)[key];

@@ -8,6 +8,7 @@ import { TopBar } from '@/components/layout/top-bar';
 import { TabNavigation, type TabKey } from '@/components/layout/tab-navigation';
 import { TickerBar } from '@/components/layout/ticker-bar';
 import { AdZone } from '@/components/layout/ad-zone';
+import { PromoMarquee } from '@/components/layout/promo-marquee';
 import { HomePage, type HomeDestination } from '@/components/pages/home-page';
 import { TntPage } from '@/components/pages/tnt-page';
 import { StreamingPage } from '@/components/pages/streaming-page';
@@ -49,7 +50,7 @@ export function SmartTvDisplay({ layout, onHlsChannelOpen, onChannelListReady }:
     // Auth errors are handled by DeviceProvider
   }, []);
 
-  const { config, channels, streamingServices, activities, catalogue, macros, isLoading, refetch, updateMacros } = useTvConfig({
+  const { config, channels, streamingServices, activities, catalogue, macros, partnerBannerUrl, isLoading, refetch, updateMacros } = useTvConfig({
     token,
     onAuthError: handleAuthError,
   });
@@ -160,10 +161,8 @@ export function SmartTvDisplay({ layout, onHlsChannelOpen, onChannelListReady }:
     [activeTab],
   );
 
-  // Show ads in the sidebar — not on HOME (it has its own 3-slot panel)
+  // Global ad sidebar — shared across all tabs so the <video> instance persists
   const hasAds = rotationAds.length > 0 || houseAds.length > 0;
-  // HomePage manages its own ads — no sidebar on HOME
-  const isHomePage = activeTab === 'HOME';
 
   const screenName =
     typeof window !== 'undefined' ? localStorage.getItem('neofilm_screen_name') : null;
@@ -226,46 +225,44 @@ export function SmartTvDisplay({ layout, onHlsChannelOpen, onChannelListReady }:
           className="flex min-h-0 flex-1 overflow-hidden"
           style={{ flexDirection: layout.orientation === 'horizontal' ? 'row' : 'column' }}
         >
-          {/* Content page */}
+          {/* Content page — all tabs mount at once and toggle visibility via CSS.
+              This preserves <video> / iframe state (currentTime, buffers) across tab switches. */}
           <div
-            className="min-h-0 min-w-0 overflow-hidden"
+            className="relative min-h-0 min-w-0 overflow-hidden"
             style={{ flex: hasAds ? layout.mainFlex : 1 }}
           >
-            {activeTab === 'HOME' && (
-                <HomePage
-                  onNavigate={(dest: HomeDestination) => {
-                    const map: Record<HomeDestination, TabKey | null> = { TNT:'TNT', ACTIVITIES:'ACTIVITIES', STREAMING:'STREAMING', APPS:'APPS' };
-                    const tab = map[dest]; if (tab) handleTabChange(tab);
-                  }}
-                  enabledModules={enabledModules}
-                  targetedAds={rotationAds}
-                  houseAds={houseAds}
-                  rotationMs={macros?.adRotationMs}
-                  onImpression={reportImpression}
-                />
-              )}
-            {activeTab === 'TNT' && (
+            <div className={activeTab === 'HOME' ? 'h-full' : 'hidden'}>
+              <HomePage
+                onNavigate={(dest: HomeDestination) => {
+                  const map: Record<HomeDestination, TabKey | null> = { TNT:'TNT', ACTIVITIES:'ACTIVITIES', STREAMING:'STREAMING', APPS:'APPS' };
+                  const tab = map[dest]; if (tab) handleTabChange(tab);
+                }}
+                enabledModules={enabledModules}
+              />
+            </div>
+            <div className={activeTab === 'TNT' ? 'h-full' : 'hidden'}>
               <TntPage
                 channels={channels}
                 onChannelOpen={(ch) => onHlsChannelOpen?.({ name: ch.name, streamUrl: ch.streamUrl! })}
               />
-            )}
-            {activeTab === 'STREAMING' && <StreamingPage services={streamingServices} />}
-            {activeTab === 'ACTIVITIES' && (
-              <ActivitiesPage
-                activities={activities}
-                catalogue={catalogue}
-                macros={macros}
-                targetedAds={rotationAds}
-                onImpression={reportImpression}
-              />
-            )}
-            {activeTab === 'APPS' && <AppsPage />}
-            {activeTab === 'SETTINGS' && <SettingsPage />}
+            </div>
+            <div className={activeTab === 'STREAMING' ? 'h-full' : 'hidden'}>
+              <StreamingPage services={streamingServices} />
+            </div>
+            <div className={activeTab === 'ACTIVITIES' ? 'h-full' : 'hidden'}>
+              <ActivitiesPage activities={activities} catalogue={catalogue} />
+            </div>
+            <div className={activeTab === 'APPS' ? 'h-full' : 'hidden'}>
+              <AppsPage />
+            </div>
+            <div className={activeTab === 'SETTINGS' ? 'h-full' : 'hidden'}>
+              <SettingsPage />
+            </div>
           </div>
 
-          {/* Ad zone — only if we have ads and not on activities with split mode */}
-          {hasAds && !isHomePage && !(activeTab === 'ACTIVITIES' && macros?.activitiesSplit) && (
+          {/* Global ad zone — always shown across all tabs so the same <video>
+              instance keeps playing without restart when switching categories. */}
+          {hasAds && (
             <>
               <div
                 className="tv-glass-divider shrink-0"
@@ -276,32 +273,61 @@ export function SmartTvDisplay({ layout, onHlsChannelOpen, onChannelListReady }:
               />
               <div
                 className="min-h-0 min-w-0 overflow-hidden flex flex-col"
-                style={{ flex: layout.adFlex }}
+                style={{ flex: layout.adFlex, padding: '1.5vw 0.5em', gap: '0.75em' }}
               >
-                <div style={{ flex: 1 }} />
-                <div style={{ width: '100%', padding: '0 0.5em' }}>
+                {/* Top portion — infinite vertical marquee of all promo codes (random order) */}
+                <div className="flex min-h-0 flex-1 flex-col gap-[0.5em]">
+                  <p
+                    className="text-muted-foreground"
+                    style={{ fontSize: '0.7em', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                  >
+                    Codes promo partenaires
+                  </p>
+                  <PromoMarquee catalogue={catalogue ?? []} />
+                </div>
+
+                {/* Bottom portion — ad video aligned to the very bottom of the column
+                    so its edge matches the bottom of the home cards on the left. */}
+                <div className="flex flex-col mt-auto">
                   <p
                     className="text-muted-foreground"
                     style={{ fontSize: '0.7em', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5em' }}
                   >
                     Nos partenaires
                   </p>
-                  <div className="overflow-hidden rounded-xl" style={{ position: 'relative', width: '100%', paddingBottom: '56.25%' }}>
-                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
-                      <AdZone
-                        houseAds={houseAds}
-                        targetedAds={rotationAds}
-                        rotationMs={macros?.adRotationMs}
-                        onImpression={reportImpression}
-                      />
-                    </div>
+                  <div
+                    className="overflow-hidden rounded-xl"
+                    style={{ width: '100%', aspectRatio: '16 / 9' }}
+                  >
+                    <AdZone
+                      houseAds={houseAds}
+                      targetedAds={rotationAds}
+                      rotationMs={macros?.adRotationMs}
+                      onImpression={reportImpression}
+                    />
                   </div>
                 </div>
-                <div style={{ flex: 1 }} />
               </div>
             </>
           )}
         </div>
+
+        {/* Partner banner — full width, shown above the ticker */}
+        {partnerBannerUrl && (
+          <div
+            className="shrink-0 overflow-hidden"
+            style={{ height: '80px', background: '#000' }}
+          >
+            <img
+              src={partnerBannerUrl}
+              alt="Bannière partenaire"
+              className="h-full w-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          </div>
+        )}
 
         {/* Ticker bar */}
         <TickerBar

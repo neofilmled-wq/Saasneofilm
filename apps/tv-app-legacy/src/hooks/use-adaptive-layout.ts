@@ -64,8 +64,8 @@ export function useAdaptiveLayout(scaleInfo: TvScaleInfo): AdaptiveLayout {
       return {
         orientation: 'horizontal' as const,
         flexDirection: 'row' as const,
-        mainFlex: 7,
-        adFlex: 3,
+        mainFlex: 50, // 50% content (cards / grid / list)
+        adFlex: 50,   // 50% right zone (code promo on top + ad video at bottom)
         safeZonePadding,
         tickerHeight,
         isUltraWide,

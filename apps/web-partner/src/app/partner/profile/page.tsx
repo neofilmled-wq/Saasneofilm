@@ -14,6 +14,7 @@ import { Save, User, MapPin, Phone, Mail, Globe } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { LoadingState } from '@/components/ui/loading-state';
 import { usePartnerProfile, useUpsertPartnerProfile } from '@/hooks/use-partner-profile';
+import { BannerUpload } from '@/components/profile/banner-upload';
 
 export default function ProfilePage() {
   const { data: profile, isLoading } = usePartnerProfile();
@@ -24,6 +25,7 @@ export default function ProfilePage() {
     contactEmail: '',
     contactPhone: '',
     logoUrl: '',
+    bannerUrl: '',
     address: '',
     city: '',
     postCode: '',
@@ -44,6 +46,7 @@ export default function ProfilePage() {
         contactEmail: profile.contactEmail ?? '',
         contactPhone: profile.contactPhone ?? '',
         logoUrl: profile.logoUrl ?? '',
+        bannerUrl: (profile as any).bannerUrl ?? '',
         address: profile.address ?? '',
         city: profile.city ?? '',
         postCode: profile.postCode ?? '',
@@ -124,6 +127,13 @@ export default function ProfilePage() {
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
               )}
+            </div>
+            <div className="grid gap-2">
+              <Label>Bannière (affichée en bas des écrans TV)</Label>
+              <BannerUpload
+                value={form.bannerUrl}
+                onChange={(url) => setForm((f) => ({ ...f, bannerUrl: url ?? '' }))}
+              />
             </div>
           </CardContent>
         </Card>

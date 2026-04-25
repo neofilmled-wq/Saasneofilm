@@ -24,6 +24,7 @@ interface TvConfigState {
   activities: ActivityPlace[];
   catalogue: CatalogueListing[];
   macros: TvMacroResponse | null;
+  partnerBannerUrl: string | null;
   isLoading: boolean;
 }
 
@@ -52,6 +53,7 @@ export function useTvConfig({ token, onAuthError }: UseTvConfigOptions) {
     activities: [],
     catalogue: [],
     macros: null,
+    partnerBannerUrl: null,
     isLoading: false,
   });
 
@@ -84,6 +86,7 @@ export function useTvConfig({ token, onAuthError }: UseTvConfigOptions) {
         activities: bootstrap.activities ?? [],
         catalogue: bootstrap.catalogue ?? [],
         macros: bootstrap.macros ?? DEFAULT_MACROS,
+        partnerBannerUrl: (bootstrap as any).partnerBannerUrl ?? null,
         isLoading: false,
       });
     } catch (err) {
@@ -135,6 +138,7 @@ export function useTvConfig({ token, onAuthError }: UseTvConfigOptions) {
           activities: activities ?? [],
           catalogue: catalogue ?? [],
           macros: macros ?? DEFAULT_MACROS,
+          partnerBannerUrl: null,
           isLoading: false,
         });
       } catch (fallbackErr) {

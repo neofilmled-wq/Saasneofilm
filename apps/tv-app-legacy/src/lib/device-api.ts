@@ -247,6 +247,7 @@ export interface CatalogueListing {
   imageUrl: string | null;
   ctaUrl: string | null;
   promoCode: string | null;
+  promoDescription: string | null;
   phone: string | null;
   address: string | null;
   keywords: string[];

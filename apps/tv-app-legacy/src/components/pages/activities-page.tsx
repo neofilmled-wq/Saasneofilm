@@ -1,18 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { ActivityPlace, CatalogueListing, TvAdItem, TvMacroResponse } from '@/lib/device-api';
+import type { ActivityPlace, CatalogueListing } from '@/lib/device-api';
 import { resolveMediaUrl, deviceApi } from '@/lib/device-api';
-import { AdZone } from '@/components/layout/ad-zone';
 import { useDpadNavigation } from '@/hooks/use-dpad-navigation';
 import { ListingDetailPage } from '@/components/pages/listing-detail-page';
 
 interface ActivitiesPageProps {
   activities: ActivityPlace[];
   catalogue?: CatalogueListing[];
-  macros?: TvMacroResponse | null;
-  targetedAds?: TvAdItem[];
-  onImpression?: (ad: TvAdItem, startTime: Date, endTime: Date, skipped: boolean) => void;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -40,7 +36,7 @@ type CardItem = {
   data: CatalogueListing;
 };
 
-export function ActivitiesPage({ activities, catalogue = [], macros, targetedAds = [], onImpression }: ActivitiesPageProps) {
+export function ActivitiesPage({ activities, catalogue = [] }: ActivitiesPageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedItem, setSelectedItem] = useState<ActivityPlace | CatalogueListing | null>(null);
   const { focusFirst } = useDpadNavigation({ containerRef, autoFocus: true, enabled: !selectedItem });
@@ -48,10 +44,6 @@ export function ActivitiesPage({ activities, catalogue = [], macros, targetedAds
   useEffect(() => {
     if (!selectedItem) { const t = setTimeout(focusFirst, 100); return () => clearTimeout(t); }
   }, [selectedItem, focusFirst]);
-
-  const splitMode = macros?.activitiesSplit ?? false;
-  const splitRatio = macros?.splitRatio ?? 70;
-  const hasAds = targetedAds.length > 0;
 
   if (activities.length === 0 && catalogue.length === 0) {
     return (
@@ -169,20 +161,7 @@ export function ActivitiesPage({ activities, catalogue = [], macros, targetedAds
     <ListingDetailPage item={selectedItem} onBack={() => setSelectedItem(null)} />
   ) : null;
 
-  if (splitMode && hasAds) {
-    return (
-      <>
-        {detailOverlay}
-        <div className="flex h-full overflow-hidden">
-          <div className="min-w-0 overflow-hidden" style={{ flex: splitRatio }}>{content}</div>
-          <div className="tv-glass-divider shrink-0" style={{ width: '1px', height: '100%' }} />
-          <div className="min-w-0 overflow-hidden" style={{ flex: 100 - splitRatio }}>
-            <AdZone houseAds={[]} targetedAds={targetedAds} rotationMs={macros?.adRotationMs} onImpression={onImpression} />
-          </div>
-        </div>
-      </>
-    );
-  }
-
+  // Internal AdZone removed — the global AdZone in smart-tv-display handles
+  // ads for all tabs now (shared <video> instance, no restart on tab switch).
   return <>{detailOverlay}{content}</>;
 }

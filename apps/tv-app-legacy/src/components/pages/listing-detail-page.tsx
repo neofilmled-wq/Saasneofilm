@@ -51,6 +51,7 @@ export function ListingDetailPage({ item, onBack }: ListingDetailPageProps) {
   const address = isActivity(item) ? (item as ActivityPlace).address
     : isCatalogue(item) ? (item as CatalogueListing).address : null;
   const promoCode = isCatalogue(item) ? (item as CatalogueListing).promoCode : null;
+  const promoDescription = isCatalogue(item) ? (item as CatalogueListing).promoDescription : null;
   const ctaUrl = isCatalogue(item) ? (item as CatalogueListing).ctaUrl : null;
   const phone = isActivity(item) ? (item as ActivityPlace).phone
     : isCatalogue(item) ? (item as CatalogueListing).phone : null;
@@ -150,14 +151,21 @@ export function ListingDetailPage({ item, onBack }: ListingDetailPageProps) {
               </span>
             )}
             {promoCode && (
-              <div className="flex items-center gap-2" style={{ marginTop: '0.25em' }}>
-                <span className="text-muted-foreground" style={{ fontSize: '0.85em' }}>Code promo :</span>
-                <span
-                  className="rounded-lg bg-green-500/20 px-3 py-1 font-mono font-bold text-green-400"
-                  style={{ fontSize: '1em', letterSpacing: '0.1em' }}
-                >
-                  {promoCode}
-                </span>
+              <div className="flex flex-col gap-1" style={{ marginTop: '0.25em' }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground" style={{ fontSize: '0.85em' }}>Code promo :</span>
+                  <span
+                    className="rounded-lg bg-green-500/20 px-3 py-1 font-mono font-bold text-green-400"
+                    style={{ fontSize: '1em', letterSpacing: '0.1em' }}
+                  >
+                    {promoCode}
+                  </span>
+                </div>
+                {promoDescription && (
+                  <span className="text-muted-foreground" style={{ fontSize: '0.85em' }}>
+                    {promoDescription}
+                  </span>
+                )}
               </div>
             )}
           </div>

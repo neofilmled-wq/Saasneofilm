@@ -1831,6 +1831,7 @@ model PartnerProfile {
   // Branding
   companyName String?
   logoUrl     String?
+  bannerUrl   String? // full-width banner displayed at the bottom of partner screens
 
   // Contact
   contactEmail String?
@@ -1955,6 +1956,7 @@ model CatalogueListing {
   imageUrl    String?
   ctaUrl      String?
   promoCode   String?
+  promoDescription String?
   phone       String?
   address     String?
   keywords    String[]

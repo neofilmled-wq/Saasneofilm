@@ -530,6 +530,9 @@ importers:
       mqtt:
         specifier: ^5.15.0
         version: 5.15.0
+      multer:
+        specifier: ^2.0.0
+        version: 2.0.2
       nodemailer:
         specifier: ^8.0.1
         version: 8.0.1

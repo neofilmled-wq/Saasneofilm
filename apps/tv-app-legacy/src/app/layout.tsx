@@ -3,7 +3,11 @@ import { Outfit } from 'next/font/google';
 import { Providers } from '@/providers';
 import './globals.css';
 
-const outfit = Outfit({ subsets: ['latin'], weight: ['300', '400', '500', '600', '700'] });
+const outfit = Outfit({
+  subsets: ['latin'],
+  weight: ['400', '600'],
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'NeoFilm TV',

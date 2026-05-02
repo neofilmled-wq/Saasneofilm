@@ -15,7 +15,9 @@ export function ClockWidget() {
       );
     };
     update();
-    const interval = setInterval(update, 1000);
+    // Display only shows minutes — refresh every 30s instead of every second
+    // to avoid waking the renderer 60× per minute on Android TV.
+    const interval = setInterval(update, 30_000);
     return () => clearInterval(interval);
   }, []);
 

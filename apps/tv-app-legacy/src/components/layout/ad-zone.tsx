@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TV_CONFIG } from '@/lib/constants';
 import type { CreativeManifest, TvAdItem } from '@/lib/device-api';
 import { resolveMediaUrl } from '@/lib/device-api';
@@ -32,23 +32,26 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
   const startTimeRef = useRef(new Date());
   const rotationInterval = rotationMs ?? TV_CONFIG.AD_ROTATION_INTERVAL_MS;
 
-  // Build unified ad pool: targeted first, then house
-  const adPool: DisplayAd[] = [
-    ...targetedAds.map((ad) => ({
-      id: ad.creativeId,
-      fileUrl: resolveMediaUrl(ad.fileUrl),
-      mimeType: ad.mimeType,
-      isTargeted: true,
-      source: ad,
-    })),
-    ...houseAds.map((ad) => ({
-      id: ad.creativeId,
-      fileUrl: resolveMediaUrl(ad.fileUrl),
-      mimeType: ad.mimeType,
-      isTargeted: false,
-      source: ad,
-    })),
-  ];
+  // Build unified ad pool: targeted first, then house (memoised)
+  const adPool = useMemo<DisplayAd[]>(
+    () => [
+      ...targetedAds.map((ad) => ({
+        id: ad.creativeId,
+        fileUrl: resolveMediaUrl(ad.fileUrl),
+        mimeType: ad.mimeType,
+        isTargeted: true,
+        source: ad,
+      })),
+      ...houseAds.map((ad) => ({
+        id: ad.creativeId,
+        fileUrl: resolveMediaUrl(ad.fileUrl),
+        mimeType: ad.mimeType,
+        isTargeted: false,
+        source: ad,
+      })),
+    ],
+    [targetedAds, houseAds],
+  );
 
   const currentAd = adPool[currentIndex % adPool.length] ?? null;
 

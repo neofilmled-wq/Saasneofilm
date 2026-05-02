@@ -157,10 +157,11 @@ export function useTvConfig({ token, onAuthError }: UseTvConfigOptions) {
     fetchAll();
   }, [token, fetchAll]);
 
-  // Refresh catalogue + activities every 2 minutes so TV picks up content updates
+  // Periodic safety-net refresh — WS push handles real-time updates,
+  // this is only a fallback in case a WS event was missed.
   useEffect(() => {
     if (!token) return;
-    const id = setInterval(() => fetchAll(), 2 * 60_000);
+    const id = setInterval(() => fetchAll(), 5 * 60_000);
     return () => clearInterval(id);
   }, [token, fetchAll]);
 

@@ -30,27 +30,32 @@ export function PromoMarquee({ catalogue, speedPxPerSec = 20 }: PromoMarqueeProp
     return null;
   }
 
-  // Approx card height (px) — used to compute animation duration.
-  // Keeps scroll speed stable regardless of list length.
+  // If the list fits without overflow there is no need to animate at all.
+  // We keep the marquee animation only when there are enough items to warrant
+  // continuous scrolling — saves continuous compositor work on Android TV.
+  const shouldAnimate = promos.length >= 4;
   const approxItemPx = 90;
   const durationSec = (promos.length * approxItemPx) / speedPxPerSec;
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-      <style>{`
-        @keyframes promoMarquee {
-          from { transform: translateY(0); }
-          to   { transform: translateY(-50%); }
-        }
-      `}</style>
+      {shouldAnimate && (
+        <style>{`
+          @keyframes promoMarquee {
+            from { transform: translateY(0); }
+            to   { transform: translateY(-50%); }
+          }
+        `}</style>
+      )}
       <div
         className="flex flex-col gap-[0.4em]"
-        style={{
-          animation: `promoMarquee ${durationSec}s linear infinite`,
-          willChange: 'transform',
-        }}
+        style={
+          shouldAnimate
+            ? { animation: `promoMarquee ${durationSec}s linear infinite` }
+            : undefined
+        }
       >
-        {[...promos, ...promos].map((c, i) => (
+        {(shouldAnimate ? [...promos, ...promos] : promos).map((c, i) => (
           <div
             key={`${c.id}-${i}`}
             className="flex items-center gap-[0.7em] rounded-lg border border-primary/20 bg-primary/5 px-[0.9em] py-[0.6em]"

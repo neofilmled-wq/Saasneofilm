@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useDpadNavigation } from '@/hooks/use-dpad-navigation';
 import { useAdInterval } from '@/hooks/use-ad-interval';
 import type { TvChannel } from '@/lib/device-api';
@@ -37,17 +37,21 @@ export function TntPage({ channels: dbChannels, onChannelOpen }: TntPageProps) {
   const { startInterval, stopInterval } = useAdInterval();
 
   // Only show channels with a streamUrl, sorted by TNT channel number (1, 2, 3…).
-  const displayChannels: DisplayChannel[] = dbChannels
-    .filter((ch) => !!ch.streamUrl)
-    .map((ch) => ({
-      id: ch.id,
-      number: ch.number,
-      name: ch.name,
-      logoUrl: ch.logoUrl,
-      streamUrl: ch.streamUrl,
-      isLive: true,
-    }))
-    .sort((a, b) => a.number - b.number);
+  const displayChannels = useMemo<DisplayChannel[]>(
+    () =>
+      dbChannels
+        .filter((ch) => !!ch.streamUrl)
+        .map((ch) => ({
+          id: ch.id,
+          number: ch.number,
+          name: ch.name,
+          logoUrl: ch.logoUrl,
+          streamUrl: ch.streamUrl,
+          isLive: true,
+        }))
+        .sort((a, b) => a.number - b.number),
+    [dbChannels],
+  );
 
   // Stop ad interval when unmounted
   useEffect(() => {

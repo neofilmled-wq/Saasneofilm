@@ -10,5 +10,5 @@ public final class BuildConfig {
   public static final int VERSION_CODE = 1;
   public static final String VERSION_NAME = "0.2.0";
   // Field from build type: debug
-  public static final String TV_APP_URL = "https://kiki.alkaya.fr/tv-legacy";
+  public static final String TV_APP_URL = "https://neofilmapi.alkaya.fr/tv-legacy";
 }

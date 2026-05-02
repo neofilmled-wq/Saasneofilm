@@ -105,17 +105,15 @@ export function SmartTvDisplay({ layout, onHlsChannelOpen, onChannelListReady }:
 
   // Boot interstitial disabled — AdActivity native handles ad sequences now
 
-  // Fetch rotation ads on mount and periodically
+  // Fetch rotation ads on mount and periodically (every 5 min)
   useEffect(() => {
     if (!token) return;
     fetchRotationAds();
-    // Quick retry after 5s in case first fetch was too early
-    const quickRetry = setTimeout(fetchRotationAds, 5000);
-    const interval = setInterval(fetchRotationAds, 60_000);
-    return () => { clearTimeout(quickRetry); clearInterval(interval); };
+    const interval = setInterval(fetchRotationAds, 5 * 60_000);
+    return () => clearInterval(interval);
   }, [token, fetchRotationAds]);
 
-  // Auto-reload when a new frontend version is deployed
+  // Auto-reload when a new frontend version is deployed (check every 10 min)
   useEffect(() => {
     const initialBuildId = document.querySelector('script[src*="/_next/"]')?.getAttribute('src') ?? '';
     const checkForUpdate = async () => {
@@ -129,7 +127,7 @@ export function SmartTvDisplay({ layout, onHlsChannelOpen, onChannelListReady }:
         }
       } catch { /* offline or error — skip */ }
     };
-    const interval = setInterval(checkForUpdate, 60_000); // Check every minute
+    const interval = setInterval(checkForUpdate, 10 * 60_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -225,13 +223,14 @@ export function SmartTvDisplay({ layout, onHlsChannelOpen, onChannelListReady }:
           className="flex min-h-0 flex-1 overflow-hidden"
           style={{ flexDirection: layout.orientation === 'horizontal' ? 'row' : 'column' }}
         >
-          {/* Content page — all tabs mount at once and toggle visibility via CSS.
-              This preserves <video> / iframe state (currentTime, buffers) across tab switches. */}
+          {/* Content page — only the active tab is mounted.
+              The shared AdZone below keeps the <video> instance alive across tab
+              changes, so unmounting the inactive pages here is safe. */}
           <div
             className="relative min-h-0 min-w-0 overflow-hidden"
             style={{ flex: hasAds ? layout.mainFlex : 1 }}
           >
-            <div className={activeTab === 'HOME' ? 'h-full' : 'hidden'}>
+            {activeTab === 'HOME' && (
               <HomePage
                 onNavigate={(dest: HomeDestination) => {
                   const map: Record<HomeDestination, TabKey | null> = { TNT:'TNT', ACTIVITIES:'ACTIVITIES', STREAMING:'STREAMING', APPS:'APPS' };
@@ -239,25 +238,19 @@ export function SmartTvDisplay({ layout, onHlsChannelOpen, onChannelListReady }:
                 }}
                 enabledModules={enabledModules}
               />
-            </div>
-            <div className={activeTab === 'TNT' ? 'h-full' : 'hidden'}>
+            )}
+            {activeTab === 'TNT' && (
               <TntPage
                 channels={channels}
                 onChannelOpen={(ch) => onHlsChannelOpen?.({ name: ch.name, streamUrl: ch.streamUrl! })}
               />
-            </div>
-            <div className={activeTab === 'STREAMING' ? 'h-full' : 'hidden'}>
-              <StreamingPage services={streamingServices} />
-            </div>
-            <div className={activeTab === 'ACTIVITIES' ? 'h-full' : 'hidden'}>
+            )}
+            {activeTab === 'STREAMING' && <StreamingPage services={streamingServices} />}
+            {activeTab === 'ACTIVITIES' && (
               <ActivitiesPage activities={activities} catalogue={catalogue} />
-            </div>
-            <div className={activeTab === 'APPS' ? 'h-full' : 'hidden'}>
-              <AppsPage />
-            </div>
-            <div className={activeTab === 'SETTINGS' ? 'h-full' : 'hidden'}>
-              <SettingsPage />
-            </div>
+            )}
+            {activeTab === 'APPS' && <AppsPage />}
+            {activeTab === 'SETTINGS' && <SettingsPage />}
           </div>
 
           {/* Global ad zone — always shown across all tabs so the same <video>

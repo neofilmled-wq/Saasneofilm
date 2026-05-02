@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ActivityPlace, CatalogueListing } from '@/lib/device-api';
 import { resolveMediaUrl, deviceApi } from '@/lib/device-api';
 import { useDpadNavigation } from '@/hooks/use-dpad-navigation';
@@ -53,35 +53,36 @@ export function ActivitiesPage({ activities, catalogue = [] }: ActivitiesPagePro
     );
   }
 
-  // Merge activities and catalogue listings into unified category groups
-  const grouped: Record<string, CardItem[]> = {};
+  // Merge activities and catalogue listings into unified category groups (memoised)
+  const { grouped, categoryOrder } = useMemo(() => {
+    const grouped: Record<string, CardItem[]> = {};
 
-  // Add activities (sorted: sponsored first, then by sortOrder)
-  const sortedActivities = [...activities].sort((a, b) => {
-    if (a.isSponsored && !b.isSponsored) return -1;
-    if (!a.isSponsored && b.isSponsored) return 1;
-    return a.sortOrder - b.sortOrder;
-  });
+    const sortedActivities = [...activities].sort((a, b) => {
+      if (a.isSponsored && !b.isSponsored) return -1;
+      if (!a.isSponsored && b.isSponsored) return 1;
+      return a.sortOrder - b.sortOrder;
+    });
 
-  for (const activity of sortedActivities) {
-    const cat = activity.category || 'OTHER';
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push({ type: 'activity', data: activity });
-  }
+    for (const activity of sortedActivities) {
+      const cat = activity.category || 'OTHER';
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push({ type: 'activity', data: activity });
+    }
 
-  // Add catalogue listings into their category groups
-  for (const listing of catalogue) {
-    const cat = (listing.category || 'OTHER').toUpperCase();
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push({ type: 'catalogue', data: listing });
-  }
+    for (const listing of catalogue) {
+      const cat = (listing.category || 'OTHER').toUpperCase();
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push({ type: 'catalogue', data: listing });
+    }
 
-  // Order categories: same order as advertiser app, then any extras
-  const ORDERED_CATEGORIES = ['RESTAURANT', 'SHOPPING', 'SPA', 'CULTURE', 'SPORT', 'NIGHTLIFE', 'TRANSPORT', 'OTHER'];
-  const categoryOrder = [
-    ...ORDERED_CATEGORIES.filter((k) => grouped[k]?.length),
-    ...Object.keys(grouped).filter((k) => !CATEGORY_LABELS[k]),
-  ];
+    const ORDERED_CATEGORIES = ['RESTAURANT', 'SHOPPING', 'SPA', 'CULTURE', 'SPORT', 'NIGHTLIFE', 'TRANSPORT', 'OTHER'];
+    const categoryOrder = [
+      ...ORDERED_CATEGORIES.filter((k) => grouped[k]?.length),
+      ...Object.keys(grouped).filter((k) => !CATEGORY_LABELS[k]),
+    ];
+
+    return { grouped, categoryOrder };
+  }, [activities, catalogue]);
 
   const content = (
     <div ref={containerRef} className="h-full overflow-y-auto tv-page-enter" style={{ padding: 'var(--tv-safe-x, 1.5rem)' }}>

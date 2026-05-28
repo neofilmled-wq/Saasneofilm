@@ -77,6 +77,27 @@ export function TvShell() {
     return () => window.removeEventListener('neofilm-back', handleBack);
   }, [hlsChannel]);
 
+  // Use the native Android player when the bridge is available.
+  // Why: the WebView's <video> + hls.js stack relies on Chromium's media pipeline,
+  // which doesn't fall back to software HEVC. Cheap Android TV sticks (e.g. Fire
+  // Stick basique) without hardware HEVC then play audio with a black frame.
+  // The native VideoView path uses Android system codecs with software fallback.
+  const useNativePlayer =
+    typeof window !== 'undefined' && !!(window as { NeoFilmAndroid?: { showNativeVideo?: unknown } }).NeoFilmAndroid?.showNativeVideo;
+
+  useEffect(() => {
+    if (!useNativePlayer || !hlsChannel) return;
+    const bridge = (window as { NeoFilmAndroid?: { showNativeVideo?: (url: string, x: number, y: number, w: number, h: number) => void } }).NeoFilmAndroid;
+    // Fullscreen permille coordinates (0..1000)
+    bridge?.showNativeVideo?.(hlsChannel.streamUrl, 0, 0, 1000, 1000);
+
+    const onClosed = () => setHlsChannel(null);
+    window.addEventListener('neofilm-native-player-closed', onClosed);
+    return () => {
+      window.removeEventListener('neofilm-native-player-closed', onClosed);
+    };
+  }, [useNativePlayer, hlsChannel]);
+
   if (!isReady) {
     return (
       <div className="flex h-screen w-screen items-center justify-center" data-neofilm-ready>
@@ -94,8 +115,19 @@ export function TvShell() {
     setHlsChannel(channelList[nextIdx]);
   };
 
-  // Full-screen HLS/DASH player (always use web player for better error handling)
+  // Full-screen channel playback
   if (hlsChannel) {
+    // Native player path: the VideoView sits above the WebView, so we just
+    // render a black placeholder underneath while it plays.
+    if (useNativePlayer) {
+      return (
+        <div
+          data-neofilm-ready
+          style={{ width: '100vw', height: '100vh', background: '#000' }}
+        />
+      );
+    }
+    // WebView path (browsers / devices without the native bridge)
     return (
       <div data-neofilm-ready style={{ width: '100vw', height: '100vh', background: '#000', animation: 'channelEnter 0.35s cubic-bezier(0.22,1,0.36,1) both' }}>
         <style dangerouslySetInnerHTML={{ __html: `@keyframes channelEnter { from { opacity:0; transform:scale(1.04); } to { opacity:1; transform:scale(1); } }` }} />

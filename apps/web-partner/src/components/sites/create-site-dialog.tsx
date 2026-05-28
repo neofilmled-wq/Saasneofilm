@@ -18,7 +18,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  AddressAutocomplete,
 } from '@neofilm/ui';
+import type { AddressSelection } from '@neofilm/ui';
 import { useCreateSite } from '@/hooks/use-sites';
 import { usePartnerOrg } from '@/hooks/use-partner-org';
 
@@ -108,7 +110,16 @@ export function CreateSiteDialog({ open, onOpenChange }: CreateSiteDialogProps) 
 
           <div className="space-y-2">
             <Label htmlFor="address">Adresse</Label>
-            <Input id="address" placeholder="15 Rue des Archives, 75004 Paris" {...form.register('address')} />
+            <AddressAutocomplete
+              value={form.watch('address')}
+              onChange={(v) => form.setValue('address', v, { shouldValidate: true })}
+              onSelect={(sel: AddressSelection) => {
+                form.setValue('address', sel.label, { shouldValidate: true });
+                if (sel.city) form.setValue('city', sel.city, { shouldValidate: true });
+                if (sel.postcode) form.setValue('postCode', sel.postcode, { shouldValidate: true });
+              }}
+              placeholder="15 Rue des Archives, 75004 Paris"
+            />
             {form.formState.errors.address && (
               <p className="text-sm text-destructive">{form.formState.errors.address.message}</p>
             )}

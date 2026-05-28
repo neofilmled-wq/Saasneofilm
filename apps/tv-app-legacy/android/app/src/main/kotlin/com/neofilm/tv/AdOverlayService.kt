@@ -18,7 +18,12 @@ class AdOverlayService : Service() {
         private const val TAG = "AdOverlayService"
         private const val CHANNEL_ID = "neofilm_ad_overlay"
         private const val NOTIFICATION_ID = 42
-        private const val INTERVAL_MS = 60L * 60 * 1000  // 1 h
+        // Safety floor so a misconfigured partner value can't flood the TV with ads.
+        // NOT a default — only clamps absurdly low values.
+        private const val MIN_INTERVAL_MS = 60L * 1000           // 1 min
+        // How often to recheck SharedPreferences while waiting for the WebView
+        // to push the interval pulled from the DB.
+        private const val WAIT_FOR_CONFIG_MS = 30L * 1000        // 30 s
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -29,7 +34,7 @@ class AdOverlayService : Service() {
         super.onCreate()
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
-        Log.i(TAG, "AdOverlayService started — interval ${INTERVAL_MS / 1000}s")
+        Log.i(TAG, "AdOverlayService started — waiting for interval from DB via TvMacro bridge")
         scheduleNext()
     }
 
@@ -38,12 +43,31 @@ class AdOverlayService : Service() {
         super.onDestroy()
     }
 
+    /**
+     * Read the cadence freshly each tick so partner updates apply without a service restart.
+     * Returns null when no value has been pushed by the WebView yet — the service must wait
+     * rather than fall back to a hardcoded default.
+     */
+    private fun getIntervalMs(): Long? {
+        val prefs = getSharedPreferences("neofilm_tv_prefs", Context.MODE_PRIVATE)
+        if (!prefs.contains("interstitial_interval_ms")) return null
+        val ms = prefs.getLong("interstitial_interval_ms", 0L)
+        if (ms <= 0L) return null
+        return if (ms < MIN_INTERVAL_MS) MIN_INTERVAL_MS else ms
+    }
+
     private fun scheduleNext() {
+        val intervalMs = getIntervalMs()
+        if (intervalMs == null) {
+            Log.i(TAG, "No interval configured yet — recheck in ${WAIT_FOR_CONFIG_MS / 1000}s")
+            handler.postDelayed({ scheduleNext() }, WAIT_FOR_CONFIG_MS)
+            return
+        }
         handler.postDelayed({
             sendHeartbeat()
             launchAdActivity()
             scheduleNext()
-        }, INTERVAL_MS)
+        }, intervalMs)
     }
 
     /** Send a heartbeat to the API so the screen shows as "active" */
@@ -77,6 +101,8 @@ class AdOverlayService : Service() {
         }.start()
     }
 
+    private val overlayPlayer by lazy { AdOverlayPlayer(applicationContext) }
+
     private fun launchAdActivity() {
         val prefs = getSharedPreferences("neofilm_tv_prefs", Context.MODE_PRIVATE)
 
@@ -89,11 +115,22 @@ class AdOverlayService : Service() {
             return
         }
 
-        // Read the last foreground app from SharedPrefs (set by MainActivity.onPause)
         val foregroundPackage = prefs.getString("last_foreground_app", "") ?: ""
         Log.i(TAG, "Current foreground app: $foregroundPackage")
 
-        Log.i(TAG, "Launching AdActivity")
+        // Prefer the system overlay (TYPE_APPLICATION_OVERLAY) so the foreground
+        // app (YouTube, Netflix, …) is NOT pushed through onPause→onStop.
+        // Audio focus is taken transient so well-behaved media apps pause and
+        // resume their playback automatically.
+        if (AdOverlayPlayer.canDrawOverlays(this)) {
+            Log.i(TAG, "Launching ad as system overlay")
+            handler.post { overlayPlayer.show() }
+            return
+        }
+
+        // Fallback when SYSTEM_ALERT_WINDOW is not granted (rare on Android TV
+        // where we self-grant via appops, but kept as a safety net).
+        Log.w(TAG, "Overlay permission missing — falling back to AdActivity")
         val intent = Intent(this, AdActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             putExtra("return_to_package", foregroundPackage)

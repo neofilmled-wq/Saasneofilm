@@ -510,13 +510,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun hideOfflineOverlay() {
-        // Reload fresh page, then show WebView after 15s to let it render
-        webView.loadUrl(tvAppUrl)
-        handler.postDelayed({
-            offlineOverlay.visibility = View.GONE
-            webView.visibility = View.VISIBLE
-            prefs.edit().putBoolean("webview_connected", true).apply()
-        }, 15_000)
+        // The page is already loaded & valid by the time we hide the overlay
+        // (every caller fires after onPageFinished / a validity check). Do NOT
+        // reload here: reloading re-triggered onPageFinished → hideOfflineOverlay
+        // → reload, an infinite loop that also tripped API rate-limiting (429).
+        offlineOverlay.visibility = View.GONE
+        webView.visibility = View.VISIBLE
+        prefs.edit().putBoolean("webview_connected", true).apply()
         handler.removeCallbacks(retryRunnable)
     }
 
@@ -1499,6 +1499,18 @@ class MainActivity : AppCompatActivity() {
             prefs.edit().putString("ads_data_json", json).apply()
             // Pre-download ad videos in background
             AdCacheManager.precacheAds(applicationContext, json)
+        }
+
+        /**
+         * Persist the interstitial interval (ms) chosen by the partner via TvMacro.
+         * AdOverlayService reads this on each tick to schedule the next ad sequence,
+         * so changing the value via the partner portal takes effect without an APK rebuild.
+         */
+        @JavascriptInterface
+        fun setInterstitialIntervalMs(ms: Long) {
+            if (ms <= 0L) return
+            Log.i(TAG, "Bridge: setInterstitialIntervalMs(${ms}ms = ${ms / 60000}min)")
+            prefs.edit().putLong("interstitial_interval_ms", ms).apply()
         }
 
         @JavascriptInterface

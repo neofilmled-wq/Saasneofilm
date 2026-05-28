@@ -15,6 +15,7 @@ declare global {
       closeNativeHls?: () => void;
       setAdsAvailable?: (count: number) => void;
       setAdsData?: (json: string) => void;
+      setInterstitialIntervalMs?: (ms: number) => void;
       setWebViewConnected?: (connected: boolean) => void;
       setDeviceCredentials?: (token: string, apiUrl: string, deviceId: string, screenId: string) => void;
       showNativeVideo?: (url: string, x: number, y: number, width: number, height: number) => void;

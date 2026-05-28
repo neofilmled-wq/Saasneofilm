@@ -237,6 +237,7 @@ export interface TvMacroResponse {
   activitiesAdNoSkip: boolean;
   maxAdsPerHour: number;
   maxInterstitialsPerSession: number;
+  interstitialIntervalMs: number;
 }
 
 export interface CatalogueListing {

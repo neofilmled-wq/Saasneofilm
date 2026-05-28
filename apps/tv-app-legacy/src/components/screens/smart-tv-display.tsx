@@ -138,6 +138,18 @@ export function SmartTvDisplay({ layout, onHlsChannelOpen, onChannelListReady }:
     } catch { /* bridge not available */ }
   }, [rotationAds]);
 
+  // Push the interstitial cadence (ms between full-screen ad sequences) to the
+  // native AdOverlayService. Stored in SharedPreferences and read on each tick
+  // — no APK rebuild required when partners change the value via TvMacro.
+  useEffect(() => {
+    const ms = macros?.interstitialIntervalMs;
+    if (typeof ms === 'number' && ms > 0) {
+      try {
+        window.NeoFilmAndroid?.setInterstitialIntervalMs?.(ms);
+      } catch { /* bridge not available */ }
+    }
+  }, [macros?.interstitialIntervalMs]);
+
   // Notify native side of WebView connection status + pass credentials for heartbeat
   useEffect(() => {
     try {
@@ -309,7 +321,7 @@ export function SmartTvDisplay({ layout, onHlsChannelOpen, onChannelListReady }:
         {partnerBannerUrl && (
           <div
             className="shrink-0 overflow-hidden"
-            style={{ height: '80px', background: '#000' }}
+            style={{ height: '6.5vh', background: '#000' }}
           >
             <img
               src={partnerBannerUrl}

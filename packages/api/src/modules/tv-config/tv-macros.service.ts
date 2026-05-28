@@ -16,6 +16,7 @@ export interface TvMacroResponse {
   activitiesAdNoSkip: boolean;
   maxAdsPerHour: number;
   maxInterstitialsPerSession: number;
+  interstitialIntervalMs: number;
 }
 
 const DEFAULT_MACROS: Omit<TvMacroResponse, 'screenId'> = {
@@ -32,6 +33,7 @@ const DEFAULT_MACROS: Omit<TvMacroResponse, 'screenId'> = {
   activitiesAdNoSkip: true,
   maxAdsPerHour: 20,
   maxInterstitialsPerSession: 10,
+  interstitialIntervalMs: 3600000,
 };
 
 @Injectable()
@@ -40,14 +42,30 @@ export class TvMacrosService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Read the GLOBAL interstitial interval that applies to every screen.
+   * Stored in `platform_settings` under key `interstitialIntervalMs` as a stringified ms count.
+   */
+  private async getGlobalInterstitialIntervalMs(): Promise<number> {
+    const row = await this.prisma.platformSetting.findUnique({
+      where: { key: 'interstitialIntervalMs' },
+    });
+    if (!row) return DEFAULT_MACROS.interstitialIntervalMs;
+    const parsed = Number.parseInt(row.value, 10);
+    return Number.isFinite(parsed) && parsed > 0
+      ? parsed
+      : DEFAULT_MACROS.interstitialIntervalMs;
+  }
+
   /** Get macros for a screen, returning defaults if none configured. */
   async getMacrosForScreen(screenId: string): Promise<TvMacroResponse> {
-    const macros = await this.prisma.tvMacro.findUnique({
-      where: { screenId },
-    });
+    const [macros, globalIntervalMs] = await Promise.all([
+      this.prisma.tvMacro.findUnique({ where: { screenId } }),
+      this.getGlobalInterstitialIntervalMs(),
+    ]);
 
     if (!macros) {
-      return { screenId, ...DEFAULT_MACROS };
+      return { screenId, ...DEFAULT_MACROS, interstitialIntervalMs: globalIntervalMs };
     }
 
     return {
@@ -65,6 +83,7 @@ export class TvMacrosService {
       activitiesAdNoSkip: macros.activitiesAdNoSkip,
       maxAdsPerHour: macros.maxAdsPerHour,
       maxInterstitialsPerSession: macros.maxInterstitialsPerSession,
+      interstitialIntervalMs: globalIntervalMs,
     };
   }
 
@@ -106,6 +125,8 @@ export class TvMacrosService {
         ...(data.maxInterstitialsPerSession !== undefined && {
           maxInterstitialsPerSession: data.maxInterstitialsPerSession,
         }),
+        // interstitialIntervalMs is now a GLOBAL setting in `platform_settings`,
+        // not per-screen — ignore any value sent here.
       },
     });
 

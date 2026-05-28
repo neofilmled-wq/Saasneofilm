@@ -1726,6 +1726,10 @@ model TvMacro {
   maxAdsPerHour              Int @default(20)
   maxInterstitialsPerSession Int @default(10)
 
+  // Native interstitial cadence (overlay ad sequence interval, in ms).
+  // Default 1h. Read by AdOverlayService on each tick.
+  interstitialIntervalMs Int @default(3600000)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -18,14 +18,14 @@ const KNOWN_STREAMING_APPS: {
   /** If set, opens this URL in a split-screen browser WebView instead of launching native app */
   webUrl?: string;
 }[] = [
-  { packageName: 'com.netflix.ninja', name: 'Netflix', color: '#E50914', webUrl: 'https://www.netflix.com/browse' },
-  { packageName: 'com.netflix.mediaclient', name: 'Netflix', color: '#E50914', webUrl: 'https://www.netflix.com/browse' },
+  { packageName: 'com.netflix.ninja', name: 'Netflix', color: '#E50914' },
+  { packageName: 'com.netflix.mediaclient', name: 'Netflix', color: '#E50914' },
   { packageName: 'com.disney.disneyplus', name: 'Disney+', color: '#113CCF' },
   { packageName: 'com.disney.disneyplus.tv', name: 'Disney+', color: '#113CCF' },
   { packageName: 'com.amazon.amazonvideo.livingroom', name: 'Prime Video', color: '#00A8E1' },
   { packageName: 'com.amazon.avod', name: 'Prime Video', color: '#00A8E1' },
-  { packageName: 'com.google.android.youtube.tv', name: 'YouTube', color: '#FF0000', webUrl: 'https://m.youtube.com' },
-  { packageName: 'com.google.android.youtube', name: 'YouTube', color: '#FF0000', webUrl: 'https://m.youtube.com' },
+  { packageName: 'com.google.android.youtube.tv', name: 'YouTube', color: '#FF0000' },
+  { packageName: 'com.google.android.youtube', name: 'YouTube', color: '#FF0000' },
   { packageName: 'com.google.android.youtube.tvkids', name: 'YouTube Kids', color: '#FF0000' },
   { packageName: 'com.hbo.hbonow', name: 'HBO Max', color: '#5822B4' },
   { packageName: 'com.wbd.stream', name: 'Max', color: '#002BE7' },
@@ -38,7 +38,7 @@ const KNOWN_STREAMING_APPS: {
   { packageName: 'com.plexapp.android', name: 'Plex', color: '#E5A00D' },
   { packageName: 'com.spotify.tv.android', name: 'Spotify', color: '#1DB954' },
   { packageName: 'com.crunchyroll.crunchyroid', name: 'Crunchyroll', color: '#F47521' },
-  { packageName: 'com.twitch.android.app', name: 'Twitch', color: '#9146FF', webUrl: 'https://m.twitch.tv' },
+  { packageName: 'com.twitch.android.app', name: 'Twitch', color: '#9146FF' },
   { packageName: 'fr.francetv.pluzz', name: 'france.tv', color: '#0F3E8C' },
   { packageName: 'com.orange.ocsgo', name: 'OCS', color: '#FF6600' },
   { packageName: 'com.arte.android.tv', name: 'ARTE', color: '#F26122' },

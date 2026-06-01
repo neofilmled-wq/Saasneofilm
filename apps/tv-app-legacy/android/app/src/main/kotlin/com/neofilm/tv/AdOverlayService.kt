@@ -36,10 +36,129 @@ class AdOverlayService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification())
         Log.i(TAG, "AdOverlayService started — waiting for interval from DB via TvMacro bridge")
         scheduleNext()
+        startKioskWatchdog()
+        // External keepalive — even if Android kills this whole process,
+        // the system AlarmManager will fire WatchdogAlarmReceiver every
+        // minute and restart us.
+        WatchdogAlarmReceiver.scheduleNext(applicationContext)
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Kiosk watchdog — polls the foreground app every WATCHDOG_INTERVAL_MS
+    // and brings NeoFilm back when the user lands on the Amazon launcher
+    // (the only way to recover HOME-button control on Fire OS 8 without
+    // being the system launcher).
+    // ────────────────────────────────────────────────────────────────────
+
+    private val KIOSK_LAUNCHER_PACKAGES = setOf(
+        "com.amazon.tv.launcher",
+        "com.amazon.firehomestarter",
+        "com.amazon.tv.settings.v2.system.FallbackHome",
+        "com.amazon.tv.parentalcontrols"
+    )
+    private val WATCHDOG_INTERVAL_MS = 1500L
+
+    private var watchdogTickCount = 0
+    private val watchdogRunnable = object : Runnable {
+        override fun run() {
+            try {
+                watchdogTickCount++
+                val kioskEnabled = getSharedPreferences("neofilm_tv_prefs", Context.MODE_PRIVATE)
+                    .getBoolean("kiosk_mode_enabled", true)
+                if (!kioskEnabled) {
+                    if (watchdogTickCount % 20 == 0) Log.d(TAG, "Watchdog: kiosk disabled, idle")
+                    handler.postDelayed(this, WATCHDOG_INTERVAL_MS)
+                    return
+                }
+                val fg = getForegroundPackage()
+                // Log every ~30s so we can confirm the watchdog is alive even when
+                // it doesn't need to act. Heavy logs would otherwise spam the buffer.
+                if (watchdogTickCount % 20 == 0) Log.d(TAG, "Watchdog tick: fg=$fg")
+                if (fg != null && KIOSK_LAUNCHER_PACKAGES.any { fg.startsWith(it) }) {
+                    Log.i(TAG, "Watchdog: launcher app $fg detected — re-launching NeoFilm")
+                    val intent = Intent(applicationContext, MainActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                        addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    }
+                    startActivity(intent)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Watchdog tick failed: ${e.message}")
+            }
+            handler.postDelayed(this, WATCHDOG_INTERVAL_MS)
+        }
+    }
+
+    private fun startKioskWatchdog() {
+        handler.removeCallbacks(watchdogRunnable)
+        handler.postDelayed(watchdogRunnable, WATCHDOG_INTERVAL_MS)
+    }
+
+    /**
+     * Returns the package name of the foreground app via UsageStatsManager.
+     * Requires PACKAGE_USAGE_STATS access (granted manually in Settings or via
+     *   adb shell appops set com.neofilm.tv.legacy GET_USAGE_STATS allow
+     * Returns null when access is missing — the watchdog silently skips.
+     */
+    private fun getForegroundPackage(): String? {
+        val usm = getSystemService(Context.USAGE_STATS_SERVICE) as? android.app.usage.UsageStatsManager
+            ?: return null
+        val end = System.currentTimeMillis()
+        val begin = end - 10_000
+        val events = usm.queryEvents(begin, end)
+        val event = android.app.usage.UsageEvents.Event()
+        var latest: String? = null
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event)
+            if (event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                latest = event.packageName
+            }
+        }
+        return latest
+    }
+
+    /**
+     * START_STICKY tells Android to relaunch this service if it was killed
+     * (low memory, long Netflix session, etc.). Without it, the service stays
+     * dead after a kill — ads stop firing and the kiosk loop dies with it.
+     */
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        return START_STICKY
+    }
+
+    /**
+     * Called when the user swipes NeoFilm out of the recents tray. Reschedule
+     * ourselves immediately so the foreground service comes back rather than
+     * just dying with the task.
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        Log.w(TAG, "Task removed — scheduling self-restart in 1s")
+        val restartIntent = Intent(applicationContext, AdOverlayService::class.java)
+        val pi = android.app.PendingIntent.getService(
+            this, 1, restartIntent,
+            android.app.PendingIntent.FLAG_ONE_SHOT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+        val am = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+        am.set(android.app.AlarmManager.RTC, System.currentTimeMillis() + 1000, pi)
     }
 
     override fun onDestroy() {
+        Log.w(TAG, "onDestroy — scheduling immediate self-restart")
         handler.removeCallbacksAndMessages(null)
+        // Schedule a restart in case Android (or the OOM killer) tore us down.
+        try {
+            val restartIntent = Intent(applicationContext, AdOverlayService::class.java)
+            val pi = android.app.PendingIntent.getService(
+                this, 2, restartIntent,
+                android.app.PendingIntent.FLAG_ONE_SHOT or android.app.PendingIntent.FLAG_IMMUTABLE
+            )
+            val am = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            am.set(android.app.AlarmManager.RTC, System.currentTimeMillis() + 1000, pi)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to schedule self-restart: ${e.message}")
+        }
         super.onDestroy()
     }
 
@@ -149,14 +268,25 @@ class AdOverlayService : Service() {
     }
 
     private fun buildNotification(): Notification {
+        // Clicking the notification returns the user to NeoFilm — useful after
+        // a long Netflix session where the user wants the signage back.
+        val openMain = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+        }
+        val contentIntent = android.app.PendingIntent.getActivity(
+            this, 0, openMain,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)
                 .setContentTitle("NeoFilm").setContentText("Service publicitaire actif")
+                .setContentIntent(contentIntent)
                 .setSmallIcon(android.R.drawable.ic_media_play).build()
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
                 .setContentTitle("NeoFilm").setContentText("Service publicitaire actif")
+                .setContentIntent(contentIntent)
                 .setSmallIcon(android.R.drawable.ic_media_play).build()
         }
     }

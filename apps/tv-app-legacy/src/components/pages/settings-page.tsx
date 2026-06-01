@@ -69,6 +69,31 @@ export function SettingsPage() {
         ))}
       </div>
 
+      {/* System settings access — gated by PIN on the native side */}
+      <button
+        data-tv-focusable
+        onClick={() => {
+          try {
+            (window as any).NeoFilmAndroid?.openSystemSettings?.();
+          } catch (e) {
+            console.error('[Settings] openSystemSettings failed:', e);
+          }
+        }}
+        className="tv-card mt-[1.5em] flex w-full items-center gap-[0.75em] text-left"
+        style={{ padding: '1em' }}
+      >
+        <span style={{ fontSize: '1.5em' }}>⚙️</span>
+        <div className="flex flex-1 flex-col">
+          <span className="font-semibold text-foreground" style={{ fontSize: '1em' }}>
+            Paramètres système Fire TV
+          </span>
+          <span className="text-muted-foreground" style={{ fontSize: '0.8em' }}>
+            Wi-Fi, son, affichage… (code requis)
+          </span>
+        </div>
+        <span className="text-muted-foreground" style={{ fontSize: '1.2em' }}>›</span>
+      </button>
+
       {/* Reset pairing — disabled on TV, only available from partner dashboard */}
     </div>
   );

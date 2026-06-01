@@ -5,7 +5,8 @@
       "Bash(docker exec -u postgres neofilmsaas-postgres-1 sh -c \"pg_ctl reload -D /var/lib/postgresql/data\")",
       "Bash(\"C:/Users/AYHHAN/AppData/Local/Android/Sdk/platform-tools/adb.exe\" forward:*)",
       "Bash(tasklist //FI \"IMAGENAME eq node.exe\")",
-      "Bash(DATABASE_URL=\"postgresql://postgres:NeoPostgres2026!@192.168.10.10:5433/neofilm\" node -e \":*)"
+      "Bash(DATABASE_URL=\"postgresql://postgres:NeoPostgres2026!@192.168.10.10:5433/neofilm\" node -e \":*)",
+      "Bash(\"/c/Users/AYYILDIZ/AppData/Local/Android/Sdk/platform-tools/adb.exe\" -s 192.168.10.220:5555 shell \"pm list packages\")"
     ]
   }
 }

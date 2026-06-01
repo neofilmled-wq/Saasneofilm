@@ -68,6 +68,8 @@ class MainActivity : AppCompatActivity() {
     // ── Native HLS player (bypasses WebView CORS) ──
     private var nativePlayerContainer: FrameLayout? = null
     private var nativeVideoView: android.widget.VideoView? = null
+    private var nativeExoPlayer: androidx.media3.exoplayer.ExoPlayer? = null
+    private var nativeExoPlayerView: androidx.media3.ui.PlayerView? = null
 
     private var tvAppUrl: String = ""
     private var isNetworkAvailable = true
@@ -99,6 +101,45 @@ class MainActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
 
         prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+        // Ensure AdOverlayService (and its kiosk watchdog) is running every
+        // time MainActivity is launched. Android may have killed the service
+        // due to background-start restrictions or OOM since the last launch.
+        try {
+            val svc = Intent(this, AdOverlayService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(svc)
+            } else {
+                startService(svc)
+            }
+            Log.i(TAG, "AdOverlayService start requested from MainActivity.onCreate")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start AdOverlayService: ${e.message}")
+        }
+
+        // Kiosk-mode toggle via ADB broadcast. On Fire OS 8 we can't replace
+        // the system launcher, so onUserLeaveHint re-launches the app on every
+        // HOME press. A tech can leave the app (for debug/maintenance) with:
+        //   adb shell am broadcast -a com.neofilm.tv.KIOSK_DISABLE
+        // Re-enable with:
+        //   adb shell am broadcast -a com.neofilm.tv.KIOSK_ENABLE
+        val kioskToggleFilter = android.content.IntentFilter().apply {
+            addAction("com.neofilm.tv.KIOSK_DISABLE")
+            addAction("com.neofilm.tv.KIOSK_ENABLE")
+        }
+        val kioskToggleReceiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(ctx: android.content.Context?, intent: android.content.Intent?) {
+                val enable = intent?.action == "com.neofilm.tv.KIOSK_ENABLE"
+                prefs.edit().putBoolean("kiosk_mode_enabled", enable).apply()
+                Log.i(TAG, "Kiosk mode " + (if (enable) "ENABLED" else "DISABLED") + " via broadcast")
+            }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(kioskToggleReceiver, kioskToggleFilter, RECEIVER_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(kioskToggleReceiver, kioskToggleFilter)
+        }
 
         // Request overlay permission (needed for ad overlay over YouTube etc.)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
@@ -467,13 +508,13 @@ class MainActivity : AppCompatActivity() {
         cm.registerNetworkCallback(request, object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 handler.post {
-                    Log.i(TAG, "Network available")
+                    Log.i(TAG, "Network available — reloading $tvAppUrl, overlay stays until page is valid")
                     isNetworkAvailable = true
-                    hideOfflineOverlay()
                     updateStatusBadge()
-                    if (webView.url == null || webView.url == "about:blank") {
-                        webView.loadUrl(tvAppUrl)
-                    }
+                    // Reload the real app URL behind the overlay. onPageFinished
+                    // will check the body and call hideOfflineOverlay() only if
+                    // the actual NeoFilm page loaded successfully.
+                    webView.loadUrl(tvAppUrl)
                 }
             }
 
@@ -493,6 +534,31 @@ class MainActivity : AppCompatActivity() {
         val network = cm.activeNetwork ?: return false
         val caps = cm.getNetworkCapabilities(network) ?: return false
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    /**
+     * Returns true when the WebView body text looks like an error page (server
+     * 5xx, gateway issues, Chromium network errors, Synology error). Used to
+     * decide whether to keep the native offline overlay visible.
+     */
+    private fun isErrorPageBody(body: String): Boolean {
+        val markers = listOf(
+            // Synology / proxy
+            "Synology", "introuvable",
+            // Chromium "no internet" / network errors
+            "Webpage not available", "Cette page Web n'est pas disponible",
+            "Aucune connexion Internet", "ERR_INTERNET_DISCONNECTED",
+            "ERR_NAME_NOT_RESOLVED", "net::ERR_",
+            // nginx / reverse-proxy upstream errors (most common: 502, 503, 504)
+            "502 Bad Gateway", "Bad Gateway",
+            "503 Service Temporarily Unavailable", "503 Service Unavailable", "Service Unavailable",
+            "504 Gateway Time-out", "Gateway Time-out", "Gateway Timeout",
+            "500 Internal Server Error", "Internal Server Error",
+            "openresty", "nginx",
+            // Generic 404 / not found that some proxies serve as html
+            "404 Not Found"
+        )
+        return markers.any { body.contains(it, ignoreCase = true) }
     }
 
     private fun showOfflineOverlay() {
@@ -531,10 +597,18 @@ class MainActivity : AppCompatActivity() {
         webView.loadUrl(tvAppUrl)
         // Wait 15s then check if page is valid before showing
         handler.postDelayed({
-            webView.evaluateJavascript("document.body.innerText.substring(0, 300)") { content ->
+            val currentUrl = webView.url ?: ""
+            val isChromeErrorPage = currentUrl.startsWith("chrome-error:") ||
+                currentUrl.startsWith("data:") ||
+                currentUrl.startsWith("chrome://")
+            if (isChromeErrorPage) {
+                Log.w(TAG, "Retry: WebView still on Chromium error page ($currentUrl) — keeping overlay")
+                scheduleRetry()
+                return@postDelayed
+            }
+            webView.evaluateJavascript("document.body.innerText.substring(0, 500)") { content ->
                 val c = content?.trim('"') ?: ""
-                val isBad = c.contains("Synology", ignoreCase = true) || c.contains("introuvable", ignoreCase = true) || c.isBlank()
-                if (isBad) {
+                if (c.isBlank() || isErrorPageBody(c)) {
                     Log.w(TAG, "Page still invalid after 15s — keeping overlay, scheduling next retry")
                     scheduleRetry()
                 } else {
@@ -614,6 +688,25 @@ class MainActivity : AppCompatActivity() {
         // When offline overlay is visible, let Android handle D-pad natively
         if (offlineOverlay.visibility == View.VISIBLE) {
             return super.dispatchKeyEvent(event)
+        }
+
+        // Channel zapping while the native ExoPlayer is open — up/down arrows
+        // bypass spatial nav entirely and trigger a JS zap event. Tv-shell
+        // listens for this and calls zapChannel() with the requested direction.
+        if (nativePlayerContainer != null && event.action == KeyEvent.ACTION_DOWN) {
+            val zapDir = when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_CHANNEL_UP -> -1
+                KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_CHANNEL_DOWN -> 1
+                else -> 0
+            }
+            if (zapDir != 0) {
+                Log.d(TAG, "Native player zap: dir=$zapDir")
+                webView.evaluateJavascript(
+                    "window.dispatchEvent(new CustomEvent('neofilm-native-player-zap',{detail:{dir:$zapDir}}))",
+                    null
+                )
+                return true
+            }
         }
 
         val jsKey = when (event.keyCode) {
@@ -921,12 +1014,23 @@ class MainActivity : AppCompatActivity() {
 
             // Check if the loaded page is Synology error (not NeoFilm)
             if (url != null && !url.startsWith("about:")) {
+                // Chromium's own error pages (no internet, DNS fail, etc.) load
+                // a chrome-error:// or data: URL. Don't hide the offline overlay
+                // for those — otherwise the user sees the bare Chromium error
+                // screen (black with a small Android icon) instead of ours.
+                val isChromeErrorPage = url.startsWith("chrome-error:") ||
+                    url.startsWith("data:") ||
+                    url.startsWith("chrome://")
+                if (isChromeErrorPage) {
+                    Log.w(TAG, "Chromium error page detected ($url) — keeping offline overlay")
+                    showOfflineOverlay()
+                    return
+                }
                 handler.postDelayed({
-                    view?.evaluateJavascript("document.body.innerText.substring(0, 300)") { content ->
+                    view?.evaluateJavascript("document.body.innerText.substring(0, 500)") { content ->
                         val c = content?.trim('"') ?: ""
-                        val isSynology = c.contains("Synology", ignoreCase = true) || c.contains("introuvable", ignoreCase = true)
-                        if (isSynology) {
-                            Log.w(TAG, "Synology/error page detected — showing offline overlay")
+                        if (isErrorPageBody(c)) {
+                            Log.w(TAG, "Server/network error page detected — showing offline overlay (body=${c.take(80)})")
                             showOfflineOverlay()
                         } else if (offlineOverlay.visibility == View.VISIBLE) {
                             Log.i(TAG, "NeoFilm page loaded — hiding offline overlay")
@@ -1055,6 +1159,13 @@ class MainActivity : AppCompatActivity() {
 
     private var cameFromHome = false
 
+    // True while NeoFilm itself just launched another app (e.g. user tapped
+    // Netflix in the Apps tab). The next onUserLeaveHint should NOT bounce
+    // back to NeoFilm — the user wants to actually use that app. The flag
+    // auto-clears in onResume so a subsequent HOME press still triggers the
+    // kiosk re-launch.
+    private var selfInitiatedLeave = false
+
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         // HOME button pressed → flag to navigate to Accueil
@@ -1065,6 +1176,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // The user is back on NeoFilm — re-arm the kiosk for the next HOME.
+        selfInitiatedLeave = false
         enableKioskMode()
         webView.onResume()
         browserWebView?.onResume()
@@ -1098,6 +1211,36 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
         webView.onPause()
         browserWebView?.onPause()
+    }
+
+    /**
+     * Called when the user presses HOME (or RECENTS). On Fire OS 8 we can't
+     * be the system launcher (Amazon protects its packages), so this is the
+     * closest thing: immediately re-launch ourselves so NeoFilm comes back.
+     */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (selfInitiatedLeave) {
+            // NeoFilm just launched another app on the user's behalf — let it
+            // open. The flag is cleared in onResume on the next return.
+            Log.i(TAG, "onUserLeaveHint: self-initiated leave — not bouncing")
+            return
+        }
+        val kioskEnabled = prefs.getBoolean("kiosk_mode_enabled", true)
+        if (!kioskEnabled) {
+            Log.i(TAG, "onUserLeaveHint: kiosk disabled — letting user leave")
+            return
+        }
+        Log.i(TAG, "onUserLeaveHint: re-launching NeoFilm (kiosk mode)")
+        cameFromHome = true
+        handler.postDelayed({
+            val relaunch = Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            startActivity(relaunch)
+        }, 250)
     }
 
     override fun onDestroy() {
@@ -1257,7 +1400,53 @@ class MainActivity : AppCompatActivity() {
         builder.setPositiveButton("Valider") { dialog, _ ->
             val entered = input.text.toString()
             if (entered == SETTINGS_PIN) {
-                startActivity(Intent(Settings.ACTION_SETTINGS))
+                // Disable kiosk re-launch so the settings activity (or any other
+                // navigation the tech needs) isn't bounced back to NeoFilm. The
+                // user can re-enable kiosk via:
+                //   adb shell am broadcast -a com.neofilm.tv.KIOSK_ENABLE
+                prefs.edit().putBoolean("kiosk_mode_enabled", false).apply()
+                Log.i(TAG, "Kiosk disabled for settings access")
+
+                // Multiple fallback paths — Fire OS 8 settings are unreliable
+                // (system activities crash on launch due to a missing internal
+                // dependency). We try each and fall through silently on failure.
+                val candidates = listOf<() -> Intent>(
+                    { Intent(Settings.ACTION_SETTINGS) },
+                    { Intent(Intent.ACTION_MAIN).apply {
+                        component = ComponentName("com.amazon.tv.launcher", "com.amazon.tv.launcher.ui.SettingsActivity")
+                    }},
+                    { Intent(Intent.ACTION_MAIN).apply {
+                        component = ComponentName("com.amazon.tv.settings.v2", "com.amazon.tv.settings.v2.tv.network.NetworkActivity")
+                    }},
+                    { Intent(Settings.ACTION_WIFI_SETTINGS) },
+                    // Last resort: open Launcher Manager (the user already has it
+                    // installed, and it exposes wifi/system shortcuts).
+                    { Intent(Intent.ACTION_MAIN).apply {
+                        component = ComponentName("com.wolf.minilm", "com.wolf.minilm.ui.LauncherActivity")
+                    }},
+                    { Intent(Intent.ACTION_MAIN).apply {
+                        component = ComponentName("com.wolf.google.lm", "com.wolf.google.lm.main.MainActivity")
+                    }}
+                )
+                var launched = false
+                for (builder in candidates) {
+                    try {
+                        val intent = builder().apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                        startActivity(intent)
+                        Log.i(TAG, "Settings opened via: ${intent.component ?: intent.action}")
+                        launched = true
+                        break
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Settings fallback failed: ${e.message}")
+                    }
+                }
+                if (!launched) {
+                    android.widget.Toast.makeText(
+                        this,
+                        "Aucune voie d'accès aux paramètres disponible sur ce Fire OS",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
             } else {
                 android.widget.Toast.makeText(this, "Code incorrect", android.widget.Toast.LENGTH_SHORT).show()
             }
@@ -1369,10 +1558,20 @@ class MainActivity : AppCompatActivity() {
         /**
          * Launch an app by package name.
          */
+        /**
+         * Show the PIN dialog and, on success, open system settings. Works on
+         * Fire OS where the Settings package isn't directly launchable from
+         * outside the Amazon launcher.
+         */
+        @JavascriptInterface
+        fun openSystemSettings() {
+            handler.post { showSettingsPinDialog() }
+        }
+
         @JavascriptInterface
         fun launchApp(packageName: String): Boolean {
             // Protect Settings with PIN
-            if (packageName == "com.android.tv.settings" || packageName == "com.android.settings") {
+            if (packageName == "com.android.tv.settings" || packageName == "com.android.settings" || packageName == "__settings__") {
                 handler.post { showSettingsPinDialog() }
                 return true
             }
@@ -1381,8 +1580,10 @@ class MainActivity : AppCompatActivity() {
                     ?: packageManager.getLaunchIntentForPackage(packageName)
                 if (launchIntent != null) {
                     launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    // Tell kiosk we want to leave on purpose — don't bounce back.
+                    selfInitiatedLeave = true
                     startActivity(launchIntent)
-                    Log.i(TAG, "Launched app: $packageName")
+                    Log.i(TAG, "Launched app: $packageName (kiosk bypass)")
                     // Save for AdActivity return
                     prefs.edit().putString("last_foreground_app", packageName).apply()
                     true
@@ -1836,21 +2037,42 @@ class MainActivity : AppCompatActivity() {
     // NATIVE HLS PLAYER (bypasses WebView CORS)
     // ══════════════════════════════════════════════════
 
-    @SuppressLint("ClickableViewAccessibility")
+    @SuppressLint("ClickableViewAccessibility", "UnsafeOptInUsageError")
     private fun showNativeHlsPlayer(url: String) {
-        hideNativeHlsPlayer() // clean up any previous instance
+        // Channel transition — suppress the spurious close dispatch so the JS
+        // side keeps hlsChannel set to the new channel and we don't bounce out.
+        hideNativeHlsPlayer(suppressDispatch = true)
+
+        // Hide the WebView entirely while the native player runs so the React
+        // sidebar ad zone can't leak around the SurfaceView's letterbox area.
+        // It comes back to VISIBLE in hideNativeHlsPlayer().
+        webView.visibility = View.GONE
 
         val container = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
         }
 
-        val videoView = android.widget.VideoView(this).apply {
+        // ExoPlayer (media3) — proper HLS parsing + Android system codecs with
+        // software HEVC fallback. Replaces the legacy VideoView/MediaPlayer
+        // path which couldn't open most M3U8 manifests.
+        val player = androidx.media3.exoplayer.ExoPlayer.Builder(this).build()
+        // Disable subtitle/text tracks — IPTV streams often carry baked-in
+        // closed captions and we don't want them rendered on top of the video.
+        player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, true)
+            .build()
+        val playerView = androidx.media3.ui.PlayerView(this).apply {
+            useController = false
+            // Hide the subtitle view entirely so no caption surface is created.
+            subtitleView?.visibility = View.GONE
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         }
-        container.addView(videoView)
+        playerView.player = player
+        container.addView(playerView)
 
         // Back button overlay (top-left)
         val backBtn = android.widget.Button(this).apply {
@@ -1872,45 +2094,78 @@ class MainActivity : AppCompatActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT
         ))
 
-        nativeVideoView = videoView
+        nativeExoPlayer = player
+        nativeExoPlayerView = playerView
         nativePlayerContainer = container
 
         try {
-            videoView.setVideoURI(android.net.Uri.parse(url))
-            videoView.setOnPreparedListener { mp ->
-                mp.isLooping = false
-                mp.start()
-                Log.i(TAG, "Native HLS prepared and started: $url")
-            }
-            videoView.setOnErrorListener { _, what, extra ->
-                Log.e(TAG, "Native HLS error: what=$what extra=$extra url=$url")
-                // Notify JS so it can show fallback
-                webView.evaluateJavascript(
-                    "window.dispatchEvent(new CustomEvent('neofilm-native-player-error'))",
-                    null
-                )
-                hideNativeHlsPlayer()
-                true
-            }
-            videoView.start()
+            // Force the HLS source factory — many IPTV providers serve M3U8
+            // without the conventional .m3u8 extension (e.g. tvradiozap.eu/891),
+            // so MIME sniffing alone often picks the wrong source factory.
+            val dataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                .setAllowCrossProtocolRedirects(true)
+                .setUserAgent("NeoFilmTV/1.0 (Android)")
+            val mediaItem = androidx.media3.common.MediaItem.fromUri(url)
+            val mediaSource = androidx.media3.exoplayer.hls.HlsMediaSource.Factory(dataSourceFactory)
+                .createMediaSource(mediaItem)
+            player.setMediaSource(mediaSource)
+            player.addListener(object : androidx.media3.common.Player.Listener {
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    Log.e(TAG, "ExoPlayer error: ${error.errorCodeName} ${error.message} url=$url")
+                    webView.evaluateJavascript(
+                        "window.dispatchEvent(new CustomEvent('neofilm-native-player-error'))",
+                        null
+                    )
+                    // Error path — the JS side reacts to the `error` event and
+                    // switches to the hls.js fallback. Don't also send a close
+                    // event (which would clear hlsChannel before the fallback
+                    // renders).
+                    hideNativeHlsPlayer(suppressDispatch = true)
+                }
+                override fun onPlaybackStateChanged(state: Int) {
+                    if (state == androidx.media3.common.Player.STATE_READY) {
+                        Log.i(TAG, "ExoPlayer ready: $url")
+                    }
+                }
+            })
+            player.prepare()
+            player.playWhenReady = true
         } catch (e: Exception) {
             Log.e(TAG, "Native HLS exception: ${e.message}")
             hideNativeHlsPlayer()
         }
     }
 
-    private fun hideNativeHlsPlayer() {
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    private fun hideNativeHlsPlayer(suppressDispatch: Boolean = false) {
+        // Only dispatch close to JS when the user actually closed the player
+        // (back button). Transitions (channel change) and error recovery pass
+        // suppressDispatch=true to avoid wiping hlsChannel on the React side.
+        val wasOpen = nativePlayerContainer != null
         try { nativeVideoView?.stopPlayback() } catch (_: Exception) {}
+        try { nativeExoPlayer?.release() } catch (_: Exception) {}
+        try { nativeExoPlayerView?.player = null } catch (_: Exception) {}
+        nativeExoPlayer = null
+        nativeExoPlayerView = null
         adOverlayTexture = null
         nativePlayerContainer?.let {
             try { rootLayout.removeView(it) } catch (_: Exception) {}
         }
         nativePlayerContainer = null
-        webView.evaluateJavascript(
-            "window.dispatchEvent(new CustomEvent('neofilm-native-player-closed'))",
-            null
-        )
-        Log.i(TAG, "Native HLS player closed")
+        // If we're really closing (back / final exit), restore the WebView so
+        // the React UI (and its sidebar ads) becomes visible again. On a
+        // channel transition the suppress path still passes through here and
+        // showNativeHlsPlayer immediately re-hides the WebView right after.
+        if (!suppressDispatch) {
+            webView.visibility = View.VISIBLE
+        }
+        if (wasOpen && !suppressDispatch) {
+            webView.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('neofilm-native-player-closed'))",
+                null
+            )
+            Log.i(TAG, "Native HLS player closed")
+        }
     }
 
     private fun exitSplitMode() {

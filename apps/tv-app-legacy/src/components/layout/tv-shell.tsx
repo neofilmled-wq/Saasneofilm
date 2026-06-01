@@ -1,6 +1,6 @@
 'use client';
 
-import { Component, useState, useEffect, type ReactNode } from 'react';
+import { Component, useState, useEffect, useRef, type ReactNode } from 'react';
 import { useDevice } from '@/providers/device-provider';
 import { DeviceState } from '@/lib/state-machine';
 import { useTvScale } from '@/hooks/use-tv-scale';
@@ -64,6 +64,10 @@ export function TvShell() {
   const [hlsChannel, setHlsChannel] = useState<{ name: string; streamUrl: string } | null>(null);
   // Channel list for zapping
   const [channelList, setChannelList] = useState<{ name: string; streamUrl: string }[]>([]);
+  // streamUrls that the native MediaPlayer failed on — those fall back to
+  // the WebView IptvPlayer (hls.js) which handles a much wider range of HLS
+  // manifests than Android's bundled MediaPlayer.
+  const [nativeFailedUrls, setNativeFailedUrls] = useState<Set<string>>(new Set());
 
   // Listen for Android BACK button event
   useEffect(() => {
@@ -77,24 +81,75 @@ export function TvShell() {
     return () => window.removeEventListener('neofilm-back', handleBack);
   }, [hlsChannel]);
 
+  // Zap via Android up/down while the native player is open. Native side
+  // dispatches `neofilm-native-player-zap` with detail.dir = -1 (up) or +1 (down).
+  // Hook lives above the early return for `isReady` so the hook order stays
+  // stable (React error #310). Logic uses the latest hlsChannel/channelList
+  // via the deps and reads them inside the handler closure.
+  useEffect(() => {
+    if (!hlsChannel || channelList.length === 0) return;
+    const handleZap = (e: Event) => {
+      const dir = (e as CustomEvent<{ dir: number }>).detail?.dir;
+      if (dir !== 1 && dir !== -1) return;
+      const currentIdx = channelList.findIndex((ch) => ch.streamUrl === hlsChannel.streamUrl);
+      const nextIdx = (currentIdx + dir + channelList.length) % channelList.length;
+      setHlsChannel(channelList[nextIdx]);
+    };
+    window.addEventListener('neofilm-native-player-zap', handleZap);
+    return () => window.removeEventListener('neofilm-native-player-zap', handleZap);
+  }, [hlsChannel, channelList]);
+
   // Use the native Android player when the bridge is available.
   // Why: the WebView's <video> + hls.js stack relies on Chromium's media pipeline,
   // which doesn't fall back to software HEVC. Cheap Android TV sticks (e.g. Fire
   // Stick basique) without hardware HEVC then play audio with a black frame.
   // The native VideoView path uses Android system codecs with software fallback.
+  // NOTE: openNativeHls is the IPTV-fullscreen function on the native side.
+  // showNativeVideo is a different (positioned, muted, looping) bridge used by
+  // the ad sidebar — using it here was the previous regression.
+  const nativeBridgeAvailable =
+    typeof window !== 'undefined' && !!(window as { NeoFilmAndroid?: { openNativeHls?: unknown } }).NeoFilmAndroid?.openNativeHls;
+  // Use native only when the bridge exists AND the stream hasn't already
+  // failed via MediaPlayer (codec / manifest format unsupported).
   const useNativePlayer =
-    typeof window !== 'undefined' && !!(window as { NeoFilmAndroid?: { showNativeVideo?: unknown } }).NeoFilmAndroid?.showNativeVideo;
+    nativeBridgeAvailable && !!hlsChannel && !nativeFailedUrls.has(hlsChannel.streamUrl);
+
+  // Tracks whether the most recent native player session ended via an error,
+  // so the subsequent `neofilm-native-player-closed` event (always emitted
+  // by the native side, even after an error) doesn't wipe hlsChannel — we
+  // want to keep it set and fall back to the hls.js player instead.
+  const errorBeforeCloseRef = useRef(false);
 
   useEffect(() => {
     if (!useNativePlayer || !hlsChannel) return;
-    const bridge = (window as { NeoFilmAndroid?: { showNativeVideo?: (url: string, x: number, y: number, w: number, h: number) => void } }).NeoFilmAndroid;
-    // Fullscreen permille coordinates (0..1000)
-    bridge?.showNativeVideo?.(hlsChannel.streamUrl, 0, 0, 1000, 1000);
+    const bridge = (window as { NeoFilmAndroid?: { openNativeHls?: (url: string) => void } }).NeoFilmAndroid;
+    bridge?.openNativeHls?.(hlsChannel.streamUrl);
 
-    const onClosed = () => setHlsChannel(null);
+    const currentUrl = hlsChannel.streamUrl;
+    errorBeforeCloseRef.current = false;
+    const onClosed = () => {
+      if (errorBeforeCloseRef.current) {
+        // Native errored — fallback path will re-render with hls.js. Keep channel.
+        errorBeforeCloseRef.current = false;
+        return;
+      }
+      setHlsChannel(null);
+    };
+    const onError = () => {
+      console.warn('[TvShell] Native player failed for', currentUrl, '— falling back to hls.js');
+      errorBeforeCloseRef.current = true;
+      setNativeFailedUrls((prev) => {
+        if (prev.has(currentUrl)) return prev;
+        const next = new Set(prev);
+        next.add(currentUrl);
+        return next;
+      });
+    };
     window.addEventListener('neofilm-native-player-closed', onClosed);
+    window.addEventListener('neofilm-native-player-error', onError);
     return () => {
       window.removeEventListener('neofilm-native-player-closed', onClosed);
+      window.removeEventListener('neofilm-native-player-error', onError);
     };
   }, [useNativePlayer, hlsChannel]);
 
@@ -115,35 +170,10 @@ export function TvShell() {
     setHlsChannel(channelList[nextIdx]);
   };
 
-  // Full-screen channel playback
-  if (hlsChannel) {
-    // Native player path: the VideoView sits above the WebView, so we just
-    // render a black placeholder underneath while it plays.
-    if (useNativePlayer) {
-      return (
-        <div
-          data-neofilm-ready
-          style={{ width: '100vw', height: '100vh', background: '#000' }}
-        />
-      );
-    }
-    // WebView path (browsers / devices without the native bridge)
-    return (
-      <div data-neofilm-ready style={{ width: '100vw', height: '100vh', background: '#000', animation: 'channelEnter 0.35s cubic-bezier(0.22,1,0.36,1) both' }}>
-        <style dangerouslySetInnerHTML={{ __html: `@keyframes channelEnter { from { opacity:0; transform:scale(1.04); } to { opacity:1; transform:scale(1); } }` }} />
-        <IptvPlayer
-          key={hlsChannel.streamUrl}
-          streamUrl={hlsChannel.streamUrl}
-          channelName={hlsChannel.name}
-          onBack={() => setHlsChannel(null)}
-          onChannelDown={() => zapChannel(1)}
-          onChannelUp={() => zapChannel(-1)}
-        />
-      </div>
-    );
-  }
-
   // data-neofilm-ready dismisses the boot splash (see layout.tsx)
+  // SmartTvDisplay stays mounted underneath the channel overlay so its tab
+  // state (TNT/STREAMING/ACTIVITIES…) survives a channel close — otherwise
+  // the user is bounced back to HOME on every player exit.
   let content;
   switch (state) {
     case DeviceState.UNPAIRED:
@@ -170,5 +200,42 @@ export function TvShell() {
       content = <PairingScreen />;
   }
 
-  return <div data-neofilm-ready>{content}</div>;
+  // Full-screen channel playback — rendered as an absolute overlay so the
+  // underlying SmartTvDisplay keeps its tab state.
+  const channelOverlay = hlsChannel ? (
+    useNativePlayer ? (
+      // Native VideoView sits above the WebView — just paint black underneath.
+      <div
+        style={{
+          position: 'fixed', top: 0, right: 0, bottom: 0, left: 0,
+          background: '#000', zIndex: 1000,
+        }}
+      />
+    ) : (
+      <div
+        style={{
+          position: 'fixed', top: 0, right: 0, bottom: 0, left: 0,
+          background: '#000', zIndex: 1000,
+          animation: 'channelEnter 0.35s cubic-bezier(0.22,1,0.36,1) both',
+        }}
+      >
+        <style dangerouslySetInnerHTML={{ __html: `@keyframes channelEnter { from { opacity:0; transform:scale(1.04); } to { opacity:1; transform:scale(1); } }` }} />
+        <IptvPlayer
+          key={hlsChannel.streamUrl}
+          streamUrl={hlsChannel.streamUrl}
+          channelName={hlsChannel.name}
+          onBack={() => setHlsChannel(null)}
+          onChannelDown={() => zapChannel(1)}
+          onChannelUp={() => zapChannel(-1)}
+        />
+      </div>
+    )
+  ) : null;
+
+  return (
+    <div data-neofilm-ready>
+      {content}
+      {channelOverlay}
+    </div>
+  );
 }

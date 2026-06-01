@@ -24,6 +24,10 @@ class BootReceiver : BroadcastReceiver() {
                 } catch (e: Exception) {
                     Log.e("BootReceiver", "Failed to start AdOverlayService: ${e.message}")
                 }
+
+                // Re-arm the AlarmManager keepalive after boot. Without this
+                // line the watchdog chain stays broken across reboots.
+                WatchdogAlarmReceiver.scheduleNext(context)
             }
         }
     }

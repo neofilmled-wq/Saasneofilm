@@ -50,4 +50,10 @@ android {
 dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.webkit:webkit:1.9.0")
+    // Media3 / ExoPlayer — HLS + native Android codecs (HEVC software fallback).
+    // Used by showNativeHlsPlayer to avoid the legacy MediaPlayer/VideoView
+    // which can't parse most HLS manifests reliably.
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.4.1")
+    implementation("androidx.media3:media3-ui:1.4.1")
 }

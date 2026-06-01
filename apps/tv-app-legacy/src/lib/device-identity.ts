@@ -22,6 +22,7 @@ declare global {
       hideNativeVideo?: () => void;
       setApiOffline?: () => void;
       setApiOnline?: () => void;
+      openSystemSettings?: () => void;
     };
   }
 }

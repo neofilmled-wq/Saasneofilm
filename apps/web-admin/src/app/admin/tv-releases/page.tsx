@@ -196,10 +196,16 @@ function UploadDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v:
     setBusy(true);
     try {
       setProgress('Génération de l\'URL d\'upload…');
-      const presigned = await apiFetch<{ uploadUrl: string; uploadKey: string }>(
+      const presignedEnv = await apiFetch<{ data: { uploadUrl: string; uploadKey: string } }>(
         '/admin/tv-releases/upload-url',
         { method: 'POST', body: JSON.stringify({ versionName, versionCode }) },
       );
+      // The NestJS TransformInterceptor wraps every response in { data, statusCode, timestamp }.
+      // apiFetch returns it raw — unwrap here.
+      const presigned = presignedEnv.data;
+      if (!presigned?.uploadUrl || !presigned?.uploadKey) {
+        throw new Error('Réponse upload-url invalide (uploadUrl manquant)');
+      }
 
       setProgress('Upload de l\'APK vers le stockage…');
       const putRes = await fetch(presigned.uploadUrl, {

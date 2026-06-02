@@ -10,7 +10,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
   Textarea,
 } from '@neofilm/ui';
-import { Upload, Pause, Play, Trash2, RefreshCw, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Upload, Trash2, RefreshCw, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { PageHeader } from '@/components/common/page-header';
 import { apiFetch } from '@/lib/api';
 

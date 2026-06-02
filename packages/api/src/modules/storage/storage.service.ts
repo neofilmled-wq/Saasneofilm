@@ -50,6 +50,13 @@ export class StorageService implements OnModuleInit {
         secretAccessKey: this.config.get<string>('S3_SECRET_KEY', 'minioadmin'),
       },
       forcePathStyle: true, // Required for MinIO
+      // AWS SDK v3 ≥ 3.729 enabled "default integrity protections" that auto-add
+      // x-amz-sdk-checksum-algorithm + x-amz-checksum-* to SignedHeaders of presigned
+      // URLs. Browsers don't (and can't easily be made to) send those headers on a
+      // direct PUT, so MinIO rejects the upload with 403 SignatureDoesNotMatch.
+      // WHEN_REQUIRED disables the auto-checksum for ops that don't strictly need it.
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
     });
   }
 

@@ -45,6 +45,7 @@ import { RealtimeModule } from './modules/realtime/realtime.module';
 import { VenuesModule } from './modules/venues/venues.module';
 import { SitesModule } from './modules/sites/sites.module';
 import { TvAppDownloadModule } from './modules/tv-app-download/tv-app-download.module';
+import { TvReleasesModule } from './modules/tv-releases/tv-releases.module';
 import { JwtAuthGuard, RolesGuard, PermissionsGuard } from './common/guards';
 
 @Module({
@@ -98,6 +99,7 @@ import { JwtAuthGuard, RolesGuard, PermissionsGuard } from './common/guards';
     VenuesModule,
     SitesModule,
     TvAppDownloadModule,
+    TvReleasesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

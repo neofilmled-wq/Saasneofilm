@@ -106,10 +106,30 @@ export class TvAuthController {
   async checkUpdate(
     @Query('versionCode') versionCode?: string,
     @Query('variant') variant?: string,
+    @Query('serial') serial?: string,
   ) {
     return this.tvAuthService.checkUpdate(
       versionCode ? parseInt(versionCode, 10) : 0,
       variant || 'all',
+      serial,
     );
+  }
+
+  /**
+   * Device reports the outcome of an OTA install attempt. Called by the APK
+   * after download / verify / install. No auth — identifies itself via serial.
+   */
+  @Public()
+  @Post('update-status')
+  @ApiOperation({ summary: 'Report APK install outcome (called by the device)' })
+  async reportUpdateStatus(
+    @Body() body: {
+      serial: string;
+      releaseId: string;
+      status: 'PENDING' | 'DOWNLOADING' | 'INSTALLING' | 'SUCCESS' | 'FAILED';
+      errorMessage?: string;
+    },
+  ) {
+    return this.tvAuthService.recordUpdateStatus(body);
   }
 }

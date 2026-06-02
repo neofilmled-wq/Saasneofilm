@@ -433,8 +433,13 @@ class MainActivity : AppCompatActivity() {
         // Launcher prompt disabled — use Launcher Manager or ADB to set as default
         // promptSetAsLauncher()
 
-        // Check for OTA update
-        checkForUpdate()
+        // Re-apply kiosk policies in case the previous version's restrictions
+        // were dropped during an OTA install. No-op when not Device Owner.
+        NeoFilmDeviceAdmin.applyKioskPolicies(this)
+
+        // Schedule the periodic OTA check (idempotent) + run one immediately.
+        UpdateWorker.schedule(this)
+        Thread { UpdateManager.checkAndInstallIfAvailable(this) }.start()
 
 
         // Initial load
@@ -1616,6 +1621,17 @@ class MainActivity : AppCompatActivity() {
         }
 
         /**
+         * Triggered by the React app when the backend pushes a `tv:update:available`
+         * WebSocket event. Runs the OTA pipeline immediately instead of waiting
+         * for the next WorkManager tick (~6h).
+         */
+        @JavascriptInterface
+        fun triggerUpdateCheck() {
+            Log.i(TAG, "JS bridge requested OTA check")
+            Thread { UpdateManager.checkAndInstallIfAvailable(this@MainActivity) }.start()
+        }
+
+        /**
          * Open a web page in a split-screen browser WebView (left side).
          * NeoFilm main WebView moves to the right (30%) for ads.
          */
@@ -2227,9 +2243,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // OTA UPDATE
+    // OTA UPDATE — legacy implementation kept for reference, no longer called.
+    // The real OTA pipeline now lives in UpdateManager.kt and is scheduled by
+    // UpdateWorker (WorkManager) + run once at onCreate above.
     // ══════════════════════════════════════════════════
 
+    @Suppress("unused")
     private fun checkForUpdate() {
         Thread {
             try {

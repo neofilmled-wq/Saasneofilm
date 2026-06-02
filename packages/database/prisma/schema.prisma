@@ -65,6 +65,9 @@ model User {
   // Third-party integrations (e.g. Canva)
   thirdPartyIntegrations ThirdPartyIntegration[]
 
+  // OTA releases this user uploaded
+  appReleasesCreated AppRelease[] @relation("AppReleasesCreated")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -480,6 +483,7 @@ model Device {
   metrics       DeviceMetrics[]
   errorLogs     DeviceErrorLog[]
   diffusionLogs DiffusionLog[]
+  updateStatuses DeviceUpdateStatus[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1926,12 +1930,57 @@ model AppRelease {
   versionName   String // e.g. "0.3.0"
   versionCode   Int // e.g. 3 — numeric, must be higher than current
   apkUrl        String // S3/MinIO URL to the APK file
+  sha256        String // Hex SHA-256 of the APK file — device verifies after download
+  fileSize      Int // Bytes — surfaces in admin UI
   releaseNotes  String? // What changed
   isRequired    Boolean  @default(true) // Force update or optional
+  isActive      Boolean  @default(true) // Disable a release without deleting it
   targetVariant String   @default("all") // "all", "standard", "legacy"
+  // Progressive rollout — 0-100. The device computes a stable hash of its
+  // serialNumber and only takes the update if its hash bucket < rolloutPercent.
+  // Lets us push to 10% → 50% → 100% over a few hours.
+  rolloutPercent Int     @default(100)
+  // Optional screen whitelist — if non-empty, only these screens get the update.
+  // Used for canary testing on a single screen before rolling out.
+  targetScreenIds String[] @default([])
   createdAt     DateTime @default(now())
+  createdById   String? // User who uploaded
+  createdBy     User?    @relation("AppReleasesCreated", fields: [createdById], references: [id], onDelete: SetNull)
 
+  installStatuses DeviceUpdateStatus[]
+
+  @@index([versionCode])
+  @@index([isActive, targetVariant])
   @@map("app_releases")
+}
+
+// Tracks the per-device outcome of an OTA update — device posts status after
+// download + install. Lets admin spot Fire Sticks stuck on old versions.
+model DeviceUpdateStatus {
+  id           String     @id @default(cuid())
+  deviceId     String
+  device       Device     @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  releaseId    String
+  release      AppRelease @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  // PENDING (queued), DOWNLOADING, INSTALLING, SUCCESS, FAILED
+  status       UpdateStatus
+  errorMessage String?
+  attempts     Int        @default(1)
+  startedAt    DateTime   @default(now())
+  completedAt  DateTime?
+
+  @@unique([deviceId, releaseId])
+  @@index([deviceId])
+  @@index([releaseId, status])
+  @@map("device_update_statuses")
+}
+
+enum UpdateStatus {
+  PENDING
+  DOWNLOADING
+  INSTALLING
+  SUCCESS
+  FAILED
 }
 
 // ╔═══════════════════════════════════════════════════════════════════════════╗

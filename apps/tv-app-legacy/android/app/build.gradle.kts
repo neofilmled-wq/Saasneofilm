@@ -1,6 +1,16 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+}
+
+// Load signing config from ../keystore/signing.properties (gitignored).
+// See android/keystore/README.md for the keystore backup procedure.
+val signingPropsFile = rootProject.file("keystore/signing.properties")
+val signingProps = Properties().apply {
+    if (signingPropsFile.exists()) FileInputStream(signingPropsFile).use { load(it) }
 }
 
 android {
@@ -11,11 +21,22 @@ android {
         applicationId = "com.neofilm.tv.legacy"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.2.0"
+        versionCode = 2
+        versionName = "0.3.0"
 
         // Default URL (overridden per build type below)
         buildConfigField("String", "TV_APP_URL", "\"http://10.0.2.2:3004\"")
+    }
+
+    signingConfigs {
+        if (signingProps.isNotEmpty()) {
+            create("release") {
+                storeFile = rootProject.file(signingProps.getProperty("storeFile"))
+                storePassword = signingProps.getProperty("storePassword")
+                keyAlias = signingProps.getProperty("keyAlias")
+                keyPassword = signingProps.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -30,6 +51,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Sign with the release keystore. Without this, every build produces an
+            // APK that Android refuses to install as an update (different signature).
+            if (signingProps.isNotEmpty()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
@@ -56,4 +82,7 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.4.1")
     implementation("androidx.media3:media3-exoplayer-hls:1.4.1")
     implementation("androidx.media3:media3-ui:1.4.1")
+    // WorkManager — schedules the OTA update poll while the app is in background
+    // and survives process death / reboot.
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 }

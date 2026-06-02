@@ -15,6 +15,9 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- WorkManager occasionally promotes to a foreground service for guaranteed
+         execution. Without this declaration Android 14+ rejects the promotion. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- Required for the kiosk watchdog: lets AdOverlayService poll the
          current foreground app via UsageStatsManager and re-launch NeoFilm
          when Amazon launcher takes over. Special access — the user must grant
@@ -110,6 +113,17 @@
                 android:resource="@xml/device_admin" />
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- OTA install result receiver. Gets the system PackageInstaller
+             callback (success / failure / pending user action) and forwards
+             the outcome to the backend. -->
+        <receiver
+            android:name=".UpdateManager$InstallResultReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.neofilm.tv.INSTALL_RESULT" />
             </intent-filter>
         </receiver>
     </application>

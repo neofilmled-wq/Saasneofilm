@@ -24,6 +24,7 @@ import {
   MessageSquare,
   DollarSign,
   Zap,
+  Download,
 } from 'lucide-react';
 import { cn } from '@neofilm/ui';
 import { useAuth } from '@/providers/auth-provider';
@@ -58,6 +59,7 @@ const navSections: NavSection[] = [
       { href: '/admin/advertisers', label: 'Annonceurs', icon: Megaphone },
       { href: '/admin/users', label: 'Utilisateurs', icon: Users },
       { href: '/admin/devices', label: 'Appareils', icon: Cpu },
+      { href: '/admin/tv-releases', label: 'Mises à jour TV', icon: Download },
       { href: '/admin/live-map', label: 'Carte live', icon: MapPin },
     ],
   },

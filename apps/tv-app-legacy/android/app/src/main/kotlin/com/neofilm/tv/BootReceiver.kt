@@ -28,6 +28,10 @@ class BootReceiver : BroadcastReceiver() {
                 // Re-arm the AlarmManager keepalive after boot. Without this
                 // line the watchdog chain stays broken across reboots.
                 WatchdogAlarmReceiver.scheduleNext(context)
+
+                // Make sure the OTA periodic check is scheduled. KEEP policy
+                // means this is a no-op if already enqueued.
+                UpdateWorker.schedule(context)
             }
         }
     }

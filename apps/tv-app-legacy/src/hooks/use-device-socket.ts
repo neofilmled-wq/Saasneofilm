@@ -98,6 +98,19 @@ export function useDeviceSocket({
       onAdsUpdate?.();
     });
 
+    // OTA push — admin published a new APK release matching this device.
+    // Forward to the native bridge so UpdateManager pulls + installs immediately
+    // instead of waiting for the next ~6h WorkManager tick.
+    socket.on('tv:update:available', () => {
+      console.log('[DeviceSocket] tv:update:available received — triggering native OTA');
+      try {
+        const bridge = (window as { NeoFilmAndroid?: { triggerUpdateCheck?: () => void } }).NeoFilmAndroid;
+        bridge?.triggerUpdateCheck?.();
+      } catch (e) {
+        console.warn('[DeviceSocket] OTA bridge call failed', e);
+      }
+    });
+
     socketRef.current = socket;
 
     return () => {

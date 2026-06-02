@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PartnerGateway } from '../partner-gateway/partner.gateway';
 import { randomBytes, randomInt } from 'crypto';
+import { isInRolloutBucket } from '../tv-releases/tv-releases.gateway';
 
 @Injectable()
 export class TvAuthService {
@@ -368,28 +369,111 @@ export class TvAuthService {
 
   /**
    * Check if an app update is available.
-   * Compares device versionCode with the latest AppRelease.
+   * Compares device versionCode with the latest active AppRelease.
+   *
+   * Applies, in order:
+   *  - isActive filter (admins can disable a release without deleting it)
+   *  - targetVariant match
+   *  - targetScreenIds whitelist (if set, the device's screen must be on the list)
+   *  - rolloutPercent bucketing (stable hash of the device serial)
    */
-  async checkUpdate(currentVersionCode: number, variant: string) {
-    const latest = await this.prisma.appRelease.findFirst({
+  async checkUpdate(currentVersionCode: number, variant: string, serial?: string) {
+    const candidates = await this.prisma.appRelease.findMany({
       where: {
+        isActive: true,
+        versionCode: { gt: currentVersionCode },
         targetVariant: { in: [variant, 'all'] },
       },
       orderBy: { versionCode: 'desc' },
     });
 
-    if (!latest || latest.versionCode <= currentVersionCode) {
+    if (candidates.length === 0) {
       return { updateAvailable: false };
     }
 
-    return {
-      updateAvailable: true,
-      isRequired: latest.isRequired,
-      versionName: latest.versionName,
-      versionCode: latest.versionCode,
-      apkUrl: latest.apkUrl,
-      releaseNotes: latest.releaseNotes,
-    };
+    // Look up the device's screenId once (only needed if any candidate uses
+    // targetScreenIds). serial is the ANDROID_ID the APK sends.
+    let deviceScreenId: string | null = null;
+    if (serial) {
+      const device = await this.prisma.device.findFirst({
+        where: { OR: [{ androidId: serial }, { serialNumber: serial }] },
+        select: { screenId: true },
+      });
+      deviceScreenId = device?.screenId ?? null;
+    }
+
+    const deviceKey = serial ?? `vc-${currentVersionCode}`;
+
+    for (const release of candidates) {
+      if (release.targetScreenIds.length > 0) {
+        if (!deviceScreenId || !release.targetScreenIds.includes(deviceScreenId)) continue;
+      }
+      if (!isInRolloutBucket(deviceKey, release.rolloutPercent)) continue;
+
+      return {
+        updateAvailable: true,
+        releaseId: release.id,
+        isRequired: release.isRequired,
+        versionName: release.versionName,
+        versionCode: release.versionCode,
+        apkUrl: release.apkUrl,
+        sha256: release.sha256,
+        fileSize: release.fileSize,
+        releaseNotes: release.releaseNotes,
+      };
+    }
+
+    return { updateAvailable: false };
+  }
+
+  /**
+   * Device reports the outcome of an OTA install attempt. Surfaces in the
+   * admin UI so we can see Fire Sticks stuck on old versions.
+   */
+  async recordUpdateStatus(input: {
+    serial: string;
+    releaseId: string;
+    status: 'PENDING' | 'DOWNLOADING' | 'INSTALLING' | 'SUCCESS' | 'FAILED';
+    errorMessage?: string;
+  }) {
+    const device = await this.prisma.device.findFirst({
+      where: { OR: [{ androidId: input.serial }, { serialNumber: input.serial }] },
+      select: { id: true },
+    });
+    if (!device) {
+      this.logger.warn(`update-status from unknown device ${input.serial}`);
+      return { recorded: false };
+    }
+    const release = await this.prisma.appRelease.findUnique({
+      where: { id: input.releaseId },
+      select: { id: true },
+    });
+    if (!release) {
+      this.logger.warn(`update-status references unknown release ${input.releaseId}`);
+      return { recorded: false };
+    }
+
+    const completedAt =
+      input.status === 'SUCCESS' || input.status === 'FAILED' ? new Date() : null;
+
+    await this.prisma.deviceUpdateStatus.upsert({
+      where: { deviceId_releaseId: { deviceId: device.id, releaseId: input.releaseId } },
+      create: {
+        deviceId: device.id,
+        releaseId: input.releaseId,
+        status: input.status,
+        errorMessage: input.errorMessage ?? null,
+        completedAt,
+      },
+      update: {
+        status: input.status,
+        errorMessage: input.errorMessage ?? null,
+        attempts: { increment: 1 },
+        completedAt,
+      },
+    });
+
+    return { recorded: true };
   }
 
   private generatePin(): string {

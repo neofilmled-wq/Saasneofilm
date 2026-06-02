@@ -120,9 +120,19 @@ export default function TvReleasesPage() {
               </TableHeader>
               <TableBody>
                 {releases.map((r) => (
-                  <TableRow key={r.id} className="cursor-pointer" onClick={() => setDetailRelease(r)}>
+                  <TableRow
+                    key={r.id}
+                    className={`cursor-pointer ${r.isActive ? 'bg-emerald-500/10 hover:bg-emerald-500/15' : ''}`}
+                    onClick={() => setDetailRelease(r)}
+                  >
                     <TableCell className="font-mono">
-                      v{r.versionName} <span className="text-xs text-gray-500">({r.versionCode})</span>
+                      <div className="flex items-center gap-2">
+                        <span>v{r.versionName}</span>
+                        <span className="text-xs text-gray-500">({r.versionCode})</span>
+                        {r.isActive && (
+                          <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">EN COURS</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell><Badge variant="outline">{r.targetVariant}</Badge></TableCell>
                     <TableCell>{r.rolloutPercent}%</TableCell>
@@ -132,10 +142,19 @@ export default function TvReleasesPage() {
                         : <Badge variant="secondary">{r.targetScreenIds.length} écran(s)</Badge>}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Switch
-                        checked={r.isActive}
-                        onCheckedChange={(v) => updateMutation.mutate({ id: r.id, patch: { isActive: v } })}
-                      />
+                      <button
+                        type="button"
+                        onClick={() => updateMutation.mutate({ id: r.id, patch: { isActive: !r.isActive } })}
+                        className={`inline-flex h-7 w-12 items-center rounded-full border-2 transition-colors ${
+                          r.isActive
+                            ? 'border-emerald-500 bg-emerald-500 justify-end'
+                            : 'border-gray-500 bg-gray-700 justify-start'
+                        }`}
+                        aria-pressed={r.isActive}
+                        aria-label={r.isActive ? 'Désactiver' : 'Activer'}
+                      >
+                        <span className="mx-0.5 h-5 w-5 rounded-full bg-white shadow" />
+                      </button>
                     </TableCell>
                     <TableCell>{r.isRequired ? 'Oui' : 'Non'}</TableCell>
                     <TableCell className="text-xs text-gray-500">{formatBytes(r.fileSize)}</TableCell>

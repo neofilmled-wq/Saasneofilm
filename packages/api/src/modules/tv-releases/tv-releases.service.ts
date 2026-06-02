@@ -101,6 +101,18 @@ export class TvReleasesService {
       this.config.get<string>('S3_ENDPOINT', 'http://localhost:9000');
     const apkUrl = `${apkBase.replace(/\/$/, '')}/${this.apkBucket}/${input.uploadKey}`;
 
+    // Auto-deactivate any older active release for the same variant — only one
+    // release should be live at a time, otherwise check-update behaviour gets
+    // confusing for fleet operators.
+    await this.prisma.appRelease.updateMany({
+      where: {
+        targetVariant: input.targetVariant ?? 'all',
+        isActive: true,
+        versionCode: { lt: input.versionCode },
+      },
+      data: { isActive: false },
+    });
+
     const release = await this.prisma.appRelease.create({
       data: {
         versionName: input.versionName,
@@ -110,6 +122,9 @@ export class TvReleasesService {
         fileSize: input.fileSize,
         releaseNotes: input.releaseNotes ?? null,
         isRequired: input.isRequired ?? true,
+        // Explicit true — the Prisma @default doesn't propagate when the column
+        // is added to an existing table without a default at the SQL level.
+        isActive: true,
         targetVariant: input.targetVariant ?? 'all',
         rolloutPercent: this.clampRollout(input.rolloutPercent ?? 100),
         targetScreenIds: input.targetScreenIds ?? [],

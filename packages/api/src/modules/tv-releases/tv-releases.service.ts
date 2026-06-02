@@ -91,21 +91,21 @@ export class TvReleasesService {
       throw new BadRequestException('sha256 must be 64 hex characters');
     }
 
-    // Public download URL — devices fetch it without auth so the URL must be
-    // either CDN or a direct MinIO path. We use the storage helper which prefers
-    // CDN when configured.
-    const download = await this.storage.createPresignedDownload(
-      input.uploadKey,
-      this.apkBucket,
-      // Long expiry so already-issued URLs keep working through the rollout.
-      60 * 60 * 24 * 365,
-    );
+    // Build a static, never-expiring URL. AWS SigV4 caps presigned URLs at
+    // 7 days, which is unsuitable for an in-the-field Fire Stick that may
+    // boot weeks after a release is published. The uploads bucket is set as
+    // anonymous-download (see docker-compose minio-init), so a direct URL is
+    // both safe (signed APK + verified SHA-256 on device) and permanent.
+    const apkBase =
+      this.config.get<string>('API_BASE_URL') ??
+      this.config.get<string>('S3_ENDPOINT', 'http://localhost:9000');
+    const apkUrl = `${apkBase.replace(/\/$/, '')}/${this.apkBucket}/${input.uploadKey}`;
 
     const release = await this.prisma.appRelease.create({
       data: {
         versionName: input.versionName,
         versionCode: input.versionCode,
-        apkUrl: download.url,
+        apkUrl,
         sha256: input.sha256.toLowerCase(),
         fileSize: input.fileSize,
         releaseNotes: input.releaseNotes ?? null,

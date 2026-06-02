@@ -75,12 +75,30 @@ export class TvAuthService {
     // Remember mapping
     this.fingerprintMap.set(deviceId, device.id);
 
-    // Store androidId on the device if provided
-    if (androidId && !device.androidId) {
+    // Refresh androidId on the device whenever the client sends a fresh one.
+    // Important: keep it in sync even when the value already exists but changed —
+    // happens after a signing-key rotation (ANDROID_ID is per signing key on
+    // Android 8+) or a factory reset. Without this, reconnectByAndroidId can't
+    // match the device and we fall back to PIN re-pairing.
+    if (androidId && device.androidId !== androidId) {
       await this.prisma.device.update({
         where: { id: device.id },
         data: { androidId },
-      }).catch(() => { /* unique constraint if another device has this androidId */ });
+      }).catch((err: any) => {
+        // P2002 = unique constraint: another stale device still owns this androidId.
+        // Clear it on that device first, then retry on the current one.
+        if (err?.code === 'P2002') {
+          return this.prisma.device
+            .updateMany({
+              where: { androidId, NOT: { id: device.id } },
+              data: { androidId: null },
+            })
+            .then(() =>
+              this.prisma.device.update({ where: { id: device.id }, data: { androidId } }),
+            )
+            .catch(() => undefined);
+        }
+      });
     }
 
     // If device is already paired (ONLINE + pairedAt), return its status directly.
@@ -215,14 +233,41 @@ export class TvAuthService {
   /**
    * Reconnect a device by its Android hardware ID.
    * If the androidId matches a paired device, issue a new JWT without re-pairing.
+   *
+   * Lookup order:
+   *   1. Exact match on Device.androidId (the canonical path).
+   *   2. Fallback: match on Device.serialNumber when the BDD lags behind
+   *      (e.g. a stale row created before androidId backfill). Many devices have
+   *      serial == androidId in practice — covers the case where the WebView
+   *      reports a different androidId than what was originally stored.
+   *
+   * When the fallback hits, we also backfill the androidId so the next call
+   * takes the fast path.
    */
   async reconnectByAndroidId(androidId: string) {
     if (!androidId) return null;
 
-    const device = await this.prisma.device.findUnique({
+    let device = await this.prisma.device.findUnique({
       where: { androidId },
       include: { screen: { select: { id: true, name: true, partnerOrgId: true } } },
     });
+
+    if (!device) {
+      const fallback = await this.prisma.device.findUnique({
+        where: { serialNumber: androidId },
+        include: { screen: { select: { id: true, name: true, partnerOrgId: true } } },
+      });
+      if (fallback && fallback.pairedAt && fallback.screenId) {
+        device = fallback;
+        // Self-heal the row so subsequent lookups skip the fallback path.
+        await this.prisma.device
+          .update({ where: { id: fallback.id }, data: { androidId } })
+          .catch(() => undefined);
+        this.logger.log(
+          `reconnectByAndroidId: matched by serialNumber fallback for device ${fallback.id} — backfilled androidId`,
+        );
+      }
+    }
 
     if (!device || !device.pairedAt || !device.screenId) return null;
 

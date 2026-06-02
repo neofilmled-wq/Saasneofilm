@@ -23,7 +23,7 @@ const NAV_CARDS: {
   {
     key: 'TNT',
     label: 'TV en Direct',
-    sublabel: 'TNT · IPTV · Chaines en direct',
+    sublabel: 'TNT · Chaines en direct',
     module: 'TNT',
     imageUrl: 'https://images.unsplash.com/photo-1593784991095-a205069470b6?w=600&h=400&fit=crop&q=80',
     overlayGradient: 'linear-gradient(135deg, rgba(37, 99, 235, 0.7) 0%, rgba(30, 30, 80, 0.85) 100%)',

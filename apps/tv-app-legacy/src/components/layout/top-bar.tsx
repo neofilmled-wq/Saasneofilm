@@ -36,9 +36,11 @@ export function TopBar({ partnerLogoUrl, welcomeMessage, isConnected, screenName
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         ) : (
-          <span className="font-bold tracking-wider" style={{ fontSize: '1.25em' }}>
-            <span className="text-primary">NEO</span>FILM
-          </span>
+          <img
+            src="/neofilm-logo.png"
+            alt="NeoFilm"
+            className="h-[2em] w-auto object-contain"
+          />
         )}
         {welcomeMessage && (
           <>

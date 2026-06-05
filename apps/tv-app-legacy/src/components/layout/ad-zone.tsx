@@ -94,6 +94,10 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
   }
 
   if (currentAd.mimeType.startsWith('video/')) {
+    // With a single ad in the pool, playNext would setState(0 -> 0), React skips
+    // the re-render, and the video would freeze on its last frame. Looping the
+    // element natively keeps it playing without any state churn.
+    const onlyOneAd = adPool.length === 1;
     return (
       <div className="relative h-full w-full overflow-hidden">
         <video
@@ -105,7 +109,8 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
           muted
           playsInline
           preload="auto"
-          onEnded={playNext}
+          loop={onlyOneAd}
+          onEnded={onlyOneAd ? undefined : playNext}
           onError={(e) => {
             console.warn(`[AdZone] Video error: ${currentAd.id}`, (e.target as HTMLVideoElement).error);
             playNext();

@@ -975,6 +975,54 @@ class MainActivity : AppCompatActivity() {
     // ══════════════════════════════════════════════════
 
     inner class NeoFilmWebViewClient : WebViewClient() {
+        /**
+         * Intercept resource requests so cached ad creatives are served from disk
+         * instead of the network. This makes the sidebar ad rotation fluid: after
+         * the first download (handled in the background by AdCacheManager), every
+         * subsequent play comes from a local file and starts instantly.
+         *
+         * Returning null lets the WebView fall through to its normal HTTP path.
+         */
+        override fun shouldInterceptRequest(
+            view: WebView?,
+            request: WebResourceRequest?
+        ): android.webkit.WebResourceResponse? {
+            val url = request?.url?.toString() ?: return null
+            if (request.method != "GET") return null
+            if (!url.startsWith("http")) return null
+
+            val cached = AdCacheManager.getCachedFile(applicationContext, url) ?: return null
+
+            return try {
+                val mime = when {
+                    url.endsWith(".mp4", ignoreCase = true) -> "video/mp4"
+                    url.endsWith(".webm", ignoreCase = true) -> "video/webm"
+                    url.endsWith(".mov", ignoreCase = true) -> "video/quicktime"
+                    url.endsWith(".jpg", ignoreCase = true) ||
+                        url.endsWith(".jpeg", ignoreCase = true) -> "image/jpeg"
+                    url.endsWith(".png", ignoreCase = true) -> "image/png"
+                    url.endsWith(".webp", ignoreCase = true) -> "image/webp"
+                    else -> "application/octet-stream"
+                }
+                Log.d(TAG, "Cache hit (disk): ${url.takeLast(50)}")
+                val headers = mapOf(
+                    "Access-Control-Allow-Origin" to "*",
+                    "Cache-Control" to "public, max-age=31536000",
+                )
+                android.webkit.WebResourceResponse(
+                    mime,
+                    null,
+                    200,
+                    "OK",
+                    headers,
+                    java.io.FileInputStream(cached),
+                )
+            } catch (e: Exception) {
+                Log.w(TAG, "Cache serve failed for $url: ${e.message}")
+                null
+            }
+        }
+
         override fun onReceivedError(
             view: WebView?,
             request: WebResourceRequest?,

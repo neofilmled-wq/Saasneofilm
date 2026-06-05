@@ -27,19 +27,19 @@ export function TopBar({ partnerLogoUrl, welcomeMessage, isConnected, screenName
       }}
     >
       {/* Left: logo + welcome message */}
-      <div className="flex items-center gap-[1em]">
+      <div className="flex h-full items-center gap-[1em]">
         {partnerLogoUrl ? (
           <img
             src={partnerLogoUrl}
             alt="Partner"
-            className="h-[2em] w-auto object-contain"
+            className="max-h-[70%] w-auto object-contain"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         ) : (
           <img
-            src="/neofilm-logo.png"
+            src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/neofilm-logo.png`}
             alt="NeoFilm"
-            className="h-[2em] w-auto object-contain"
+            className="max-h-[70%] w-auto object-contain"
           />
         )}
         {welcomeMessage && (

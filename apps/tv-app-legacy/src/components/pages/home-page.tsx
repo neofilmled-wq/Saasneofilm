@@ -202,14 +202,6 @@ export function HomePage({
       bgClass: 'neo-bg-apps',
       art: 'apps',
     },
-    {
-      id: 'CONCIERGE',
-      title: 'Recommandations',
-      subtitle: 'Sélection du concierge — pour vous',
-      tags: ['Nouveau'],
-      bgClass: 'neo-bg-concierge',
-      art: 'concierge',
-    },
   ];
 
   const tiles = allTiles.filter((t) => !t.module || enabledModules.includes(t.module));
@@ -221,6 +213,7 @@ export function HomePage({
       className="tv-page-enter"
       style={{
         display: 'grid',
+        // 5 tuiles : 3 colonnes / 2 lignes (la dernière ligne a 2 tuiles centrées)
         gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
         gridTemplateRows: 'repeat(2, minmax(0, 1fr))',
         gap: 'var(--neo-gap)',

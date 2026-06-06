@@ -117,50 +117,34 @@ export function StreamingPage({ services }: StreamingPageProps) {
     }
   }, [isAndroid]);
 
+  // Featured services that always appear, even if the matching native app
+  // isn't installed on the Fire Stick yet. Opens in the WebView split-screen
+  // browser via the NeoFilmAndroid bridge — same UX as a native app launch.
+  const FEATURED_SERVICES: InstalledStreamingApp[] = [
+    { packageName: 'com.netflix.ninja',          name: 'Netflix',     color: '#E50914', icon: '', webUrl: 'https://www.netflix.com/browse' },
+    { packageName: 'com.amazon.amazonvideo.livingroom', name: 'Prime Video', color: '#00A8E1', icon: '', webUrl: 'https://www.primevideo.com' },
+    { packageName: 'com.disney.disneyplus',      name: 'Disney+',     color: '#113CCF', icon: '', webUrl: 'https://www.disneyplus.com' },
+    { packageName: 'com.google.android.youtube.tv', name: 'YouTube', color: '#FF0000', icon: '', webUrl: 'https://m.youtube.com' },
+  ];
+
+  // Merge installed apps + featured ones (avoiding duplicates by name).
+  const displayApps = (() => {
+    const seenNames = new Set(installedApps.map((a) => a.name));
+    const featured = FEATURED_SERVICES.filter((s) => !seenNames.has(s.name));
+    return [...installedApps, ...featured];
+  })();
+
   const handleAppClick = useCallback((app: InstalledStreamingApp) => {
     if (app.webUrl && window.NeoFilmAndroid?.openWebPage) {
-      // Open in split-screen browser WebView (native Android side)
       window.NeoFilmAndroid.openWebPage(app.webUrl);
     } else {
       launchApp(app.packageName);
     }
   }, []);
 
-  /** Map service names to web URLs for split-screen browsing.
-   *  Kept for partner-configured services (currently hidden in new UI). */
-  // @ts-expect-error reserved for partner-configured backend services
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleServiceClick = useCallback((service: StreamingService) => {
-    const webUrls: Record<string, string> = {
-      'Netflix': 'https://www.netflix.com/browse',
-      'Disney+': 'https://www.disneyplus.com',
-      'Amazon Prime Video': 'https://www.primevideo.com',
-      'Prime Video': 'https://www.primevideo.com',
-      'YouTube': 'https://m.youtube.com',
-      'HBO Max': 'https://play.max.com',
-      'Max': 'https://play.max.com',
-      'Apple TV+': 'https://tv.apple.com',
-      'Canal+': 'https://www.canalplus.com',
-      'myCanal': 'https://www.canalplus.com',
-      'myCANAL': 'https://www.canalplus.com',
-      'Paramount+': 'https://www.paramountplus.com',
-      'Crunchyroll': 'https://www.crunchyroll.com',
-      'Twitch': 'https://m.twitch.tv',
-      'ARTE': 'https://www.arte.tv/fr/',
-      'france.tv': 'https://www.france.tv',
-      'Molotov': 'https://www.molotov.tv',
-      'Spotify': 'https://open.spotify.com',
-      'DAZN': 'https://www.dazn.com',
-      'Plex': 'https://app.plex.tv',
-    };
-    const url = webUrls[service.name];
-    if (url && window.NeoFilmAndroid?.openWebPage) {
-      window.NeoFilmAndroid.openWebPage(url);
-    }
-  }, []);
-
-  const hasInstalledApps = installedApps.length > 0;
-  const hasConfiguredServices = services.length > 0;
+  // The new UI surfaces featured + installed apps directly; partner-configured
+  // services (passed in via props) are no longer rendered.
+  void services;
 
   return (
     <div className="neo-subscreen-main" style={{ height: '100%' }}>
@@ -169,11 +153,7 @@ export function StreamingPage({ services }: StreamingPageProps) {
           <div className="neo-crumb">Accueil › Streaming</div>
           <h1>Applications de streaming</h1>
         </div>
-        <div className="neo-count">
-          {hasInstalledApps
-            ? `${installedApps.length} apps installées`
-            : 'Connecté à vos comptes'}
-        </div>
+        <div className="neo-count">{displayApps.length} apps disponibles</div>
       </div>
 
       {isShowingAd && (
@@ -201,32 +181,18 @@ export function StreamingPage({ services }: StreamingPageProps) {
         </div>
       )}
 
-      {!hasInstalledApps && !hasConfiguredServices ? (
-        <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <p style={{ color: 'var(--neo-t-3)', fontSize: '1.1em' }}>
-            Aucun service de streaming disponible
-          </p>
-        </div>
-      ) : (
-        <div
-          ref={containerRef}
-          data-tv-nav-group="streaming-apps"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-            gap: 18,
-            padding: 4,
-            overflow: 'auto',
-          }}
-        >
-          {installedApps.map((app) => (
+      <div
+        ref={containerRef}
+        data-tv-nav-group="streaming-apps"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+          gap: '1.125rem',
+          padding: '0.25rem',
+          overflow: 'auto',
+        }}
+      >
+        {displayApps.map((app) => (
             <button
               key={app.packageName}
               data-tv-focusable
@@ -273,8 +239,7 @@ export function StreamingPage({ services }: StreamingPageProps) {
               <span className="neo-app-name">{app.name}</span>
             </button>
           ))}
-        </div>
-      )}
+      </div>
     </div>
   );
 }

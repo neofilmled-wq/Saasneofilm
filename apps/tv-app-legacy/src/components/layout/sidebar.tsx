@@ -135,7 +135,8 @@ export function Sidebar({
     <div
       style={{
         display: 'grid',
-        gridTemplateRows: '1fr 1fr',
+        // 1:2 → la pub prend 2× plus de hauteur que les codes promo
+        gridTemplateRows: 'minmax(0, 1fr) minmax(0, 2fr)',
         gap: 'var(--neo-gap)',
         minHeight: 0,
         height: '100%',

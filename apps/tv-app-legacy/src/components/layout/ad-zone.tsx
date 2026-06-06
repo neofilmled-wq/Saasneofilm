@@ -5,6 +5,24 @@ import { TV_CONFIG } from '@/lib/constants';
 import type { CreativeManifest, TvAdItem } from '@/lib/device-api';
 import { resolveMediaUrl } from '@/lib/device-api';
 
+/**
+ * The diffusion scheduler returns this sentinel URL when no real house ad has
+ * been uploaded yet — the underlying file does not exist on the API server,
+ * which leaves the sidebar showing nothing. We swap it to a public sample so
+ * partners always see a moving video while their own creatives are being set
+ * up. Remove this fallback once the API serves a real /creatives/house default.
+ */
+const HOUSE_AD_FALLBACK_SENTINEL = '/creatives/house/default.mp4';
+const HOUSE_AD_FALLBACK_URL =
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+
+function resolveAdUrl(rawUrl: string): string {
+  if (!rawUrl || rawUrl === HOUSE_AD_FALLBACK_SENTINEL || rawUrl.endsWith(HOUSE_AD_FALLBACK_SENTINEL)) {
+    return HOUSE_AD_FALLBACK_URL;
+  }
+  return resolveMediaUrl(rawUrl);
+}
+
 interface AdZoneProps {
   houseAds: CreativeManifest[];
   targetedAds?: TvAdItem[];
@@ -37,14 +55,14 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
     () => [
       ...targetedAds.map((ad) => ({
         id: ad.creativeId,
-        fileUrl: resolveMediaUrl(ad.fileUrl),
+        fileUrl: resolveAdUrl(ad.fileUrl),
         mimeType: ad.mimeType,
         isTargeted: true,
         source: ad,
       })),
       ...houseAds.map((ad) => ({
         id: ad.creativeId,
-        fileUrl: resolveMediaUrl(ad.fileUrl),
+        fileUrl: resolveAdUrl(ad.fileUrl),
         mimeType: ad.mimeType,
         isTargeted: false,
         source: ad,

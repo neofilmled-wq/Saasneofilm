@@ -691,37 +691,49 @@ body.neo-tv-body {
 /* Promo rows */
 .neo-promo {
   display: grid;
-  grid-template-columns: 3.5rem 1fr auto;
-  gap: 0.875rem;
+  grid-template-columns: 2.75rem minmax(0, 1fr);
+  gap: 0.75rem;
   align-items: center;
-  padding: 0.75rem 0.875rem;
-  border-radius: 1rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.875rem;
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid var(--neo-line);
   transition: all 0.22s;
+  min-width: 0;
 }
 .neo-promo-logo {
-  width: 3.5rem; height: 3.5rem;
-  border-radius: 0.75rem;
+  width: 2.75rem; height: 2.75rem;
+  border-radius: 0.625rem;
   display: grid; place-items: center;
   color: #fff;
-  font-weight: 800; font-size: 1.125rem;
+  font-weight: 800; font-size: 1rem;
   letter-spacing: -0.02em;
+  flex-shrink: 0;
 }
-.neo-promo .neo-name { font-size: 0.90625rem; font-weight: 600; }
-.neo-promo .neo-desc {
-  font-size: 0.75rem; color: var(--neo-t-3); margin-top: 0.125rem;
+.neo-promo .neo-promo-body { min-width: 0; }
+.neo-promo .neo-name-row {
+  display: flex; align-items: center; gap: 0.5rem; min-width: 0;
+}
+.neo-promo .neo-name {
+  font-size: 0.8125rem; font-weight: 600;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1; min-width: 0;
 }
-.neo-promo .neo-discount {
-  font-weight: 800; font-size: 1.375rem;
-  letter-spacing: -0.02em;
+.neo-promo .neo-discount-pill {
+  flex-shrink: 0;
+  font-weight: 800;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
   color: var(--neo-accent);
-  text-align: right;
+  background: rgba(var(--neo-accent-glow), 0.12);
+  border: 1px solid rgba(var(--neo-accent-glow), 0.35);
+  padding: 0.1875rem 0.5rem;
+  border-radius: 100px;
+  font-family: monospace;
 }
-.neo-promo .neo-discount small {
-  display: block; font-size: 0.5625rem; letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--neo-t-3); font-weight: 600; margin-top: 1px;
+.neo-promo .neo-desc {
+  font-size: 0.6875rem; color: var(--neo-t-3); margin-top: 0.125rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 /* Partner banner */
@@ -925,20 +937,24 @@ html {
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: var(--neo-bg-0);
-  /* Safe zone — generous padding so the UI never touches the TV's
-     overscan edge even on older sets that crop 5-7 %. */
-  padding: 4vh 3vw;
+  background: #000;
+  /* Generous safe zone: 6vh top/bottom + 4vw left/right = ~12% vertical /
+     8% horizontal margin around the entire UI. Even TVs with the worst
+     overscan never crop visible content. */
+  padding: 6vh 4vw;
+  box-sizing: border-box;
 }
 
 .neo-fit-stage {
+  /* The stage is sized by the wrap's PADDED area (inset:0 respects
+     padding because position:absolute references the padding box).
+     No explicit vw/vh — let the wrap dictate size. */
   position: absolute;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
+  inset: 6vh 4vw;
   background: radial-gradient(ellipse 80% 60% at 30% 20%, #1a1f4a 0%, var(--neo-bg-0) 55%),
               radial-gradient(ellipse 60% 50% at 90% 80%, rgba(230, 57, 70, 0.08) 0%, transparent 60%),
               var(--neo-bg-0);
+  border-radius: 0.75rem;
   isolation: isolate;
   overflow: hidden;
 }

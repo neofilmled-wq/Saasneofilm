@@ -48,35 +48,12 @@ function PromoRow({ listing, paletteIndex }: { listing: CatalogueListing; palett
       >
         {!isUrl && initial}
       </div>
-      <div style={{ minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: 14.5,
-            fontWeight: 600,
-            color: 'var(--neo-t-1)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {name}
+      <div className="neo-promo-body">
+        <div className="neo-name-row">
+          <span className="neo-name" style={{ color: 'var(--neo-t-1)' }}>{name}</span>
+          {discount && <span className="neo-discount-pill">{discount}</span>}
         </div>
-        <div
-          style={{
-            fontSize: 12,
-            color: 'var(--neo-t-3)',
-            marginTop: 2,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {desc}
-        </div>
-      </div>
-      <div className="neo-discount">
-        {discount.length > 6 ? discount.slice(0, 6) : discount}
-        <small>code</small>
+        <div className="neo-desc">{desc}</div>
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { useAdQueue } from '@/hooks/use-ad-queue';
 import { TopBar } from '@/components/layout/top-bar';
 import { TabNavigation, type TabKey } from '@/components/layout/tab-navigation';
 import { Sidebar } from '@/components/layout/sidebar';
+import { AdZone } from '@/components/layout/ad-zone';
 import { PartnerBanner } from '@/components/layout/partner-banner';
 import { HomePage, type HomeDestination } from '@/components/pages/home-page';
 import { TntPage } from '@/components/pages/tnt-page';
@@ -216,7 +217,8 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
         className="neo-fit-stage neo-grain"
         style={{
           display: 'grid',
-          gridTemplateRows: '5.25rem 4.75rem minmax(0, 1fr) auto',
+          // topbar | tabnav | content+codes_promo | wide annonce | partner banner
+          gridTemplateRows: '5.25rem 4.75rem minmax(0, 1fr) 22vh auto',
         }}
       >
         <TopBar
@@ -232,13 +234,11 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
           onTabChange={handleTabChange}
         />
 
-        {/* Main grid: page (left) + sidebar (right) — sidebar always visible.
-           The AdZone has its own fallback video, so the sidebar is meaningful
-           even when no targeted/house ads are loaded yet. */}
+        {/* Top main row: page content (left) + codes promo sidebar (right) */}
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) 44rem',
+            gridTemplateColumns: 'minmax(0, 1fr) 38rem',
             gap: '1.75rem',
             padding: '1.25rem 3rem 0.75rem',
             minHeight: 0,
@@ -273,13 +273,58 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
             {activeTab === 'SETTINGS' && <SettingsPage />}
           </div>
 
-          <Sidebar
-            catalogue={catalogue ?? []}
-            houseAds={houseAds}
-            rotationAds={rotationAds}
-            adRotationMs={macros?.adRotationMs}
-            onAdImpression={reportImpression}
-          />
+          <Sidebar catalogue={catalogue ?? []} />
+        </div>
+
+        {/* Wide annonce row — fills all the horizontal space the codes-promo
+            sidebar leaves above the partner banner. Always rendered: AdZone
+            has its own self-contained fallback so something is always playing. */}
+        <div
+          style={{
+            padding: '0 3rem 1rem',
+            minHeight: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <div className="neo-panel" style={{ padding: 0, height: '100%', position: 'relative' }}>
+            <div
+              style={{
+                position: 'absolute',
+                top: '0.75rem',
+                right: '1.125rem',
+                zIndex: 4,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.375rem 0.75rem',
+                background: 'rgba(0,0,0,0.55)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: 100,
+                fontSize: '0.65625rem',
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: '#fff',
+              }}
+            >
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: '0.375rem',
+                  height: '0.375rem',
+                  borderRadius: '50%',
+                  background: 'var(--neo-accent)',
+                  boxShadow: '0 0 0 3px rgba(var(--neo-accent-glow), 0.25)',
+                }}
+              />
+              Annonce
+            </div>
+            <AdZone
+              houseAds={houseAds}
+              targetedAds={rotationAds}
+              rotationMs={macros?.adRotationMs}
+              onImpression={reportImpression}
+            />
+          </div>
         </div>
 
         <PartnerBanner

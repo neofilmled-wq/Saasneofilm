@@ -1,18 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { CatalogueListing, CreativeManifest, TvAdItem } from '@/lib/device-api';
-import { AdZone } from '@/components/layout/ad-zone';
+import type { CatalogueListing } from '@/lib/device-api';
 
 interface SidebarProps {
   catalogue: CatalogueListing[];
-  houseAds: CreativeManifest[];
-  rotationAds: TvAdItem[];
-  adRotationMs?: number;
-  onAdImpression?: (ad: TvAdItem, startTime: Date, endTime: Date, skipped: boolean) => void;
 }
 
-const PROMO_LIMIT = 3;
+const PROMO_LIMIT = 4;
 const PROMO_ROTATION_MS = 7000;
 
 // Tailwind-ish soft palette used when a listing has no specific color.
@@ -60,7 +55,12 @@ function PromoRow({ listing, paletteIndex }: { listing: CatalogueListing; palett
   );
 }
 
-function PromoList({ catalogue }: { catalogue: CatalogueListing[] }) {
+/**
+ * Right-side sidebar — codes promo only. The annonce panel moved to a wide
+ * bottom row in smart-tv-display so it can fill all the empty horizontal
+ * space the codes promo column leaves above the partner banner.
+ */
+export function Sidebar({ catalogue }: SidebarProps) {
   const promos = useMemo(
     () => catalogue.filter((c) => typeof c.promoCode === 'string' && c.promoCode.trim() !== ''),
     [catalogue],
@@ -80,16 +80,14 @@ function PromoList({ catalogue }: { catalogue: CatalogueListing[] }) {
 
   const visiblePromos = useMemo(() => {
     if (promos.length <= PROMO_LIMIT) return promos;
-    const out: { promo: CatalogueListing; paletteIndex: number }[] = [];
-    for (let i = 0; i < PROMO_LIMIT; i++) {
+    return Array.from({ length: PROMO_LIMIT }, (_, i) => {
       const idx = (offset + i) % promos.length;
-      out.push({ promo: promos[idx], paletteIndex: idx });
-    }
-    return out.map((o) => ({ ...o.promo, __paletteIndex: o.paletteIndex }));
+      return Object.assign({}, promos[idx], { __paletteIndex: idx });
+    });
   }, [promos, offset]);
 
   return (
-    <div className="neo-panel" style={{ flex: 'none' }}>
+    <div className="neo-panel" style={{ height: '100%', minHeight: 0 }}>
       <div className="neo-panel-head">
         <h3>Codes promo partenaires</h3>
         <span className="neo-meta">{promos.length} actif{promos.length > 1 ? 's' : ''}</span>
@@ -117,7 +115,14 @@ function PromoList({ catalogue }: { catalogue: CatalogueListing[] }) {
         <div
           key={offset}
           className="neo-promo-fade"
-          style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem',
+            flex: 1,
+            minHeight: 0,
+            overflow: 'hidden',
+          }}
         >
           {(visiblePromos as (CatalogueListing & { __paletteIndex?: number })[]).map(
             (p, i) => (
@@ -131,7 +136,7 @@ function PromoList({ catalogue }: { catalogue: CatalogueListing[] }) {
           {promos.length > PROMO_LIMIT && (
             <div
               style={{
-                marginTop: '0.25rem',
+                marginTop: 'auto',
                 padding: '0.5rem 0.75rem',
                 fontSize: '0.6875rem',
                 color: 'var(--neo-t-3)',
@@ -140,87 +145,11 @@ function PromoList({ catalogue }: { catalogue: CatalogueListing[] }) {
                 textTransform: 'uppercase',
               }}
             >
-              {promos.length} codes · rotation toutes les {Math.round(PROMO_ROTATION_MS / 1000)}s
+              {promos.length} codes · rotation {Math.round(PROMO_ROTATION_MS / 1000)}s
             </div>
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-/**
- * Right-side sidebar shown across all TV screens.
- * Top: PromoList (3 promo codes). Bottom: rotating AdZone video player
- * wrapped in the NEOFILM glass panel.
- */
-export function Sidebar({
-  catalogue,
-  houseAds,
-  rotationAds,
-  adRotationMs,
-  onAdImpression,
-}: SidebarProps) {
-  // AdZone always renders — its own fallback guarantees a video plays even
-  // when both houseAds and rotationAds are empty.
-  return (
-    <div
-      style={{
-        display: 'grid',
-        // 1:1 → hauteurs d'origine pour codes promo et annonce.
-        // (la largeur du sidebar a été augmentée dans smart-tv-display pour
-        // donner plus de place horizontale à l'annonce.)
-        gridTemplateRows: 'minmax(0, 1fr) minmax(0, 1fr)',
-        gap: 'var(--neo-gap)',
-        minHeight: 0,
-        height: '100%',
-      }}
-    >
-      <PromoList catalogue={catalogue} />
-      <div
-        className="neo-panel"
-        style={{ padding: 0, overflow: 'hidden', position: 'relative' }}
-      >
-        <div
-          style={{
-            position: 'absolute',
-            top: '1rem',
-            right: '1.125rem',
-            zIndex: 4,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            padding: '0.375rem 0.75rem',
-            background: 'rgba(0,0,0,0.55)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: 100,
-            fontSize: '0.65625rem',
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase',
-            color: '#fff',
-          }}
-        >
-          <span
-            style={{
-              display: 'inline-block',
-              width: '0.375rem',
-              height: '0.375rem',
-              borderRadius: '50%',
-              background: 'var(--neo-accent)',
-              boxShadow: '0 0 0 3px rgba(var(--neo-accent-glow), 0.25)',
-            }}
-          />
-          Annonce
-        </div>
-        <div style={{ width: '100%', height: '100%' }}>
-          <AdZone
-            houseAds={houseAds}
-            targetedAds={rotationAds}
-            rotationMs={adRotationMs}
-            onImpression={onAdImpression}
-          />
-        </div>
-      </div>
     </div>
   );
 }

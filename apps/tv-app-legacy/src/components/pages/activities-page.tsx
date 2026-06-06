@@ -111,7 +111,14 @@ export function ActivitiesPage({ activities, catalogue = [] }: ActivitiesPagePro
       <div
         ref={containerRef}
         data-tv-nav-group="activities"
-        style={{ overflow: 'auto', paddingRight: 4 }}
+        style={{
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          paddingRight: 8,
+          paddingLeft: 4,
+          flex: 1,
+          minHeight: 0,
+        }}
       >
         {categoryOrder.map((cat) => {
           const items = grouped[cat];

@@ -13,11 +13,11 @@ import type { StreamingService } from '@/lib/device-api';
  */
 function BrandGlyph({ name }: { name: string }) {
   const base = {
-    width: '4.25rem',
-    height: '4.25rem',
+    width: '6.5rem',
+    height: '6.5rem',
     display: 'grid',
     placeItems: 'center',
-    borderRadius: '0.875rem',
+    borderRadius: '1.25rem',
     background: 'rgba(0, 0, 0, 0.45)',
     border: '1px solid rgba(255, 255, 255, 0.08)',
   } as const;
@@ -285,9 +285,9 @@ export function StreamingPage({ services }: StreamingPageProps) {
                   src={`data:image/png;base64,${app.icon}`}
                   alt={app.name}
                   style={{
-                    width: '4.25rem',
-                    height: '4.25rem',
-                    borderRadius: '0.875rem',
+                    width: '6.5rem',
+                    height: '6.5rem',
+                    borderRadius: '1.25rem',
                     objectFit: 'contain',
                   }}
                 />

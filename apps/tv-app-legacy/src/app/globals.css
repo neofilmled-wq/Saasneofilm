@@ -598,12 +598,12 @@ body.neo-tv-body {
   color: var(--neo-t-1);
 }
 .neo-tile[data-tv-focused="true"] {
-  transform: translateY(-2px) scale(1.008);
+  transform: translateY(-1px);
   border: 0.09375rem solid var(--neo-accent) !important;
   box-shadow:
-    0 0 0 3px rgba(var(--neo-accent-glow), 0.22),
-    0 0 38px rgba(var(--neo-accent-glow), 0.42),
-    0 1.5rem 3.125rem -10px rgba(0, 0, 0, 0.6) !important;
+    0 0 0 2px rgba(var(--neo-accent-glow), 0.4),
+    0 0 14px rgba(var(--neo-accent-glow), 0.35),
+    0 0.75rem 1.5rem -6px rgba(0, 0, 0, 0.5) !important;
   z-index: 5;
 }
 .neo-tile .neo-ribbon {
@@ -857,9 +857,9 @@ body.neo-tv-body {
 .neo-channel .neo-ch-now { font-size: 0.6875rem; color: var(--neo-t-3); margin-top: 0.25rem; }
 .neo-channel[data-tv-focused="true"] {
   border-color: var(--neo-accent) !important;
-  box-shadow: 0 0 0 3px rgba(var(--neo-accent-glow), 0.18),
-              0 0 1.5rem rgba(var(--neo-accent-glow), 0.4) !important;
-  transform: translateY(-2px) !important;
+  box-shadow: 0 0 0 2px rgba(var(--neo-accent-glow), 0.35),
+              0 0 0.875rem rgba(var(--neo-accent-glow), 0.3) !important;
+  transform: translateY(-1px) !important;
 }
 
 /* Streaming app cards */
@@ -875,9 +875,9 @@ body.neo-tv-body {
 }
 .neo-app-card .neo-app-name { font-weight: 700; font-size: 1.125rem; color: #fff; }
 .neo-app-card[data-tv-focused="true"] {
-  transform: translateY(-2px) scale(1.02) !important;
-  box-shadow: 0 0 0 3px rgba(var(--neo-accent-glow), 0.2),
-              0 0 2rem rgba(var(--neo-accent-glow), 0.5) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 0 0 2px rgba(var(--neo-accent-glow), 0.4),
+              0 0 12px rgba(var(--neo-accent-glow), 0.35) !important;
   border-color: var(--neo-accent) !important;
 }
 
@@ -906,7 +906,7 @@ body.neo-tv-body {
 .neo-addr[data-tv-focused="true"] {
   border-color: var(--neo-accent) !important;
   background: rgba(var(--neo-accent-glow), 0.08) !important;
-  box-shadow: 0 0 0 3px rgba(var(--neo-accent-glow), 0.18) !important;
+  box-shadow: 0 0 0 2px rgba(var(--neo-accent-glow), 0.3) !important;
 }
 .neo-addr-thumb {
   width: 5.5rem; height: 4rem; border-radius: 0.625rem;
@@ -951,6 +951,14 @@ html {
      the TV's safe area on cheap consumer TVs with heavy overscan.
      clamp() bounds stay in px (rem here would self-reference). */
   font-size: clamp(6px, min(1.0185vh, 0.5729vw), 20px);
+}
+
+/* Kill the WebView's default focus outline globally — the cyan/blue ring that
+   leaks past element borders on TV screenshots. Custom [data-tv-focused]
+   styles below provide the actual visible focus indicator. */
+.neo-fit-wrap *:focus,
+.neo-fit-wrap *:focus-visible {
+  outline: none !important;
 }
 
 .neo-fit-wrap {

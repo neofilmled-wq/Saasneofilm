@@ -410,15 +410,15 @@ html, body {
   --neo-t-3: rgba(255, 255, 255, 0.46);
   --neo-t-4: rgba(255, 255, 255, 0.28);
 
-  /* Density */
-  --neo-gap: 28px;
-  --neo-pad: 28px;
-  --neo-radius: 22px;
+  /* Density (rem so they scale with the responsive root font-size) */
+  --neo-gap: 1.75rem;
+  --neo-pad: 1.75rem;
+  --neo-radius: 1.375rem;
 
   /* Cards */
   --neo-card-bg: linear-gradient(160deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
   --neo-card-border: 1px solid rgba(255, 255, 255, 0.08);
-  --neo-card-shadow: 0 20px 60px -20px rgba(0,0,0,0.6);
+  --neo-card-shadow: 0 1.25rem 3.75rem -20px rgba(0,0,0,0.6);
 }
 
 /* Cinematic background applied to the whole TV WebView */
@@ -459,18 +459,18 @@ body.neo-tv-body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 48px;
-  height: 84px;
+  padding: 0 3rem;
+  height: 5.25rem;
   z-index: 10;
   position: relative;
 }
-.neo-topbar .neo-logo img { height: 44px; width: auto; display: block; }
+.neo-topbar .neo-logo img { height: 2.75rem; width: auto; display: block; }
 .neo-topbar .neo-right {
-  display: flex; align-items: center; gap: 22px;
+  display: flex; align-items: center; gap: 1.375rem;
   color: var(--neo-t-2);
 }
 .neo-topbar .neo-clock {
-  font-size: 22px; font-weight: 500;
+  font-size: 1.375rem; font-weight: 500;
   font-variant-numeric: tabular-nums;
   color: var(--neo-t-1);
   letter-spacing: 0.02em;
@@ -479,51 +479,51 @@ body.neo-tv-body {
   display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1;
 }
 .neo-topbar .neo-stay .neo-label {
-  font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+  font-size: 0.6875rem; letter-spacing: 0.16em; text-transform: uppercase;
   color: var(--neo-t-3);
 }
-.neo-topbar .neo-stay .neo-name { font-size: 17px; color: var(--neo-t-1); font-weight: 500; }
+.neo-topbar .neo-stay .neo-name { font-size: 1.0625rem; color: var(--neo-t-1); font-weight: 500; }
 .neo-topbar .neo-status {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase;
   color: var(--neo-t-2);
-  padding: 8px 14px;
+  padding: 0.5rem 0.875rem;
   border: 1px solid var(--neo-line);
-  border-radius: 100px;
+  border-radius: 6.25rem;
   background: rgba(255, 255, 255, 0.02);
 }
 .neo-topbar .neo-status .neo-dot {
-  width: 8px; height: 8px; border-radius: 50%;
+  width: 0.5rem; height: 0.5rem; border-radius: 50%;
   background: #2ee07a;
-  box-shadow: 0 0 0 3px rgba(46, 224, 122, 0.22), 0 0 12px rgba(46, 224, 122, 0.8);
+  box-shadow: 0 0 0 3px rgba(46, 224, 122, 0.22), 0 0 0.75rem rgba(46, 224, 122, 0.8);
   animation: neo-pulse 2.4s ease-in-out infinite;
 }
 @keyframes neo-pulse {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(46, 224, 122, 0.22), 0 0 12px rgba(46, 224, 122, 0.8); }
-  50%      { box-shadow: 0 0 0 6px rgba(46, 224, 122, 0.0),  0 0 18px rgba(46, 224, 122, 1); }
+  0%, 100% { box-shadow: 0 0 0 3px rgba(46, 224, 122, 0.22), 0 0 0.75rem rgba(46, 224, 122, 0.8); }
+  50%      { box-shadow: 0 0 0 0.375rem rgba(46, 224, 122, 0.0),  0 0 1.125rem rgba(46, 224, 122, 1); }
 }
 
 /* NavBar */
 .neo-nav {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 48px;
-  height: 76px;
+  gap: 0.625rem;
+  padding: 0 3rem;
+  height: 4.75rem;
   z-index: 10;
   position: relative;
 }
 .neo-nav button {
   appearance: none;
   background: transparent;
-  border: 1.5px solid transparent;
+  border: 0.09375rem solid transparent;
   color: var(--neo-t-2);
-  font: 500 16px/1 inherit;
+  font: 500 1rem/1 inherit;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 22px;
-  border-radius: 100px;
+  gap: 0.625rem;
+  padding: 0.75rem 1.375rem;
+  border-radius: 6.25rem;
   cursor: pointer;
   transition: all 0.22s cubic-bezier(.2, .7, .2, 1);
   letter-spacing: 0.01em;
@@ -537,8 +537,8 @@ body.neo-tv-body {
   border-color: var(--neo-accent);
   background: rgba(var(--neo-accent-glow), 0.10);
   color: var(--neo-t-1);
-  box-shadow: 0 0 0 4px rgba(var(--neo-accent-glow), 0.18),
-              0 0 24px rgba(var(--neo-accent-glow), 0.4);
+  box-shadow: 0 0 0 0.25rem rgba(var(--neo-accent-glow), 0.18),
+              0 0 1.5rem rgba(var(--neo-accent-glow), 0.4);
   outline: none;
   transform: none !important; /* override legacy scale */
 }
@@ -561,7 +561,7 @@ body.neo-tv-body {
 .neo-tile .neo-tile-art {
   position: absolute; inset: 0; z-index: 1;
   display: flex; align-items: flex-start; justify-content: flex-end;
-  padding: 28px;
+  padding: 1.75rem;
   opacity: 0.85;
   pointer-events: none;
 }
@@ -576,48 +576,48 @@ body.neo-tv-body {
   padding: var(--neo-pad);
 }
 .neo-tile .neo-tile-title {
-  font-size: 24px; font-weight: 700;
+  font-size: 1.5rem; font-weight: 700;
   letter-spacing: -0.01em;
-  margin: 12px 0 4px;
+  margin: 0.75rem 0 0.25rem;
   color: #fff;
 }
 .neo-tile .neo-tile-subtitle {
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   color: var(--neo-t-2);
   letter-spacing: 0.02em;
 }
 .neo-tile .neo-tile-tags {
-  display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap;
+  display: flex; gap: 0.5rem; margin-top: 0.875rem; flex-wrap: wrap;
 }
 .neo-tile .neo-tile-tags span {
-  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
-  padding: 5px 10px;
-  border-radius: 100px;
+  font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 0.3125rem 0.625rem;
+  border-radius: 6.25rem;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--neo-t-1);
 }
 .neo-tile[data-tv-focused="true"] {
   transform: translateY(-2px) scale(1.008);
-  border: 1.5px solid var(--neo-accent) !important;
+  border: 0.09375rem solid var(--neo-accent) !important;
   box-shadow:
     0 0 0 3px rgba(var(--neo-accent-glow), 0.22),
     0 0 38px rgba(var(--neo-accent-glow), 0.42),
-    0 24px 50px -10px rgba(0, 0, 0, 0.6) !important;
+    0 1.5rem 3.125rem -10px rgba(0, 0, 0, 0.6) !important;
   z-index: 5;
 }
 .neo-tile .neo-ribbon {
-  position: absolute; top: 24px; left: 24px; z-index: 3;
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 7px 12px 7px 9px;
+  position: absolute; top: 1.5rem; left: 1.5rem; z-index: 3;
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.4375rem 0.75rem 0.4375rem 0.5625rem;
   background: rgba(0, 0, 0, 0.55);
   border: 1px solid var(--neo-line-2);
-  border-radius: 100px;
-  font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+  border-radius: 6.25rem;
+  font-size: 0.6875rem; letter-spacing: 0.18em; text-transform: uppercase;
   color: var(--neo-t-1);
 }
 .neo-tile .neo-live-dot {
-  width: 7px; height: 7px; border-radius: 50%;
+  width: 0.4375rem; height: 0.4375rem; border-radius: 50%;
   background: var(--neo-accent);
   box-shadow: 0 0 0 3px rgba(var(--neo-accent-glow), 0.3);
   animation: neo-pulse-red 1.6s ease-in-out infinite;
@@ -670,7 +670,7 @@ body.neo-tv-body {
   background: var(--neo-card-bg);
   border: var(--neo-card-border);
   border-radius: var(--neo-radius);
-  padding: 22px;
+  padding: 1.375rem;
   box-shadow: var(--neo-card-shadow);
   display: flex; flex-direction: column;
   min-height: 0;
@@ -679,65 +679,65 @@ body.neo-tv-body {
 }
 .neo-panel-head {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 0.875rem;
 }
 .neo-panel-head h3 {
   margin: 0;
-  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  font-size: 0.6875rem; letter-spacing: 0.22em; text-transform: uppercase;
   color: var(--neo-t-3); font-weight: 600;
 }
-.neo-panel-head .neo-meta { font-size: 11px; color: var(--neo-t-3); }
+.neo-panel-head .neo-meta { font-size: 0.6875rem; color: var(--neo-t-3); }
 
 /* Promo rows */
 .neo-promo {
   display: grid;
-  grid-template-columns: 56px 1fr auto;
-  gap: 14px;
+  grid-template-columns: 3.5rem 1fr auto;
+  gap: 0.875rem;
   align-items: center;
-  padding: 12px 14px;
-  border-radius: 16px;
+  padding: 0.75rem 0.875rem;
+  border-radius: 1rem;
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid var(--neo-line);
   transition: all 0.22s;
 }
 .neo-promo-logo {
-  width: 56px; height: 56px;
-  border-radius: 12px;
+  width: 3.5rem; height: 3.5rem;
+  border-radius: 0.75rem;
   display: grid; place-items: center;
   color: #fff;
-  font-weight: 800; font-size: 18px;
+  font-weight: 800; font-size: 1.125rem;
   letter-spacing: -0.02em;
 }
-.neo-promo .neo-name { font-size: 14.5px; font-weight: 600; }
+.neo-promo .neo-name { font-size: 0.90625rem; font-weight: 600; }
 .neo-promo .neo-desc {
-  font-size: 12px; color: var(--neo-t-3); margin-top: 2px;
+  font-size: 0.75rem; color: var(--neo-t-3); margin-top: 0.125rem;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .neo-promo .neo-discount {
-  font-weight: 800; font-size: 22px;
+  font-weight: 800; font-size: 1.375rem;
   letter-spacing: -0.02em;
   color: var(--neo-accent);
   text-align: right;
 }
 .neo-promo .neo-discount small {
-  display: block; font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+  display: block; font-size: 0.5625rem; letter-spacing: 0.18em; text-transform: uppercase;
   color: var(--neo-t-3); font-weight: 600; margin-top: 1px;
 }
 
 /* Partner banner */
 .neo-partner-banner {
-  margin: 0 48px 24px;
-  height: 72px;
+  margin: 0 3rem 1.5rem;
+  height: 4.5rem;
   background:
     linear-gradient(90deg, rgba(230, 57, 70, 0.18) 0%, transparent 50%),
     linear-gradient(180deg, #181f3c, #0e1330);
   border: 1px solid var(--neo-line-2);
-  border-radius: 18px;
+  border-radius: 1.125rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 32px;
-  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.6);
+  padding: 0 2rem;
+  box-shadow: 0 0.75rem 1.875rem -10px rgba(0, 0, 0, 0.6);
   overflow: hidden;
   position: relative;
 }
@@ -745,27 +745,27 @@ body.neo-tv-body {
   content: "";
   position: absolute;
   left: -100px; top: -100px;
-  width: 300px; height: 300px;
+  width: 18.75rem; height: 18.75rem;
   background: radial-gradient(circle, rgba(var(--neo-accent-glow), 0.35), transparent 70%);
   pointer-events: none;
 }
 .neo-partner-mark {
-  width: 56px; height: 56px;
-  border-radius: 14px;
+  width: 3.5rem; height: 3.5rem;
+  border-radius: 0.875rem;
   background: linear-gradient(135deg, var(--neo-accent), #b71c2c);
   display: grid; place-items: center;
   color: #fff;
-  font-weight: 800; font-size: 24px;
+  font-weight: 800; font-size: 1.5rem;
   letter-spacing: -0.02em;
-  box-shadow: 0 4px 14px rgba(var(--neo-accent-glow), 0.45);
+  box-shadow: 0 0.25rem 0.875rem rgba(var(--neo-accent-glow), 0.45);
 }
 .neo-partner-text .neo-small {
-  font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase;
+  font-size: 0.625rem; letter-spacing: 0.24em; text-transform: uppercase;
   color: var(--neo-t-3);
-  margin-bottom: 4px;
+  margin-bottom: 0.25rem;
 }
 .neo-partner-text .neo-big {
-  font-size: 22px; font-weight: 600;
+  font-size: 1.375rem; font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--neo-t-1);
 }
@@ -773,12 +773,12 @@ body.neo-tv-body {
   color: var(--neo-accent); font-weight: 700;
 }
 .neo-pill {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 14px;
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
   border: 1px solid var(--neo-line-2);
-  border-radius: 100px;
+  border-radius: 6.25rem;
   background: rgba(255, 255, 255, 0.03);
-  font-size: 12px; color: var(--neo-t-2);
+  font-size: 0.75rem; color: var(--neo-t-2);
 }
 
 /* Sub-screen header */
@@ -786,7 +786,7 @@ body.neo-tv-body {
   background: var(--neo-card-bg);
   border: var(--neo-card-border);
   border-radius: var(--neo-radius);
-  padding: 32px;
+  padding: 2rem;
   overflow: hidden;
   position: relative;
   display: flex; flex-direction: column;
@@ -795,31 +795,31 @@ body.neo-tv-body {
 }
 .neo-sub-head {
   display: flex; justify-content: space-between; align-items: flex-end;
-  margin-bottom: 22px;
-  padding-bottom: 18px;
+  margin-bottom: 1.375rem;
+  padding-bottom: 1.125rem;
   border-bottom: 1px solid var(--neo-line);
 }
 .neo-sub-head h1 {
   margin: 0;
-  font-size: 36px; font-weight: 700;
+  font-size: 2.25rem; font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--neo-t-1);
 }
 .neo-sub-head .neo-crumb {
-  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  font-size: 0.6875rem; letter-spacing: 0.22em; text-transform: uppercase;
   color: var(--neo-t-3);
-  margin-bottom: 8px;
+  margin-bottom: 0.5rem;
 }
-.neo-sub-head .neo-count { color: var(--neo-t-3); font-size: 13px; }
+.neo-sub-head .neo-count { color: var(--neo-t-3); font-size: 0.8125rem; }
 
 /* TV channels grid */
 .neo-channel {
   aspect-ratio: 16/10;
-  border-radius: 14px;
+  border-radius: 0.875rem;
   border: 1px solid var(--neo-line);
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  padding: 14px;
+  padding: 0.875rem;
   transition: all 0.22s;
   cursor: pointer;
   text-align: center;
@@ -827,22 +827,22 @@ body.neo-tv-body {
   overflow: hidden;
 }
 .neo-channel .neo-ch-num {
-  position: absolute; top: 8px; left: 10px;
-  font-size: 10px; color: var(--neo-t-3); letter-spacing: 0.1em;
+  position: absolute; top: 0.5rem; left: 0.625rem;
+  font-size: 0.625rem; color: var(--neo-t-3); letter-spacing: 0.1em;
 }
-.neo-channel .neo-ch-logo { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; color: #fff; }
-.neo-channel .neo-ch-now { font-size: 11px; color: var(--neo-t-3); margin-top: 4px; }
+.neo-channel .neo-ch-logo { font-weight: 800; font-size: 1.125rem; letter-spacing: -0.02em; color: #fff; }
+.neo-channel .neo-ch-now { font-size: 0.6875rem; color: var(--neo-t-3); margin-top: 0.25rem; }
 .neo-channel[data-tv-focused="true"] {
   border-color: var(--neo-accent) !important;
   box-shadow: 0 0 0 3px rgba(var(--neo-accent-glow), 0.18),
-              0 0 24px rgba(var(--neo-accent-glow), 0.4) !important;
+              0 0 1.5rem rgba(var(--neo-accent-glow), 0.4) !important;
   transform: translateY(-2px) !important;
 }
 
 /* Streaming app cards */
 .neo-app-card {
   aspect-ratio: 16/10;
-  border-radius: 16px;
+  border-radius: 1rem;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   position: relative;
@@ -850,21 +850,21 @@ body.neo-tv-body {
   border: 1px solid var(--neo-line);
   transition: all 0.22s;
 }
-.neo-app-card .neo-app-name { font-weight: 700; font-size: 18px; color: #fff; }
+.neo-app-card .neo-app-name { font-weight: 700; font-size: 1.125rem; color: #fff; }
 .neo-app-card[data-tv-focused="true"] {
   transform: translateY(-2px) scale(1.02) !important;
   box-shadow: 0 0 0 3px rgba(var(--neo-accent-glow), 0.2),
-              0 0 32px rgba(var(--neo-accent-glow), 0.5) !important;
+              0 0 2rem rgba(var(--neo-accent-glow), 0.5) !important;
   border-color: var(--neo-accent) !important;
 }
 
 /* Address rows (bonnes adresses, activities, settings) */
 .neo-addr {
   display: grid;
-  grid-template-columns: 88px 1fr auto;
-  gap: 18px;
-  padding: 14px;
-  border-radius: 14px;
+  grid-template-columns: 5.5rem 1fr auto;
+  gap: 1.125rem;
+  padding: 0.875rem;
+  border-radius: 0.875rem;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--neo-line);
   align-items: center;
@@ -877,18 +877,18 @@ body.neo-tv-body {
   box-shadow: 0 0 0 3px rgba(var(--neo-accent-glow), 0.18) !important;
 }
 .neo-addr-thumb {
-  width: 88px; height: 64px; border-radius: 10px;
+  width: 5.5rem; height: 4rem; border-radius: 0.625rem;
   display: grid; place-items: center;
-  font-size: 28px;
+  font-size: 1.75rem;
 }
-.neo-addr-body .neo-name { font-weight: 600; font-size: 16px; color: var(--neo-t-1); }
-.neo-addr-body .neo-desc { font-size: 12.5px; color: var(--neo-t-3); margin-top: 2px; }
+.neo-addr-body .neo-name { font-weight: 600; font-size: 1rem; color: var(--neo-t-1); }
+.neo-addr-body .neo-desc { font-size: 12.5px; color: var(--neo-t-3); margin-top: 0.125rem; }
 .neo-addr-body .neo-meta {
-  font-size: 11.5px; color: var(--neo-t-2); margin-top: 6px;
-  display: flex; gap: 12px;
+  font-size: 0.71875rem; color: var(--neo-t-2); margin-top: 0.375rem;
+  display: flex; gap: 0.75rem;
 }
 .neo-addr-cta {
-  font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+  font-size: 0.6875rem; letter-spacing: 0.18em; text-transform: uppercase;
   color: var(--neo-accent); font-weight: 700;
 }
 
@@ -904,29 +904,36 @@ body.neo-tv-body {
    Inspired by Claude Design's fitStage() pattern. JS in
    smart-tv-display recalculates transform on every resize.
    ============================================================ */
+/* ============================================================
+   NATIVE VIEWPORT SCALING — no transform, no JS, no fit math.
+   Root font-size scales linearly with the smaller of vw/vh ratio
+   to the 1920×1080 design reference. Everything in the design
+   uses rem (auto-scaled) or vw/vh (natural).
+   ============================================================ */
+html {
+  /* 1rem == 16 px on a 1920×1080 viewport. On any smaller / larger
+     viewport, font-size scales proportionally, so any rem-based
+     dimension is automatically responsive. clamp() guards against
+     extreme cases (tiny phones, ultrawide 32:9 monitors). */
+  font-size: clamp(8px, min(1.4815vh, 0.8333vw), 1.75rem);
+}
+
 .neo-fit-wrap {
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: #000;
+  background: var(--neo-bg-0);
 }
 
 .neo-fit-stage {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 1920px;
-  height: 1080px;
-  margin-top: -540px;
-  margin-left: -960px;
-  transform-origin: center center;
-  transform: scale(var(--neo-fit, 1));
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
   background: radial-gradient(ellipse 80% 60% at 30% 20%, #1a1f4a 0%, var(--neo-bg-0) 55%),
               radial-gradient(ellipse 60% 50% at 90% 80%, rgba(230, 57, 70, 0.08) 0%, transparent 60%),
               var(--neo-bg-0);
-  font-size: 16px;
   isolation: isolate;
   overflow: hidden;
-  will-change: transform;
 }
 

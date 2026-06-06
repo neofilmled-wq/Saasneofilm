@@ -223,8 +223,8 @@ export function HomePage({
         display: 'grid',
         gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
         gridTemplateRows: 'repeat(2, minmax(0, 1fr))',
-        gap: 'var(--neo-gap, 28px)',
-        padding: '28px 0 12px',
+        gap: 'var(--neo-gap)',
+        padding: '1.75rem 0 0.75rem',
         height: '100%',
         width: '100%',
       }}

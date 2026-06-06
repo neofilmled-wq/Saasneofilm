@@ -187,54 +187,6 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
     return () => clearTimeout(timer);
   }, [isLoading]);
 
-  // Autofit the 1920×1080 stage to the actual TV viewport.
-  //
-  // JS-driven absolute positioning. The stage is positioned via inline
-  // top/left styles computed from viewport + scaled stage size — no CSS
-  // centering, no grid/flex, no transform quirks possible.
-  //
-  // Also paints a small debug overlay in the top-right corner showing the
-  // detected viewport + computed scale + offsets so we can diagnose any
-  // remaining quirk by just looking at the TV screen.
-  useEffect(() => {
-    const fit = () => {
-      const stage = document.querySelector('.neo-fit-stage') as HTMLElement | null;
-      if (!stage) return;
-      const w = window.innerWidth || document.documentElement.clientWidth;
-      const h = window.innerHeight || document.documentElement.clientHeight;
-      const s = Math.min(w / 1920, h / 1080);
-      const scaledW = 1920 * s;
-      const scaledH = 1080 * s;
-      const offsetLeft = Math.max(0, (w - scaledW) / 2);
-      const offsetTop = Math.max(0, (h - scaledH) / 2);
-      stage.style.transformOrigin = '0 0';
-      stage.style.transform = `scale(${s})`;
-      stage.style.top = `${offsetTop}px`;
-      stage.style.left = `${offsetLeft}px`;
-      const dbg = document.getElementById('neo-fit-debug');
-      if (dbg) {
-        dbg.textContent =
-          `vp ${w}×${h} | scale ${s.toFixed(3)} | stage ${scaledW.toFixed(0)}×${scaledH.toFixed(0)} | off ${offsetLeft.toFixed(0)},${offsetTop.toFixed(0)} | dpr ${window.devicePixelRatio}`;
-      }
-      console.log(
-        `[NeoFit] viewport=${w}x${h} scale=${s.toFixed(3)} stage=${scaledW.toFixed(0)}x${scaledH.toFixed(0)} offset=${offsetLeft.toFixed(0)},${offsetTop.toFixed(0)} dpr=${window.devicePixelRatio}`,
-      );
-    };
-    fit();
-    const onResize = () => fit();
-    window.addEventListener('resize', onResize);
-    let ro: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(() => fit());
-      ro.observe(document.documentElement);
-    }
-    const timers = [50, 200, 500, 1000].map((d) => setTimeout(fit, d));
-    return () => {
-      window.removeEventListener('resize', onResize);
-      ro?.disconnect();
-      timers.forEach(clearTimeout);
-    };
-  }, [isLoading, configTimedOut]);
 
   if (isLoading && !configTimedOut) {
     return (
@@ -263,33 +215,11 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
 
   return (
     <div className="neo-fit-wrap" data-neofilm-ready>
-      {/* Debug overlay — top-right corner, outside the scaled stage so it's
-          always at native viewport size and immune to scaling math. Remove
-          this once the layout is confirmed correct on every TV size. */}
-      <div
-        id="neo-fit-debug"
-        style={{
-          position: 'fixed',
-          top: 6,
-          right: 6,
-          padding: '4px 8px',
-          font: '11px/1.2 monospace',
-          color: '#fff',
-          background: 'rgba(0,0,0,0.7)',
-          border: '1px solid rgba(255,255,255,0.2)',
-          borderRadius: 6,
-          zIndex: 9999,
-          pointerEvents: 'none',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        booting…
-      </div>
       <div
         className="neo-fit-stage neo-grain"
         style={{
           display: 'grid',
-          gridTemplateRows: '84px 76px minmax(0, 1fr) auto',
+          gridTemplateRows: '5.25rem 4.75rem minmax(0, 1fr) auto',
         }}
       >
         <TopBar
@@ -310,10 +240,10 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
           style={{
             display: 'grid',
             gridTemplateColumns: hasAds || (catalogue && catalogue.length > 0)
-              ? 'minmax(0, 1fr) 540px'
+              ? 'minmax(0, 1fr) 33.75rem'
               : 'minmax(0, 1fr)',
-            gap: 28,
-            padding: '20px 48px 12px',
+            gap: '1.75rem',
+            padding: '1.25rem 3rem 0.75rem',
             minHeight: 0,
             overflow: 'hidden',
           }}

@@ -600,11 +600,9 @@ body.neo-tv-body {
 }
 .neo-tile[data-tv-focused="true"],
 .neo-tile:focus {
-  border: 0.09375rem solid var(--neo-accent) !important;
-  box-shadow:
-    inset 0 0 0 2px var(--neo-accent),
-    0 0 0 1px rgba(var(--neo-accent-glow), 0.35),
-    0 0.75rem 1.5rem -6px rgba(0, 0, 0, 0.5) !important;
+  border-color: var(--neo-accent) !important;
+  box-shadow: 0 0 0 1px var(--neo-accent) !important;
+  outline: none !important;
   transform: none !important;
   z-index: 5;
 }
@@ -893,7 +891,8 @@ body.neo-tv-body {
 .neo-channel[data-tv-focused="true"],
 .neo-channel:focus {
   border-color: var(--neo-accent) !important;
-  box-shadow: inset 0 0 0 2px var(--neo-accent) !important;
+  box-shadow: 0 0 0 1px var(--neo-accent) !important;
+  outline: none !important;
   transform: none !important;
 }
 
@@ -911,9 +910,10 @@ body.neo-tv-body {
 .neo-app-card .neo-app-name { font-weight: 700; font-size: 1.125rem; color: #fff; }
 .neo-app-card[data-tv-focused="true"],
 .neo-app-card:focus {
-  transform: none !important;
-  box-shadow: inset 0 0 0 2px var(--neo-accent) !important;
   border-color: var(--neo-accent) !important;
+  box-shadow: 0 0 0 1px var(--neo-accent) !important;
+  outline: none !important;
+  transform: none !important;
 }
 
 /* Address rows (bonnes adresses, activities, settings) */
@@ -938,19 +938,17 @@ body.neo-tv-body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Clean thin outline only — no zoom, no background tint, no inner glow.
-   Matches the user's reference mockup: a single 2px red ring around the
-   focused card. Inset keeps the ring physically inside the border so it
-   can never bleed sideways on the Bonnes adresses scroller.
-
-   Selectors: both [data-tv-focused="true"] (legacy, kept for compat) AND
-   :focus (the native focus the D-pad hook actually sets via el.focus()). */
+/* Clean thin OUTER red border — exactly matches the user's reference
+   mockup (Le Bouchon des Filles with a single fine red outline). The inset
+   version drew INSIDE the card and looked chunky/double; this version
+   promotes the existing 1px gray border to red and adds a 1px outer halo,
+   giving a crisp 2px-total red ring that follows the corner radius. */
 .neo-addr[data-tv-focused="true"],
 .neo-addr:focus {
   border-color: var(--neo-accent) !important;
-  box-shadow: inset 0 0 0 2px var(--neo-accent) !important;
-  transform: none !important;
+  box-shadow: 0 0 0 1px var(--neo-accent) !important;
   outline: none !important;
+  transform: none !important;
 }
 .neo-addr-thumb {
   width: 5.5rem; height: 4rem; border-radius: 0.625rem;

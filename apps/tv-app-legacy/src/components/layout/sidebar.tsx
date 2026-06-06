@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CatalogueListing, CreativeManifest, TvAdItem } from '@/lib/device-api';
 import { AdZone } from '@/components/layout/ad-zone';
 
@@ -13,6 +13,7 @@ interface SidebarProps {
 }
 
 const PROMO_LIMIT = 3;
+const PROMO_ROTATION_MS = 7000;
 
 // Tailwind-ish soft palette used when a listing has no specific color.
 const FALLBACK_PROMO_COLORS = [
@@ -65,6 +66,28 @@ function PromoList({ catalogue }: { catalogue: CatalogueListing[] }) {
     [catalogue],
   );
 
+  // When there are more than PROMO_LIMIT promos, rotate the visible window
+  // through the full list so every code gets airtime. Window size stays at
+  // PROMO_LIMIT — only the offset changes.
+  const [offset, setOffset] = useState(0);
+  useEffect(() => {
+    if (promos.length <= PROMO_LIMIT) return;
+    const t = setInterval(() => {
+      setOffset((o) => (o + 1) % promos.length);
+    }, PROMO_ROTATION_MS);
+    return () => clearInterval(t);
+  }, [promos.length]);
+
+  const visiblePromos = useMemo(() => {
+    if (promos.length <= PROMO_LIMIT) return promos;
+    const out: { promo: CatalogueListing; paletteIndex: number }[] = [];
+    for (let i = 0; i < PROMO_LIMIT; i++) {
+      const idx = (offset + i) % promos.length;
+      out.push({ promo: promos[idx], paletteIndex: idx });
+    }
+    return out.map((o) => ({ ...o.promo, __paletteIndex: o.paletteIndex }));
+  }, [promos, offset]);
+
   return (
     <div className="neo-panel" style={{ flex: 'none' }}>
       <div className="neo-panel-head">
@@ -91,24 +114,33 @@ function PromoList({ catalogue }: { catalogue: CatalogueListing[] }) {
           </span>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-          {promos.slice(0, PROMO_LIMIT).map((p, i) => (
-            <PromoRow key={p.id} listing={p} paletteIndex={i} />
-          ))}
+        <div
+          key={offset}
+          className="neo-promo-fade"
+          style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}
+        >
+          {(visiblePromos as (CatalogueListing & { __paletteIndex?: number })[]).map(
+            (p, i) => (
+              <PromoRow
+                key={`${p.id}-${i}`}
+                listing={p}
+                paletteIndex={p.__paletteIndex ?? i}
+              />
+            ),
+          )}
           {promos.length > PROMO_LIMIT && (
             <div
               style={{
                 marginTop: '0.25rem',
-                padding: '0.625rem 0.75rem',
-                fontSize: '0.71875rem',
+                padding: '0.5rem 0.75rem',
+                fontSize: '0.6875rem',
                 color: 'var(--neo-t-3)',
                 textAlign: 'center',
-                border: '1px dashed var(--neo-line)',
-                borderRadius: '0.75rem',
-                background: 'rgba(255,255,255,0.015)',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
               }}
             >
-              + {promos.length - PROMO_LIMIT} autres codes disponibles →
+              {promos.length} codes · rotation toutes les {Math.round(PROMO_ROTATION_MS / 1000)}s
             </div>
           )}
         </div>
@@ -129,14 +161,16 @@ export function Sidebar({
   adRotationMs,
   onAdImpression,
 }: SidebarProps) {
-  const hasAds = houseAds.length > 0 || rotationAds.length > 0;
-
+  // AdZone always renders — its own fallback guarantees a video plays even
+  // when both houseAds and rotationAds are empty.
   return (
     <div
       style={{
         display: 'grid',
-        // 1:2 → la pub prend 2× plus de hauteur que les codes promo
-        gridTemplateRows: 'minmax(0, 1fr) minmax(0, 2fr)',
+        // 1:1 → hauteurs d'origine pour codes promo et annonce.
+        // (la largeur du sidebar a été augmentée dans smart-tv-display pour
+        // donner plus de place horizontale à l'annonce.)
+        gridTemplateRows: 'minmax(0, 1fr) minmax(0, 1fr)',
         gap: 'var(--neo-gap)',
         minHeight: 0,
         height: '100%',
@@ -178,65 +212,14 @@ export function Sidebar({
           />
           Annonce
         </div>
-        {hasAds ? (
-          <div style={{ width: '100%', height: '100%' }}>
-            <AdZone
-              houseAds={houseAds}
-              targetedAds={rotationAds}
-              rotationMs={adRotationMs}
-              onImpression={onAdImpression}
-            />
-          </div>
-        ) : (
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              padding: '1.5rem',
-              textAlign: 'center',
-              color: 'var(--neo-t-3)',
-              fontSize: '0.8125rem',
-              background:
-                'linear-gradient(160deg, rgba(230,57,70,0.04), rgba(255,255,255,0.02))',
-            }}
-          >
-            <div
-              style={{
-                width: '3rem',
-                height: '3rem',
-                borderRadius: '0.75rem',
-                background: 'linear-gradient(135deg, var(--neo-accent), #b71c2c)',
-                display: 'grid',
-                placeItems: 'center',
-                fontWeight: 800,
-                fontSize: '1.5rem',
-                color: '#fff',
-                boxShadow: '0 4px 14px rgba(var(--neo-accent-glow), 0.35)',
-              }}
-            >
-              N
-            </div>
-            <div style={{ fontWeight: 600, color: 'var(--neo-t-1)' }}>NEOFILM TV</div>
-            <div
-              style={{
-                fontSize: '0.6875rem',
-                color: 'var(--neo-t-4)',
-                letterSpacing: '0.04em',
-                maxWidth: '14rem',
-                lineHeight: 1.5,
-              }}
-            >
-              Aucune campagne active sur cet écran.
-              <br />
-              Les annonceurs ciblent ce screen via le portail admin.
-            </div>
-          </div>
-        )}
+        <div style={{ width: '100%', height: '100%' }}>
+          <AdZone
+            houseAds={houseAds}
+            targetedAds={rotationAds}
+            rotationMs={adRotationMs}
+            onImpression={onAdImpression}
+          />
+        </div>
       </div>
     </div>
   );

@@ -676,6 +676,15 @@ body.neo-tv-body {
   min-height: 0;
   position: relative;
   overflow: hidden;
+  isolation: isolate;
+  z-index: 2;
+}
+
+/* Soft fade-in when the rotating promo window swaps */
+.neo-promo-fade { animation: neo-promo-fade-in 0.45s ease-out both; }
+@keyframes neo-promo-fade-in {
+  from { opacity: 0; transform: translateY(0.25rem); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 .neo-panel-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -752,6 +761,8 @@ body.neo-tv-body {
   box-shadow: 0 0.75rem 1.875rem -10px rgba(0, 0, 0, 0.6);
   overflow: hidden;
   position: relative;
+  isolation: isolate;
+  z-index: 3;
 }
 .neo-partner-banner::before {
   content: "";
@@ -873,7 +884,7 @@ body.neo-tv-body {
 /* Address rows (bonnes adresses, activities, settings) */
 .neo-addr {
   display: grid;
-  grid-template-columns: 5.5rem 1fr auto;
+  grid-template-columns: 5.5rem minmax(0, 1fr) auto;
   gap: 1.125rem;
   padding: 0.875rem;
   border-radius: 0.875rem;
@@ -882,6 +893,15 @@ body.neo-tv-body {
   align-items: center;
   cursor: pointer;
   transition: all 0.22s;
+  overflow: hidden;
+  min-width: 0;
+}
+.neo-addr-body { min-width: 0; overflow: hidden; }
+.neo-addr-body .neo-name,
+.neo-addr-body .neo-desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .neo-addr[data-tv-focused="true"] {
   border-color: var(--neo-accent) !important;

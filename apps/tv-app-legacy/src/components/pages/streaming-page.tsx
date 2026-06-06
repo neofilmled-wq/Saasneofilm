@@ -6,6 +6,78 @@ import { useAdInterval } from '@/hooks/use-ad-interval';
 
 import type { StreamingService } from '@/lib/device-api';
 
+/**
+ * Inline brand glyphs — embedded as SVG so they render reliably in the WebView
+ * regardless of network availability or asset caching. Each glyph fills its
+ * container and uses object-fit: contain semantics via viewBox.
+ */
+function BrandGlyph({ name }: { name: string }) {
+  const base = {
+    width: '4.25rem',
+    height: '4.25rem',
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: '0.875rem',
+    background: 'rgba(0, 0, 0, 0.45)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+  } as const;
+  if (name === 'Netflix') {
+    return (
+      <div style={{ ...base, background: '#000' }}>
+        <svg viewBox="0 0 60 80" width="60%" height="60%">
+          <defs>
+            <linearGradient id="nfx" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#E50914" />
+              <stop offset="1" stopColor="#7a0610" />
+            </linearGradient>
+          </defs>
+          <path d="M10 5 L10 75 L22 75 L22 38 L38 75 L50 75 L50 5 L38 5 L38 42 L22 5 Z" fill="url(#nfx)" />
+        </svg>
+      </div>
+    );
+  }
+  if (name === 'Prime Video') {
+    return (
+      <div style={{ ...base, background: '#0a1428' }}>
+        <svg viewBox="0 0 120 60" width="80%" height="80%">
+          <text x="60" y="36" textAnchor="middle" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="800" fontSize="22" fill="#fff">
+            prime
+          </text>
+          <path d="M16 46 Q60 60 104 46" stroke="#00A8E1" strokeWidth="4" fill="none" strokeLinecap="round" />
+        </svg>
+      </div>
+    );
+  }
+  if (name === 'Disney+') {
+    return (
+      <div style={{ ...base, background: '#0b1838' }}>
+        <svg viewBox="0 0 120 50" width="85%" height="85%">
+          <text x="55" y="36" textAnchor="middle" fontFamily="Georgia, serif" fontStyle="italic" fontWeight="700" fontSize="26" fill="#fff">
+            Disney
+          </text>
+          <text x="100" y="22" textAnchor="middle" fontFamily="system-ui, sans-serif" fontWeight="700" fontSize="22" fill="#fff">+</text>
+        </svg>
+      </div>
+    );
+  }
+  if (name === 'YouTube') {
+    return (
+      <div style={{ ...base, background: '#fff' }}>
+        <svg viewBox="0 0 100 70" width="75%" height="75%">
+          <rect x="2" y="6" width="96" height="58" rx="14" fill="#FF0000" />
+          <polygon points="40,22 40,48 64,35" fill="#fff" />
+        </svg>
+      </div>
+    );
+  }
+  // Fallback initial
+  return (
+    <div style={{ ...base, background: '#1a1a1a' }}>
+      <span style={{ color: '#fff', fontWeight: 800, fontSize: '1.5rem' }}>{name.charAt(0)}</span>
+    </div>
+  );
+}
+
 interface StreamingPageProps {
   services: StreamingService[];
 }
@@ -213,28 +285,14 @@ export function StreamingPage({ services }: StreamingPageProps) {
                   src={`data:image/png;base64,${app.icon}`}
                   alt={app.name}
                   style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 12,
+                    width: '4.25rem',
+                    height: '4.25rem',
+                    borderRadius: '0.875rem',
                     objectFit: 'contain',
                   }}
                 />
               ) : (
-                <div
-                  style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 12,
-                    display: 'grid',
-                    placeItems: 'center',
-                    background: '#000',
-                    color: '#fff',
-                    fontWeight: 800,
-                    fontSize: 22,
-                  }}
-                >
-                  {app.name.charAt(0)}
-                </div>
+                <BrandGlyph name={app.name} />
               )}
               <span className="neo-app-name">{app.name}</span>
             </button>

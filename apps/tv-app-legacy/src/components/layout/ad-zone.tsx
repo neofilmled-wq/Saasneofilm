@@ -50,26 +50,48 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
   const startTimeRef = useRef(new Date());
   const rotationInterval = rotationMs ?? TV_CONFIG.AD_ROTATION_INTERVAL_MS;
 
-  // Build unified ad pool: targeted first, then house (memoised)
-  const adPool = useMemo<DisplayAd[]>(
-    () => [
-      ...targetedAds.map((ad) => ({
-        id: ad.creativeId,
-        fileUrl: resolveAdUrl(ad.fileUrl),
-        mimeType: ad.mimeType,
-        isTargeted: true,
-        source: ad,
-      })),
-      ...houseAds.map((ad) => ({
-        id: ad.creativeId,
-        fileUrl: resolveAdUrl(ad.fileUrl),
-        mimeType: ad.mimeType,
-        isTargeted: false,
-        source: ad,
-      })),
-    ],
-    [targetedAds, houseAds],
-  );
+  // Build unified ad pool: targeted first, then house (memoised). When BOTH
+  // are empty (API offline, no house ad uploaded yet, etc.) we still inject a
+  // synthetic fallback so the panel never sits empty — partners always see a
+  // moving video while their own creatives are being set up.
+  const adPool = useMemo<DisplayAd[]>(() => {
+    const targeted = targetedAds.map((ad) => ({
+      id: ad.creativeId,
+      fileUrl: resolveAdUrl(ad.fileUrl),
+      mimeType: ad.mimeType,
+      isTargeted: true,
+      source: ad,
+    }));
+    const house = houseAds.map((ad) => ({
+      id: ad.creativeId,
+      fileUrl: resolveAdUrl(ad.fileUrl),
+      mimeType: ad.mimeType,
+      isTargeted: false,
+      source: ad,
+    }));
+    if (targeted.length === 0 && house.length === 0) {
+      const fallbackSource: CreativeManifest = {
+        creativeId: 'neofilm_fallback_house_ad',
+        fileUrl: HOUSE_AD_FALLBACK_URL,
+        fileHash: 'fallback',
+        durationMs: 30000,
+        width: 1920,
+        height: 1080,
+        mimeType: 'video/mp4',
+        fileSizeBytes: 0,
+      };
+      return [
+        {
+          id: 'neofilm_fallback_house_ad',
+          fileUrl: HOUSE_AD_FALLBACK_URL,
+          mimeType: 'video/mp4',
+          isTargeted: false,
+          source: fallbackSource,
+        },
+      ];
+    }
+    return [...targeted, ...house];
+  }, [targetedAds, houseAds]);
 
   const currentAd = adPool[currentIndex % adPool.length] ?? null;
 

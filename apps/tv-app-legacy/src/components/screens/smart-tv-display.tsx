@@ -170,9 +170,6 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
     [activeTab],
   );
 
-  // Global ad sidebar — shared across all tabs so the <video> instance persists
-  const hasAds = rotationAds.length > 0 || houseAds.length > 0;
-
   const screenName =
     typeof window !== 'undefined' ? localStorage.getItem('neofilm_screen_name') : null;
 
@@ -235,13 +232,13 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
           onTabChange={handleTabChange}
         />
 
-        {/* Main grid: page (left) + sidebar (right) */}
+        {/* Main grid: page (left) + sidebar (right) — sidebar always visible.
+           The AdZone has its own fallback video, so the sidebar is meaningful
+           even when no targeted/house ads are loaded yet. */}
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: hasAds || (catalogue && catalogue.length > 0)
-              ? 'minmax(0, 1fr) 33.75rem'
-              : 'minmax(0, 1fr)',
+            gridTemplateColumns: 'minmax(0, 1fr) 44rem',
             gap: '1.75rem',
             padding: '1.25rem 3rem 0.75rem',
             minHeight: 0,
@@ -276,15 +273,13 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
             {activeTab === 'SETTINGS' && <SettingsPage />}
           </div>
 
-          {(hasAds || (catalogue && catalogue.length > 0)) && (
-            <Sidebar
-              catalogue={catalogue ?? []}
-              houseAds={houseAds}
-              rotationAds={rotationAds}
-              adRotationMs={macros?.adRotationMs}
-              onAdImpression={reportImpression}
-            />
-          )}
+          <Sidebar
+            catalogue={catalogue ?? []}
+            houseAds={houseAds}
+            rotationAds={rotationAds}
+            adRotationMs={macros?.adRotationMs}
+            onAdImpression={reportImpression}
+          />
         </div>
 
         <PartnerBanner

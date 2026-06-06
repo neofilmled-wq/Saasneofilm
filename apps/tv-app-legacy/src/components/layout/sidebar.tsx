@@ -88,35 +88,54 @@ function PromoList({ catalogue }: { catalogue: CatalogueListing[] }) {
     [catalogue],
   );
 
-  if (promos.length === 0) return null;
-
   return (
     <div className="neo-panel" style={{ flex: 'none' }}>
       <div className="neo-panel-head">
         <h3>Codes promo partenaires</h3>
-        <span className="neo-meta">{promos.length} actifs</span>
+        <span className="neo-meta">{promos.length} actif{promos.length > 1 ? 's' : ''}</span>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {promos.slice(0, PROMO_LIMIT).map((p, i) => (
-          <PromoRow key={p.id} listing={p} paletteIndex={i} />
-        ))}
-        {promos.length > PROMO_LIMIT && (
-          <div
-            style={{
-              marginTop: 4,
-              padding: '10px 12px',
-              fontSize: 11.5,
-              color: 'var(--neo-t-3)',
-              textAlign: 'center',
-              border: '1px dashed var(--neo-line)',
-              borderRadius: 12,
-              background: 'rgba(255,255,255,0.015)',
-            }}
-          >
-            + {promos.length - PROMO_LIMIT} autres codes disponibles →
-          </div>
-        )}
-      </div>
+      {promos.length === 0 ? (
+        <div
+          style={{
+            padding: '1.5rem 1rem',
+            border: '1px dashed var(--neo-line)',
+            borderRadius: '0.75rem',
+            background: 'rgba(255,255,255,0.015)',
+            textAlign: 'center',
+            color: 'var(--neo-t-3)',
+            fontSize: '0.8125rem',
+            lineHeight: 1.5,
+          }}
+        >
+          Aucun code promo pour l'instant.
+          <br />
+          <span style={{ color: 'var(--neo-t-4)', fontSize: '0.6875rem', letterSpacing: '0.04em' }}>
+            Les partenaires ajoutent leurs codes via le portail.
+          </span>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+          {promos.slice(0, PROMO_LIMIT).map((p, i) => (
+            <PromoRow key={p.id} listing={p} paletteIndex={i} />
+          ))}
+          {promos.length > PROMO_LIMIT && (
+            <div
+              style={{
+                marginTop: '0.25rem',
+                padding: '0.625rem 0.75rem',
+                fontSize: '0.71875rem',
+                color: 'var(--neo-t-3)',
+                textAlign: 'center',
+                border: '1px dashed var(--neo-line)',
+                borderRadius: '0.75rem',
+                background: 'rgba(255,255,255,0.015)',
+              }}
+            >
+              + {promos.length - PROMO_LIMIT} autres codes disponibles →
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -133,56 +152,55 @@ export function Sidebar({
   adRotationMs,
   onAdImpression,
 }: SidebarProps) {
-  const hasPromos = catalogue.some((c) => c.promoCode && c.promoCode.trim() !== '');
   const hasAds = houseAds.length > 0 || rotationAds.length > 0;
 
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateRows: hasPromos && hasAds ? '1fr 1fr' : '1fr',
-        gap: 'var(--neo-gap, 28px)',
+        gridTemplateRows: '1fr 1fr',
+        gap: 'var(--neo-gap)',
         minHeight: 0,
         height: '100%',
       }}
     >
-      {hasPromos && <PromoList catalogue={catalogue} />}
-      {hasAds && (
+      <PromoList catalogue={catalogue} />
+      <div
+        className="neo-panel"
+        style={{ padding: 0, overflow: 'hidden', position: 'relative' }}
+      >
         <div
-          className="neo-panel"
-          style={{ padding: 0, overflow: 'hidden', position: 'relative' }}
+          style={{
+            position: 'absolute',
+            top: '1rem',
+            right: '1.125rem',
+            zIndex: 4,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.375rem 0.75rem',
+            background: 'rgba(0,0,0,0.55)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 100,
+            fontSize: '0.65625rem',
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            color: '#fff',
+          }}
         >
-          <div
+          <span
             style={{
-              position: 'absolute',
-              top: 16,
-              right: 18,
-              zIndex: 4,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '6px 12px',
-              background: 'rgba(0,0,0,0.55)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: 100,
-              fontSize: 10.5,
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              color: '#fff',
+              display: 'inline-block',
+              width: '0.375rem',
+              height: '0.375rem',
+              borderRadius: '50%',
+              background: 'var(--neo-accent)',
+              boxShadow: '0 0 0 3px rgba(var(--neo-accent-glow), 0.25)',
             }}
-          >
-            <span
-              style={{
-                display: 'inline-block',
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: 'var(--neo-accent)',
-                boxShadow: '0 0 0 3px rgba(var(--neo-accent-glow), 0.25)',
-              }}
-            />
-            Annonce
-          </div>
+          />
+          Annonce
+        </div>
+        {hasAds ? (
           <div style={{ width: '100%', height: '100%' }}>
             <AdZone
               houseAds={houseAds}
@@ -191,8 +209,57 @@ export function Sidebar({
               onImpression={onAdImpression}
             />
           </div>
-        </div>
-      )}
+        ) : (
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              padding: '1.5rem',
+              textAlign: 'center',
+              color: 'var(--neo-t-3)',
+              fontSize: '0.8125rem',
+              background:
+                'linear-gradient(160deg, rgba(230,57,70,0.04), rgba(255,255,255,0.02))',
+            }}
+          >
+            <div
+              style={{
+                width: '3rem',
+                height: '3rem',
+                borderRadius: '0.75rem',
+                background: 'linear-gradient(135deg, var(--neo-accent), #b71c2c)',
+                display: 'grid',
+                placeItems: 'center',
+                fontWeight: 800,
+                fontSize: '1.5rem',
+                color: '#fff',
+                boxShadow: '0 4px 14px rgba(var(--neo-accent-glow), 0.35)',
+              }}
+            >
+              N
+            </div>
+            <div style={{ fontWeight: 600, color: 'var(--neo-t-1)' }}>NEOFILM TV</div>
+            <div
+              style={{
+                fontSize: '0.6875rem',
+                color: 'var(--neo-t-4)',
+                letterSpacing: '0.04em',
+                maxWidth: '14rem',
+                lineHeight: 1.5,
+              }}
+            >
+              Aucune campagne active sur cet écran.
+              <br />
+              Les annonceurs ciblent ce screen via le portail admin.
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

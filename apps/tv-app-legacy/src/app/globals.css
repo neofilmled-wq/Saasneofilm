@@ -915,7 +915,11 @@ html {
      viewport, font-size scales proportionally, so any rem-based
      dimension is automatically responsive. clamp() guards against
      extreme cases (tiny phones, ultrawide 32:9 monitors). */
-  font-size: clamp(8px, min(1.4815vh, 0.8333vw), 1.75rem);
+  /* ~13 px on 1920×1080 (slightly smaller than 1:1 to leave breathing
+     room for cheap-TV overscan). Scales linearly on every other size.
+     Upper/lower clamp() bounds MUST stay in px — using rem here would
+     create a circular self-reference. */
+  font-size: clamp(7px, min(1.2037vh, 0.6771vw), 24px);
 }
 
 .neo-fit-wrap {
@@ -923,6 +927,8 @@ html {
   inset: 0;
   overflow: hidden;
   background: var(--neo-bg-0);
+  /* Safe zone for cheap/old TV overscan (~3-5 % cropped on each edge). */
+  padding: 2vh 1.5vw;
 }
 
 .neo-fit-stage {

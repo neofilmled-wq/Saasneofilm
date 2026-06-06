@@ -27,7 +27,12 @@ ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
 RUN cd apps/tv-app-legacy && /app/node_modules/.bin/next build
 
 RUN cp -r apps/tv-app-legacy/.next/static apps/tv-app-legacy/.next/standalone/apps/tv-app-legacy/.next/static
-RUN cp -r apps/tv-app-legacy/public apps/tv-app-legacy/.next/standalone/apps/tv-app-legacy/public 2>/dev/null || true
+# Public folder — explicitly create the target dir and copy CONTENTS (with the
+# trailing /.) so we never end up with a nested public/public/ on re-builds,
+# and never silently miss files because the "|| true" swallowed an error.
+RUN mkdir -p apps/tv-app-legacy/.next/standalone/apps/tv-app-legacy/public && \
+    cp -r apps/tv-app-legacy/public/. apps/tv-app-legacy/.next/standalone/apps/tv-app-legacy/public/ && \
+    ls -la apps/tv-app-legacy/.next/standalone/apps/tv-app-legacy/public/
 
 ENV NODE_ENV=production
 EXPOSE 3005

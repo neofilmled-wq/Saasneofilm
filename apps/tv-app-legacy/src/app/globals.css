@@ -909,16 +909,16 @@ body.neo-tv-body {
   inset: 0;
   overflow: hidden;
   background: #000;
+  display: grid;
+  place-items: center;
 }
 
 .neo-fit-stage {
-  position: absolute;
-  top: 50%;
-  left: 50%;
   width: 1920px;
   height: 1080px;
+  flex-shrink: 0;
   transform-origin: center center;
-  transform: translate(-50%, -50%) scale(1);
+  transform: scale(var(--neo-fit, 1));
   background: radial-gradient(ellipse 80% 60% at 30% 20%, #1a1f4a 0%, var(--neo-bg-0) 55%),
               radial-gradient(ellipse 60% 50% at 90% 80%, rgba(230, 57, 70, 0.08) 0%, transparent 60%),
               var(--neo-bg-0);
@@ -926,5 +926,6 @@ body.neo-tv-body {
   isolation: isolate;
   overflow: hidden;
   will-change: transform;
+  position: relative;
 }
 

@@ -187,6 +187,33 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
     return () => clearTimeout(timer);
   }, [isLoading]);
 
+  // Autofit the 1920×1080 stage to the actual TV viewport. Recomputed on
+  // every resize so screen rotations / split-screen / WebView dimension
+  // changes are handled automatically.
+  useEffect(() => {
+    const fit = () => {
+      const wrap = document.querySelector('.neo-fit-wrap') as HTMLElement | null;
+      const stage = document.querySelector('.neo-fit-stage') as HTMLElement | null;
+      if (!wrap || !stage) return;
+      const w = wrap.clientWidth || window.innerWidth || document.documentElement.clientWidth;
+      const h = wrap.clientHeight || window.innerHeight || document.documentElement.clientHeight;
+      const s = Math.min(w / 1920, h / 1080);
+      stage.style.setProperty('--neo-fit', String(s));
+      console.log(`[NeoFit] viewport=${w}x${h} scale=${s.toFixed(3)}`);
+    };
+    fit();
+    const onResize = () => fit();
+    window.addEventListener('resize', onResize);
+    // Re-run after layout settles (some TV WebViews report wrong sizes early)
+    const t1 = setTimeout(fit, 100);
+    const t2 = setTimeout(fit, 500);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [isLoading, configTimedOut]);
+
   if (isLoading && !configTimedOut) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-[#0a0a0f]">
@@ -296,19 +323,3 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
   );
 }
 
-/* --- fit-to-viewport script (1920×1080 stage, transform-scale) ---
- * Runs in the browser as soon as smart-tv-display renders. Updates
- * .neo-stage transform on every resize so the app fills 100% of the
- * TV without depending on a specific resolution. */
-if (typeof window !== 'undefined') {
-  const fit = () => {
-    const stage = document.querySelector('.neo-fit-stage') as HTMLElement | null;
-    if (!stage) return;
-    const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
-    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
-  };
-  window.addEventListener('resize', fit);
-  requestAnimationFrame(fit);
-  setTimeout(fit, 50);
-  setTimeout(fit, 250);
-}

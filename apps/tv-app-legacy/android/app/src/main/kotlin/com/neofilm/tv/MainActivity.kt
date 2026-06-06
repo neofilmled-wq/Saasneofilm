@@ -1279,6 +1279,15 @@ class MainActivity : AppCompatActivity() {
             Log.i(TAG, "onUserLeaveHint: self-initiated leave — not bouncing")
             return
         }
+        if (UpdateManager.installInProgress) {
+            // The PackageInstaller is showing its confirmation dialog because
+            // we just committed an OTA session. Bouncing back to NeoFilm now
+            // dismisses that dialog and the install gets canceled. Let the
+            // installer UI live; UpdateManager clears the flag on result or
+            // after a 90s timeout.
+            Log.i(TAG, "onUserLeaveHint: OTA install in progress — not bouncing")
+            return
+        }
         val kioskEnabled = prefs.getBoolean("kiosk_mode_enabled", true)
         if (!kioskEnabled) {
             Log.i(TAG, "onUserLeaveHint: kiosk disabled — letting user leave")

@@ -126,7 +126,10 @@ export function StreamingPage({ services }: StreamingPageProps) {
     }
   }, []);
 
-  /** Map service names to web URLs for split-screen browsing */
+  /** Map service names to web URLs for split-screen browsing.
+   *  Kept for partner-configured services (currently hidden in new UI). */
+  // @ts-expect-error reserved for partner-configured backend services
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleServiceClick = useCallback((service: StreamingService) => {
     const webUrls: Record<string, string> = {
       'Netflix': 'https://www.netflix.com/browse',
@@ -159,115 +162,119 @@ export function StreamingPage({ services }: StreamingPageProps) {
   const hasInstalledApps = installedApps.length > 0;
   const hasConfiguredServices = services.length > 0;
 
-  // ── Grid mode ──
-  if (!hasInstalledApps && !hasConfiguredServices) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-muted-foreground" style={{ fontSize: '1.25em' }}>
-          Aucun service de streaming disponible
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="relative h-full" style={{ background: 'transparent' }}>
-      {/* Ambient mesh glow — deep blue/cyan tones */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <div style={{
-          position: 'absolute', top: '-20%', right: '-10%', width: '50%', height: '60%',
-          background: 'radial-gradient(ellipse, rgba(14, 165, 233, 0.1) 0%, transparent 65%)',
-          filter: 'blur(60px)',
-        }} />
-        <div style={{
-          position: 'absolute', bottom: '-10%', left: '-5%', width: '40%', height: '50%',
-          background: 'radial-gradient(ellipse, rgba(6, 182, 212, 0.08) 0%, transparent 65%)',
-          filter: 'blur(80px)',
-        }} />
-        <div style={{
-          position: 'absolute', top: '30%', left: '40%', width: '30%', height: '40%',
-          background: 'radial-gradient(ellipse, rgba(2, 132, 199, 0.05) 0%, transparent 70%)',
-          filter: 'blur(60px)',
-        }} />
+    <div className="neo-subscreen-main neo-stage" style={{ height: '100%' }}>
+      <div className="neo-sub-head">
+        <div>
+          <div className="neo-crumb">Accueil › Streaming</div>
+          <h1>Applications de streaming</h1>
+        </div>
+        <div className="neo-count">
+          {hasInstalledApps
+            ? `${installedApps.length} apps installées`
+            : 'Connecté à vos comptes'}
+        </div>
       </div>
-      {/* Periodic ad overlay — shown for 15–30 s every 2 h */}
+
       {isShowingAd && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90">
-          <p className="mb-[0.5em] text-muted-foreground" style={{ fontSize: '0.75em', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-            Publicite
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 50,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0,0,0,0.9)',
+          }}
+        >
+          <p
+            style={{
+              color: 'var(--neo-t-3)',
+              fontSize: 12,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+            }}
+          >
+            Publicité
           </p>
-          <div className="flex h-[60%] w-[80%] max-w-[960px] items-center justify-center rounded-xl bg-card">
-            <span className="text-muted-foreground" style={{ fontSize: '1.25em' }}>Espace publicitaire</span>
-          </div>
         </div>
       )}
-      <div
-        ref={containerRef}
-        className="relative z-10 h-full overflow-y-auto tv-page-enter"
-        style={{ padding: 'var(--tv-safe-x, 1.5rem)' }}
-      >
-        {/* Installed streaming apps from Android */}
-        {hasInstalledApps && (
-          <>
-            <h2
-              className="mb-[0.75em] font-semibold text-muted-foreground"
-              style={{ fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-            >
-              Vos applications de streaming
-            </h2>
-            <div
-              className="grid gap-[1em] mb-[1.5em]"
-              style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}
-            >
-              {installedApps.map((app) => (
-                <button
-                  key={app.packageName}
-                  data-tv-focusable
-                  className="tv-card tv-card--service flex flex-col items-center justify-center"
-                  style={{
-                    backgroundColor: `${app.color}22`,
-                    borderColor: app.color,
-                    padding: '1.5em 1em',
-                    aspectRatio: '16/9',
-                  }}
-                  onClick={() => handleAppClick(app)}
-                >
-                  {app.icon ? (
-                    <img
-                      src={`data:image/png;base64,${app.icon}`}
-                      alt={app.name}
-                      className="mb-[0.5em] h-[3em] w-[3em] rounded-xl object-contain"
-                    />
-                  ) : (
-                    <div
-                      className="mb-[0.5em] flex items-center justify-center rounded-xl font-bold"
-                      style={{
-                        width: '3em',
-                        height: '3em',
-                        fontSize: '1.25em',
-                        backgroundColor: app.color,
-                        color: '#fff',
-                      }}
-                    >
-                      {app.name.charAt(0)}
-                    </div>
-                  )}
-                  <span className="text-center font-semibold text-foreground" style={{ fontSize: '1em' }}>
-                    {app.name}
-                  </span>
-                  {app.webUrl && (
-                    <span className="mt-[0.2em] text-muted-foreground" style={{ fontSize: '0.65em' }}>
-                      Web
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
 
-        {/* Backend services hidden — only show installed apps */}
-      </div>
+      {!hasInstalledApps && !hasConfiguredServices ? (
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <p style={{ color: 'var(--neo-t-3)', fontSize: '1.1em' }}>
+            Aucun service de streaming disponible
+          </p>
+        </div>
+      ) : (
+        <div
+          ref={containerRef}
+          data-tv-nav-group="streaming-apps"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+            gap: 18,
+            padding: 4,
+            overflow: 'auto',
+          }}
+        >
+          {installedApps.map((app) => (
+            <button
+              key={app.packageName}
+              data-tv-focusable
+              onClick={() => handleAppClick(app)}
+              className="neo-app-card"
+              style={{
+                appearance: 'none',
+                cursor: 'pointer',
+                color: 'inherit',
+                fontFamily: 'inherit',
+                gap: 10,
+                flexDirection: 'column',
+                background: `linear-gradient(135deg, ${app.color}, ${app.color}33)`,
+              }}
+            >
+              {app.icon ? (
+                <img
+                  src={`data:image/png;base64,${app.icon}`}
+                  alt={app.name}
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 12,
+                    objectFit: 'contain',
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 12,
+                    display: 'grid',
+                    placeItems: 'center',
+                    background: '#000',
+                    color: '#fff',
+                    fontWeight: 800,
+                    fontSize: 22,
+                  }}
+                >
+                  {app.name.charAt(0)}
+                </div>
+              )}
+              <span className="neo-app-name">{app.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -38,6 +38,17 @@ object UpdateManager {
     private const val DOWNLOAD_TIMEOUT_MS = 120_000
     private const val CONNECT_TIMEOUT_MS = 15_000
 
+    /**
+     * True while a PackageInstaller session is committed and we're waiting for
+     * the system installer UI / silent install to resolve. MainActivity reads
+     * this in onUserLeaveHint to skip the kiosk relaunch — otherwise the
+     * watchdog brings NeoFilm back to the foreground and dismisses the system
+     * install confirmation dialog before the user can tap "Install", which
+     * means the OTA loops forever in PENDING.
+     */
+    @Volatile
+    var installInProgress: Boolean = false
+
     data class UpdateInfo(
         val releaseId: String,
         val versionName: String,
@@ -78,12 +89,15 @@ object UpdateManager {
 
             reportStatus(context, info.releaseId, "INSTALLING", null)
 
-            val installed = if (isDeviceOwner(context)) {
-                installSilently(context, apkFile, info.releaseId)
-            } else {
-                Log.w(TAG, "Device is NOT Device Owner — falling back to user-confirmed install")
-                installViaIntent(context, apkFile)
-            }
+            // Always go through PackageInstaller — the same code path handles:
+            //  - Device Owner: setRequireUserAction(NOT_REQUIRED) is honored → silent.
+            //  - Not Device Owner + Android 12+: if we hold
+            //    UPDATE_PACKAGES_WITHOUT_USER_ACTION and the new APK is signed with the
+            //    same key as the installed one, the system ALSO accepts USER_ACTION_NOT_REQUIRED → silent.
+            //  - Anything else: STATUS_PENDING_USER_ACTION fires → InstallResultReceiver
+            //    launches the system confirmation screen as a fallback.
+            Log.i(TAG, "Device Owner=${isDeviceOwner(context)} — committing via PackageInstaller")
+            val installed = installSilently(context, apkFile, info.releaseId)
 
             if (installed) {
                 // SUCCESS is reported by the InstallResultReceiver after the system
@@ -192,6 +206,7 @@ object UpdateManager {
 
         var sessionId = -1
         return try {
+            installInProgress = true
             sessionId = installer.createSession(params)
             val session = installer.openSession(sessionId)
             session.use { s ->
@@ -212,8 +227,18 @@ object UpdateManager {
                 s.commit(pending.intentSender)
             }
             Log.i(TAG, "PackageInstaller session $sessionId committed — awaiting system result")
+            // Safety net: if the receiver never fires (system never replied) the
+            // flag must still be cleared so the kiosk watchdog resumes. 90s
+            // is plenty for any sane install path.
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                if (installInProgress) {
+                    Log.w(TAG, "Install result timeout — clearing installInProgress flag")
+                    installInProgress = false
+                }
+            }, 90_000)
             true
         } catch (e: Exception) {
+            installInProgress = false
             Log.e(TAG, "Silent install failed", e)
             if (sessionId >= 0) try { installer.abandonSession(sessionId) } catch (_: Exception) {}
             false
@@ -221,10 +246,11 @@ object UpdateManager {
     }
 
     /**
-     * Fallback path used when the app is NOT Device Owner. The Android system
-     * installer will show a confirmation screen — someone has to click Install.
-     * Useful in dev / for the first-ever install before Device Owner is provisioned.
+     * Manual ACTION_VIEW fallback. No longer called by the main flow (we go through
+     * PackageInstaller exclusively now), but kept for diagnostics — can be invoked
+     * from a debug menu if PackageInstaller starts failing.
      */
+    @Suppress("unused")
     private fun installViaIntent(context: Context, apkFile: File): Boolean {
         return try {
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apkFile)
@@ -308,12 +334,14 @@ object UpdateManager {
                 }
                 PackageInstaller.STATUS_SUCCESS -> {
                     Log.i(TAG, "Install SUCCESS — system will restart the app")
+                    installInProgress = false
                     reportStatus(context, releaseId, "SUCCESS", null)
                     // Wipe the cached APK to free space.
                     File(context.cacheDir, UPDATE_FILE_NAME).delete()
                 }
                 else -> {
                     Log.e(TAG, "Install FAILED status=$status msg=$message")
+                    installInProgress = false
                     reportStatus(context, releaseId, "FAILED", "status=$status msg=$message")
                 }
             }

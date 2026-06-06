@@ -47,8 +47,19 @@ export function ActivitiesPage({ activities, catalogue = [] }: ActivitiesPagePro
 
   if (activities.length === 0 && catalogue.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-muted-foreground" style={{ fontSize: '1.25em' }}>Aucune activite disponible</p>
+      <div className="neo-subscreen-main neo-stage" style={{ height: '100%' }}>
+        <div className="neo-sub-head">
+          <div>
+            <div className="neo-crumb">Accueil › Bonnes adresses</div>
+            <h1>Bonnes adresses locales</h1>
+          </div>
+          <div className="neo-count">Aucune sélection</div>
+        </div>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <p style={{ color: 'var(--neo-t-3)', fontSize: '1.1em' }}>
+            Aucune adresse ni activité disponible pour le moment.
+          </p>
+        </div>
       </div>
     );
   }
@@ -84,77 +95,158 @@ export function ActivitiesPage({ activities, catalogue = [] }: ActivitiesPagePro
     return { grouped, categoryOrder };
   }, [activities, catalogue]);
 
-  const content = (
-    <div ref={containerRef} className="h-full overflow-y-auto tv-page-enter" style={{ padding: 'var(--tv-safe-x, 1.5rem)' }}>
-      {categoryOrder.map((cat) => {
-        const items = grouped[cat];
-        if (!items?.length) return null;
-        return (
-          <div key={cat} className="mb-[1.5em]">
-            <h2 className="mb-[0.5em] font-semibold text-muted-foreground" style={{ fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              {CATEGORY_ICONS[cat] || '📍'} {CATEGORY_LABELS[cat] || cat}
-            </h2>
-            <div className="grid gap-[0.75em]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
-              {items.map((item) => {
-                if (item.type === 'activity') {
-                  const activity = item.data;
-                  return (
-                    <div key={`act-${activity.id}`} data-tv-focusable role="button" tabIndex={0}
-                      className="tv-card relative flex w-full gap-[0.75em] text-left"
-                      style={{ padding: '0.75em', borderRadius: '0.75rem', cursor: 'pointer' }}
-                      onClick={() => setSelectedItem(activity)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') setSelectedItem(activity); }}
-                    >
-                      {activity.isSponsored && (
-                        <div className="absolute right-2 top-2 rounded-full bg-amber-500/90 px-2 py-0.5 text-white" style={{ fontSize: '0.6em' }}>Sponsorise</div>
-                      )}
-                      {activity.imageUrl ? (
-                        <img src={resolveMediaUrl(activity.imageUrl)} alt={activity.name} className="shrink-0 rounded-lg object-cover" style={{ width: '5em', height: '5em' }}
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                      ) : (
-                        <div className="flex shrink-0 items-center justify-center rounded-lg bg-primary/10" style={{ width: '5em', height: '5em', fontSize: '2em' }}>
-                          {CATEGORY_ICONS[activity.category] || '📍'}
-                        </div>
-                      )}
-                      <div className="flex min-w-0 flex-col">
-                        <span className="font-semibold text-foreground" style={{ fontSize: '0.9em' }}>{activity.name}</span>
-                        {activity.description && <span className="line-clamp-2 text-muted-foreground" style={{ fontSize: '0.75em' }}>{activity.description}</span>}
-                        {activity.address && <span className="mt-auto text-muted-foreground" style={{ fontSize: '0.7em' }}>{activity.address}</span>}
-                      </div>
-                    </div>
-                  );
-                }
+  const totalCount =
+    categoryOrder.reduce((sum, c) => sum + (grouped[c]?.length ?? 0), 0);
 
-                // Catalogue listing card
-                const listing = item.data;
-                return (
-                  <div key={`cat-${listing.id}`} data-tv-focusable role="button" tabIndex={0}
-                    className="tv-card relative flex w-full gap-[0.75em] text-left"
-                    style={{ padding: '0.75em', borderRadius: '0.75rem', cursor: 'pointer' }}
-                    onClick={() => { deviceApi.registerCatalogueClick(listing.id).catch(() => {}); setSelectedItem(listing); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { deviceApi.registerCatalogueClick(listing.id).catch(() => {}); setSelectedItem(listing); } }}
-                  >
-                    {listing.imageUrl ? (
-                      <img src={resolveMediaUrl(listing.imageUrl)} alt={listing.title} className="shrink-0 rounded-lg object-cover" style={{ width: '5em', height: '5em' }}
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                    ) : (
-                      <div className="flex shrink-0 items-center justify-center rounded-lg bg-primary/10" style={{ width: '5em', height: '5em', fontSize: '2em' }}>
-                        {CATEGORY_ICONS[cat] || '🏪'}
+  const content = (
+    <div className="neo-subscreen-main neo-stage" style={{ height: '100%' }}>
+      <div className="neo-sub-head">
+        <div>
+          <div className="neo-crumb">Accueil › Bonnes adresses</div>
+          <h1>Bonnes adresses & activités</h1>
+        </div>
+        <div className="neo-count">{totalCount} sélections</div>
+      </div>
+
+      <div
+        ref={containerRef}
+        data-tv-nav-group="activities"
+        style={{ overflow: 'auto', paddingRight: 4 }}
+      >
+        {categoryOrder.map((cat) => {
+          const items = grouped[cat];
+          if (!items?.length) return null;
+          return (
+            <div key={cat} style={{ marginBottom: 22 }}>
+              <h3
+                style={{
+                  margin: '0 0 10px',
+                  fontSize: 11,
+                  letterSpacing: '0.22em',
+                  textTransform: 'uppercase',
+                  color: 'var(--neo-t-3)',
+                  fontWeight: 600,
+                }}
+              >
+                {CATEGORY_ICONS[cat] || '📍'} {CATEGORY_LABELS[cat] || cat}
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {items.map((item) => {
+                  if (item.type === 'activity') {
+                    const activity = item.data;
+                    return (
+                      <button
+                        key={`act-${activity.id}`}
+                        data-tv-focusable
+                        className="neo-addr"
+                        style={{
+                          appearance: 'none',
+                          color: 'inherit',
+                          fontFamily: 'inherit',
+                          textAlign: 'left',
+                          width: '100%',
+                        }}
+                        onClick={() => setSelectedItem(activity)}
+                      >
+                        <div
+                          className="neo-addr-thumb"
+                          style={{
+                            background: activity.imageUrl
+                              ? `url(${resolveMediaUrl(activity.imageUrl)}) center/cover`
+                              : 'linear-gradient(135deg, #1e293b, #0f172a)',
+                            color: '#fff',
+                          }}
+                        >
+                          {!activity.imageUrl && (CATEGORY_ICONS[activity.category] || '📍')}
+                        </div>
+                        <div className="neo-addr-body">
+                          <div className="neo-name">
+                            {activity.name}
+                            {activity.isSponsored && (
+                              <span
+                                style={{
+                                  marginLeft: 8,
+                                  fontSize: 10,
+                                  letterSpacing: '0.16em',
+                                  textTransform: 'uppercase',
+                                  color: '#fbbf24',
+                                }}
+                              >
+                                Sponsorisé
+                              </span>
+                            )}
+                          </div>
+                          {activity.description && (
+                            <div className="neo-desc">{activity.description}</div>
+                          )}
+                          {activity.address && (
+                            <div className="neo-meta">
+                              <span>{activity.address}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="neo-addr-cta">Voir →</div>
+                      </button>
+                    );
+                  }
+                  const listing = item.data;
+                  return (
+                    <button
+                      key={`cat-${listing.id}`}
+                      data-tv-focusable
+                      className="neo-addr"
+                      style={{
+                        appearance: 'none',
+                        color: 'inherit',
+                        fontFamily: 'inherit',
+                        textAlign: 'left',
+                        width: '100%',
+                      }}
+                      onClick={() => {
+                        deviceApi.registerCatalogueClick(listing.id).catch(() => {});
+                        setSelectedItem(listing);
+                      }}
+                    >
+                      <div
+                        className="neo-addr-thumb"
+                        style={{
+                          background: listing.imageUrl
+                            ? `url(${resolveMediaUrl(listing.imageUrl)}) center/cover`
+                            : 'linear-gradient(135deg, #4a1e0a, #1a0a05)',
+                          color: '#fff',
+                        }}
+                      >
+                        {!listing.imageUrl && (CATEGORY_ICONS[cat] || '🏪')}
                       </div>
-                    )}
-                    <div className="flex min-w-0 flex-col gap-[0.15em]">
-                      <span className="font-semibold text-foreground" style={{ fontSize: '0.9em' }}>{listing.title}</span>
-                      {listing.description && <span className="line-clamp-2 text-muted-foreground" style={{ fontSize: '0.75em' }}>{listing.description}</span>}
-                      {listing.address && <span className="line-clamp-1 text-muted-foreground" style={{ fontSize: '0.7em' }}>{listing.address}</span>}
-                      {listing.promoCode && <span className="mt-auto rounded bg-green-500/20 px-1.5 py-0.5 font-mono font-bold text-green-400" style={{ fontSize: '0.65em', alignSelf: 'flex-start' }}>{listing.promoCode}</span>}
-                    </div>
-                  </div>
-                );
-              })}
+                      <div className="neo-addr-body">
+                        <div className="neo-name">{listing.title}</div>
+                        {listing.description && (
+                          <div className="neo-desc">{listing.description}</div>
+                        )}
+                        <div className="neo-meta">
+                          {listing.address && <span>{listing.address}</span>}
+                          {listing.promoCode && (
+                            <span
+                              style={{
+                                color: 'var(--neo-accent)',
+                                fontWeight: 700,
+                                letterSpacing: '0.04em',
+                              }}
+                            >
+                              Code : {listing.promoCode}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="neo-addr-cta">Voir →</div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 

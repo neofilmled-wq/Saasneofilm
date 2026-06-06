@@ -1,7 +1,6 @@
 'use client';
 
 import { ClockWidget } from '@/components/common/clock-widget';
-import { StatusIndicator } from '@/components/common/status-indicator';
 
 interface TopBarProps {
   partnerLogoUrl: string | null;
@@ -11,57 +10,51 @@ interface TopBarProps {
 }
 
 /**
- * Top bar for Smart TV shell.
- * ┌─────────────────────────────────────────────────┐
- * │ [LOGO]  Bienvenue...   │  14:32  ● Connecte     │
- * └─────────────────────────────────────────────────┘
+ * NEOFILM TopBar (Netflix-grade cinematic design).
+ *
+ * ┌───────────────────────────────────────────────────────────────┐
+ * │ [NEOFILM logo]                14:32  Logement Loft·Lyon ● Online │
+ * └───────────────────────────────────────────────────────────────┘
+ *
+ * Uses neofilm-wordmark.png on the left and shows the partner name +
+ * connection status on the right. Partner logo only replaces the
+ * wordmark when explicitly provided.
  */
 export function TopBar({ partnerLogoUrl, welcomeMessage, isConnected, screenName }: TopBarProps) {
   return (
-    <div
-      className="tv-glass-panel flex w-full shrink-0 items-center justify-between"
-      style={{
-        height: 'var(--tv-topbar-h, 64px)',
-        paddingLeft: 'var(--tv-safe-x, 1.5rem)',
-        paddingRight: 'var(--tv-safe-x, 1.5rem)',
-      }}
-    >
-      {/* Left: logo + welcome message */}
-      <div className="flex items-center gap-[1em]">
+    <div className="neo-topbar">
+      {/* Left: NEOFILM wordmark (or partner logo override) */}
+      <div className="neo-logo">
         {partnerLogoUrl ? (
           <img
             src={partnerLogoUrl}
             alt="Partner"
-            className="h-[2em] w-auto object-contain"
+            style={{ height: 44, width: 'auto' }}
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         ) : (
-          <img
-            src="/neofilm-logo.png"
-            alt="NeoFilm"
-            className="h-[2em] w-auto object-contain"
-          />
-        )}
-        {welcomeMessage && (
-          <>
-            <div className="bg-border" style={{ width: '1px', height: '1.5em' }} />
-            <span className="text-muted-foreground" style={{ fontSize: '0.9em' }}>
-              {welcomeMessage}
-            </span>
-          </>
+          <img src="/neofilm-wordmark.png" alt="NEOFILM" />
         )}
       </div>
 
-      {/* Right: screen name + clock + status */}
-      <div className="flex items-center gap-[1em]">
-        {screenName && (
-          <span className="text-muted-foreground" style={{ fontSize: '0.8em' }}>
-            {screenName}
-          </span>
+      {/* Right: clock + stay name + connectivity badge */}
+      <div className="neo-right">
+        <div className="neo-clock">
+          <ClockWidget />
+        </div>
+        {(screenName || welcomeMessage) && (
+          <div className="neo-stay">
+            <span className="neo-label">Logement</span>
+            <span className="neo-name">{screenName || welcomeMessage}</span>
+          </div>
         )}
-        <div className="bg-border" style={{ width: '1px', height: '1.25em' }} />
-        <ClockWidget />
-        <StatusIndicator connected={isConnected} />
+        <div className="neo-status">
+          <span
+            className="neo-dot"
+            style={!isConnected ? { background: '#ef4444', boxShadow: '0 0 0 3px rgba(239,68,68,0.22), 0 0 12px rgba(239,68,68,0.8)' } : undefined}
+          />
+          {isConnected ? 'Online' : 'Offline'}
+        </div>
       </div>
     </div>
   );

@@ -75,13 +75,17 @@ class AdOverlayService : Service() {
                 // it doesn't need to act. Heavy logs would otherwise spam the buffer.
                 if (watchdogTickCount % 20 == 0) Log.d(TAG, "Watchdog tick: fg=$fg")
                 if (fg != null && KIOSK_LAUNCHER_PACKAGES.any { fg.startsWith(it) }) {
-                    Log.i(TAG, "Watchdog: launcher app $fg detected — re-launching NeoFilm")
-                    val intent = Intent(applicationContext, MainActivity::class.java).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                        addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    if (UpdateManager.installInProgress) {
+                        Log.i(TAG, "Watchdog: launcher $fg detected but OTA install in progress — skipping bounce")
+                    } else {
+                        Log.i(TAG, "Watchdog: launcher app $fg detected — re-launching NeoFilm")
+                        val intent = Intent(applicationContext, MainActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        }
+                        startActivity(intent)
                     }
-                    startActivity(intent)
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Watchdog tick failed: ${e.message}")

@@ -6,11 +6,12 @@ import { useDpadNavigation } from '@/hooks/use-dpad-navigation';
 interface InstalledApp {
   packageName: string;
   label: string;
-  icon: string; // base64 PNG
+  icon: string;
 }
 
 const HIDDEN_PACKAGES = new Set([
   'com.neofilm.tv',
+  'com.neofilm.tv.legacy',
   'com.wolf.google.lm',
   'com.google.android.tvlauncher',
   'com.google.android.leanbacklauncher',
@@ -22,7 +23,7 @@ function getInstalledApps(): InstalledApp[] {
     if (window.NeoFilmAndroid?.getInstalledApps) {
       const json = window.NeoFilmAndroid.getInstalledApps();
       const apps: InstalledApp[] = JSON.parse(json);
-      return apps.filter(app => !HIDDEN_PACKAGES.has(app.packageName));
+      return apps.filter((app) => !HIDDEN_PACKAGES.has(app.packageName));
     }
   } catch (e) {
     console.error('[AppsPage] Failed to get installed apps:', e);
@@ -32,9 +33,7 @@ function getInstalledApps(): InstalledApp[] {
 
 function launchApp(packageName: string) {
   try {
-    if (window.NeoFilmAndroid?.launchApp) {
-      window.NeoFilmAndroid.launchApp(packageName);
-    }
+    window.NeoFilmAndroid?.launchApp?.(packageName);
   } catch (e) {
     console.error('[AppsPage] Failed to launch app:', e);
   }
@@ -55,75 +54,98 @@ export function AppsPage() {
     }
   }, []);
 
-  if (!isAndroid) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground" style={{ fontSize: '1.2em' }}>
-            Cette fonctionnalite est disponible uniquement sur Android TV
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (apps.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center">
-          <p style={{ fontSize: '2em' }}>📦</p>
-          <p className="mt-2 text-muted-foreground" style={{ fontSize: '1em' }}>
-            Aucune application installee
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const empty = !isAndroid || apps.length === 0;
+  const emptyMsg = !isAndroid
+    ? 'Cette fonctionnalité est disponible uniquement sur Android TV'
+    : 'Aucune application installée';
 
   return (
-    <div
-      className="h-full overflow-y-auto"
-      style={{ padding: 'var(--tv-safe-x, 1.5rem)' }}
-    >
-      <p
-        className="mb-[1em] text-muted-foreground"
-        style={{ fontSize: '0.85em', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-      >
-        Applications installees ({apps.length})
-      </p>
-
-      <div
-        ref={containerRef}
-        className="grid gap-[0.75em]"
-        style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}
-      >
-        {apps.map((app) => (
-          <button
-            key={app.packageName}
-            data-tv-focusable
-            className="tv-app-card flex flex-col items-center gap-[0.5em] rounded-xl bg-card/80 p-[1em] transition-all"
-            onClick={() => launchApp(app.packageName)}
-          >
-            {app.icon ? (
-              <img
-                src={`data:image/png;base64,${app.icon}`}
-                alt={app.label}
-                className="h-[4em] w-[4em] rounded-xl object-contain"
-              />
-            ) : (
-              <div className="flex h-[4em] w-[4em] items-center justify-center rounded-xl bg-muted">
-                <span style={{ fontSize: '2em' }}>📱</span>
-              </div>
-            )}
-            <span
-              className="w-full truncate text-center text-foreground"
-              style={{ fontSize: '0.8em' }}
-            >
-              {app.label}
-            </span>
-          </button>
-        ))}
+    <div className="neo-subscreen-main neo-stage" style={{ height: '100%' }}>
+      <div className="neo-sub-head">
+        <div>
+          <div className="neo-crumb">Accueil › Applications</div>
+          <h1>Toutes vos applications</h1>
+        </div>
+        <div className="neo-count">{empty ? '—' : `${apps.length} installées`}</div>
       </div>
+
+      {empty ? (
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--neo-t-3)',
+          }}
+        >
+          <p style={{ fontSize: '1.05em' }}>{emptyMsg}</p>
+        </div>
+      ) : (
+        <div
+          ref={containerRef}
+          data-tv-nav-group="apps"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+            gap: 18,
+            padding: 4,
+            overflow: 'auto',
+          }}
+        >
+          {apps.map((app) => (
+            <button
+              key={app.packageName}
+              data-tv-focusable
+              onClick={() => launchApp(app.packageName)}
+              className="neo-app-card"
+              style={{
+                appearance: 'none',
+                color: 'inherit',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                flexDirection: 'column',
+                gap: 10,
+                background: 'linear-gradient(135deg, #1e1a4a, #0a0e22)',
+              }}
+            >
+              {app.icon ? (
+                <img
+                  src={`data:image/png;base64,${app.icon}`}
+                  alt={app.label}
+                  style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'contain' }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 12,
+                    display: 'grid',
+                    placeItems: 'center',
+                    background: '#11162e',
+                    fontSize: 24,
+                  }}
+                >
+                  📱
+                </div>
+              )}
+              <span
+                className="neo-app-name"
+                style={{
+                  fontSize: 13,
+                  maxWidth: '100%',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {app.label}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

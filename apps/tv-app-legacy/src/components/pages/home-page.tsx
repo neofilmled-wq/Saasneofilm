@@ -3,68 +3,151 @@
 import { useEffect, useRef } from 'react';
 import { useDpadNavigation } from '@/hooks/use-dpad-navigation';
 
-export type HomeDestination = 'TNT' | 'ACTIVITIES' | 'STREAMING' | 'APPS';
+export type HomeDestination = 'TNT' | 'ACTIVITIES' | 'STREAMING' | 'APPS' | 'ADDRESSES' | 'CONCIERGE';
 
 interface HomePageProps {
   onNavigate: (dest: HomeDestination) => void;
   enabledModules: string[];
+  channelCount?: number;
+  streamingCount?: number;
+  activitiesCount?: number;
+  addressesCount?: number;
 }
 
-/** Card config — each has a background image, gradient overlay, and accent */
-const NAV_CARDS: {
-  key: HomeDestination;
-  label: string;
-  sublabel: string;
+interface TileConfig {
+  id: HomeDestination;
+  title: string;
+  subtitle: string;
+  tags: string[];
+  bgClass: string;
+  art: 'tv' | 'streaming' | 'bonnes' | 'activites' | 'apps' | 'concierge';
   module?: string;
-  imageUrl: string;
-  overlayGradient: string;
-  accentColor: string;
-}[] = [
-  {
-    key: 'TNT',
-    label: 'TV en Direct',
-    sublabel: 'TNT · Chaines en direct',
-    module: 'TNT',
-    imageUrl: 'https://images.unsplash.com/photo-1593784991095-a205069470b6?w=600&h=400&fit=crop&q=80',
-    overlayGradient: 'linear-gradient(135deg, rgba(37, 99, 235, 0.7) 0%, rgba(30, 30, 80, 0.85) 100%)',
-    accentColor: 'rgba(59, 130, 246, 0.5)',
-  },
-  {
-    key: 'ACTIVITIES',
-    label: 'Bonnes Adresses',
-    sublabel: 'Restaurants · Spa · Shopping · Loisirs',
-    module: 'ACTIVITIES',
-    imageUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&h=400&fit=crop&q=80',
-    overlayGradient: 'linear-gradient(135deg, rgba(234, 88, 12, 0.65) 0%, rgba(30, 30, 80, 0.85) 100%)',
-    accentColor: 'rgba(234, 88, 12, 0.45)',
-  },
-  {
-    key: 'STREAMING',
-    label: 'Streaming',
-    sublabel: 'Netflix · YouTube · Prime · Disney+',
-    module: 'STREAMING',
-    imageUrl: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&h=400&fit=crop&q=80',
-    overlayGradient: 'linear-gradient(135deg, rgba(124, 58, 237, 0.65) 0%, rgba(20, 20, 60, 0.85) 100%)',
-    accentColor: 'rgba(124, 58, 237, 0.4)',
-  },
-  {
-    key: 'APPS',
-    label: 'Applications',
-    sublabel: 'Gerer vos applications',
-    imageUrl: 'https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=600&h=400&fit=crop&q=80',
-    overlayGradient: 'linear-gradient(135deg, rgba(16, 185, 129, 0.65) 0%, rgba(30, 30, 80, 0.85) 100%)',
-    accentColor: 'rgba(16, 185, 129, 0.45)',
-  },
-];
+  hasLive?: boolean;
+}
 
 /**
- * HomePage — TV entry point.
- *
- * Full width: 2x2 grid of visual cards with real photos + gradient overlays.
- * Ad rendering is handled by the global AdZone in smart-tv-display.
- * Focus: first card on mount.
+ * Decorative SVG art for each home tile — pure SVG (no images = no network /
+ * no Android WebView caching issues).
  */
-export function HomePage({ onNavigate, enabledModules }: HomePageProps) {
+function TileArt({ kind }: { kind: TileConfig['art'] }) {
+  switch (kind) {
+    case 'tv':
+      return (
+        <svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMin slice" style={{ width: '100%', height: '100%' }}>
+          <g opacity="0.18" fill="none" stroke="#fff" strokeWidth="1.5">
+            <circle cx="350" cy="50" r="40" />
+            <circle cx="350" cy="50" r="80" />
+            <circle cx="350" cy="50" r="120" />
+            <circle cx="350" cy="50" r="160" />
+          </g>
+          <g transform="translate(220, 30)" opacity="0.9">
+            <rect x="0" y="0" width="120" height="80" rx="6" fill="rgba(0,0,0,0.35)" stroke="#fff" strokeWidth="2" strokeOpacity="0.6" />
+            <rect x="50" y="86" width="20" height="14" fill="rgba(0,0,0,0.35)" />
+            <rect x="30" y="100" width="60" height="4" rx="2" fill="#fff" fillOpacity="0.6" />
+            <circle cx="10" cy="-8" r="6" fill="#E63946" />
+          </g>
+        </svg>
+      );
+    case 'streaming':
+      return (
+        <svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMin slice" style={{ width: '100%', height: '100%' }}>
+          <g opacity="0.9">
+            <g transform="translate(250, 30) rotate(-12)">
+              <rect width="100" height="60" rx="10" fill="#1f1f1f" stroke="#fff" strokeOpacity="0.3" />
+              <polygon points="40,18 40,42 62,30" fill="#fff" />
+            </g>
+            <g transform="translate(220, 80) rotate(4)">
+              <rect width="100" height="60" rx="10" fill="#7c2d12" stroke="#fff" strokeOpacity="0.3" />
+              <polygon points="40,18 40,42 62,30" fill="#fff" />
+            </g>
+            <g transform="translate(255, 130) rotate(-3)">
+              <rect width="100" height="60" rx="10" fill="#1e3a8a" stroke="#fff" strokeOpacity="0.3" />
+              <polygon points="40,18 40,42 62,30" fill="#fff" />
+            </g>
+          </g>
+        </svg>
+      );
+    case 'bonnes':
+      return (
+        <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMin slice" style={{ width: '100%', height: '100%' }}>
+          <g opacity="0.8" transform="translate(250, 30)">
+            <circle cx="60" cy="60" r="46" fill="none" stroke="#fff" strokeWidth="2" strokeOpacity="0.5" />
+            <circle cx="60" cy="60" r="32" fill="none" stroke="#fff" strokeWidth="1" strokeOpacity="0.4" />
+            <g stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeOpacity="0.7">
+              <line x1="20" y1="20" x2="20" y2="55" />
+              <line x1="14" y1="20" x2="14" y2="40" />
+              <line x1="26" y1="20" x2="26" y2="40" />
+              <line x1="20" y1="55" x2="20" y2="100" />
+            </g>
+            <g stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeOpacity="0.7">
+              <line x1="100" y1="20" x2="100" y2="100" />
+              <path d="M 100 20 Q 110 35 100 55" fill="none" />
+            </g>
+          </g>
+        </svg>
+      );
+    case 'activites':
+      return (
+        <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMin slice" style={{ width: '100%', height: '100%' }}>
+          <g opacity="0.7" transform="translate(240, 40)">
+            <circle cx="50" cy="40" r="22" fill="#fde047" opacity="0.6" />
+            <path d="M 0 130 L 50 60 L 90 110 L 130 70 L 170 130 Z" fill="#fff" fillOpacity="0.3" stroke="#fff" strokeWidth="1.5" strokeOpacity="0.6" />
+            <path d="M 50 60 L 60 80 L 40 80 Z" fill="#fff" fillOpacity="0.7" />
+          </g>
+        </svg>
+      );
+    case 'apps':
+      return (
+        <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMin slice" style={{ width: '100%', height: '100%' }}>
+          <g opacity="0.85" transform="translate(240, 40)">
+            {[0, 1, 2].map((i) =>
+              [0, 1, 2].map((j) => (
+                <rect
+                  key={`${i}-${j}`}
+                  x={i * 40}
+                  y={j * 40}
+                  width="30"
+                  height="30"
+                  rx="6"
+                  fill="#fff"
+                  fillOpacity={0.15 + ((i + j) % 3) * 0.15}
+                />
+              )),
+            )}
+          </g>
+        </svg>
+      );
+    case 'concierge':
+      return (
+        <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMin slice" style={{ width: '100%', height: '100%' }}>
+          <g opacity="0.75" transform="translate(260, 40)">
+            <path d="M 60 30 L 65 50 L 85 55 L 65 60 L 60 80 L 55 60 L 35 55 L 55 50 Z" fill="#fff" fillOpacity="0.85" />
+            <path d="M 100 100 L 103 110 L 113 113 L 103 116 L 100 126 L 97 116 L 87 113 L 97 110 Z" fill="#fff" fillOpacity="0.65" />
+            <path d="M 30 110 L 32 118 L 40 120 L 32 122 L 30 130 L 28 122 L 20 120 L 28 118 Z" fill="#fff" fillOpacity="0.5" />
+          </g>
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+/**
+ * HomePage — entry point of the TV app.
+ *
+ * 6 tiles in a 2x3 (or 3x2 depending on layout) grid, each with chromatic
+ * background, decorative SVG art, gradient overlay and a focus state with
+ * red glow. The ad sidebar is rendered alongside by the parent
+ * smart-tv-display, so this component only owns the left column.
+ */
+export function HomePage({
+  onNavigate,
+  enabledModules,
+  channelCount,
+  streamingCount,
+  activitiesCount,
+  addressesCount,
+}: HomePageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { focusFirst } = useDpadNavigation({ containerRef, autoFocus: true, initialIndex: 0 });
 
@@ -73,113 +156,115 @@ export function HomePage({ onNavigate, enabledModules }: HomePageProps) {
     return () => clearTimeout(t);
   }, [focusFirst]);
 
-  const visible = NAV_CARDS.filter((c) => !c.module || enabledModules.includes(c.module));
+  const allTiles: TileConfig[] = [
+    {
+      id: 'TNT',
+      title: 'TV en Direct',
+      subtitle: 'TNT · Chaînes en direct',
+      tags: channelCount ? [`${channelCount} chaînes`, 'HD'] : ['Direct', 'HD'],
+      bgClass: 'neo-bg-tv',
+      art: 'tv',
+      module: 'TNT',
+      hasLive: true,
+    },
+    {
+      id: 'STREAMING',
+      title: 'Streaming',
+      subtitle: 'Netflix · Prime · Disney+ · YouTube',
+      tags: streamingCount ? [`${streamingCount} apps`] : ['Multi-comptes'],
+      bgClass: 'neo-bg-streaming',
+      art: 'streaming',
+      module: 'STREAMING',
+    },
+    {
+      id: 'ADDRESSES',
+      title: 'Bonnes Adresses',
+      subtitle: 'Restaurants · Spa · Shopping · Café',
+      tags: addressesCount ? [`${addressesCount} partenaires`] : ['Sélection locale'],
+      bgClass: 'neo-bg-bonnes',
+      art: 'bonnes',
+      module: 'ACTIVITIES',
+    },
+    {
+      id: 'ACTIVITIES',
+      title: 'Activités',
+      subtitle: 'Tours · Loisirs · Visites',
+      tags: activitiesCount ? [`${activitiesCount} idées`] : ['Cette semaine'],
+      bgClass: 'neo-bg-activites',
+      art: 'activites',
+      module: 'ACTIVITIES',
+    },
+    {
+      id: 'APPS',
+      title: 'Applications',
+      subtitle: 'Gérez vos applications',
+      tags: ['Installées'],
+      bgClass: 'neo-bg-apps',
+      art: 'apps',
+    },
+    {
+      id: 'CONCIERGE',
+      title: 'Recommandations',
+      subtitle: 'Sélection du concierge — pour vous',
+      tags: ['Nouveau'],
+      bgClass: 'neo-bg-concierge',
+      art: 'concierge',
+    },
+  ];
+
+  const tiles = allTiles.filter((t) => !t.module || enabledModules.includes(t.module));
 
   return (
     <div
       ref={containerRef}
-      className="flex h-full overflow-hidden tv-page-enter"
-      style={{ padding: '1.5vw', gap: '1.2vw' }}
+      data-tv-nav-group="home-tiles"
+      className="tv-page-enter neo-stage"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+        gridTemplateRows: 'repeat(2, minmax(0, 1fr))',
+        gap: 'var(--neo-gap, 28px)',
+        padding: '28px 0 12px',
+        height: '100%',
+        width: '100%',
+      }}
     >
-      {/* Card grid — fills the page (ad zone is global in smart-tv-display) */}
-      <div
-        data-tv-nav-group="home-cards"
-        className="grid min-w-0"
-        style={{
-          flex: 1,
-          gridTemplateColumns: 'repeat(2, 1fr)',
-          gridTemplateRows: `repeat(${Math.ceil(visible.length / 2)}, 1fr)`,
-          gap: '1vw',
-          alignContent: 'stretch',
-        }}
-      >
-        {visible.map((card, cardIdx) => (
-          <button
-            key={card.key}
-            data-tv-focusable
-            data-tv-row={1 + Math.floor(cardIdx / 2)}
-            data-tv-col={cardIdx % 2}
-            className="tv-card group relative overflow-hidden"
-            onClick={() => onNavigate(card.key)}
-            style={{
-              background: 'transparent',
-              border: `1px solid rgba(255, 255, 255, 0.15)`,
-              borderRadius: '1.25rem',
-              padding: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              justifyContent: 'flex-end',
-            }}
-          >
-            {/* Background image */}
-            <img
-              src={card.imageUrl}
-              alt=""
-              style={{
-                position: 'absolute',
-                top: 0, right: 0, bottom: 0, left: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                borderRadius: '1.25rem',
-              }}
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-
-            {/* Gradient overlay for text readability */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 0, right: 0, bottom: 0, left: 0,
-                background: card.overlayGradient,
-                borderRadius: '1.25rem',
-              }}
-            />
-
-            {/* Accent glow — top right corner */}
-            <div
-              style={{
-                position: 'absolute',
-                top: '-20%',
-                right: '-15%',
-                width: '60%',
-                height: '70%',
-                background: `radial-gradient(ellipse, ${card.accentColor} 0%, transparent 70%)`,
-                filter: 'blur(30px)',
-                pointerEvents: 'none',
-              }}
-            />
-
-            {/* Text content — bottom left */}
-            <div style={{ position: 'relative', zIndex: 2, padding: '1.5vw', width: '100%' }}>
-              <div
-                className="font-bold text-white"
-                style={{
-                  fontSize: '1.2em',
-                  lineHeight: 1.2,
-                  marginBottom: '0.25em',
-                  textShadow: '0 2px 8px rgba(0,0,0,0.5)',
-                }}
-              >
-                {card.label}
-              </div>
-              <div
-                style={{
-                  fontSize: '0.75em',
-                  color: 'rgba(255,255,255,0.7)',
-                  textShadow: '0 1px 4px rgba(0,0,0,0.4)',
-                }}
-              >
-                {card.sublabel}
-              </div>
+      {tiles.map((tile, idx) => (
+        <button
+          key={tile.id}
+          data-tv-focusable
+          data-tv-row={1 + Math.floor(idx / 3)}
+          data-tv-col={idx % 3}
+          onClick={() => onNavigate(tile.id)}
+          className={`neo-tile ${tile.bgClass}`}
+          style={{
+            appearance: 'none',
+            cursor: 'pointer',
+            color: 'inherit',
+            textAlign: 'left',
+            fontFamily: 'inherit',
+          }}
+        >
+          {tile.hasLive && (
+            <div className="neo-ribbon">
+              <span className="neo-live-dot" /> En direct
             </div>
-          </button>
-        ))}
-      </div>
-
-      {/* Ad zone is now rendered ONCE at the smart-tv-display level, shared
-          across all tabs — see smart-tv-display.tsx. */}
+          )}
+          <div className="neo-tile-art">
+            <TileArt kind={tile.art} />
+          </div>
+          <div className="neo-tile-overlay" />
+          <div className="neo-tile-content">
+            <div className="neo-tile-title">{tile.title}</div>
+            <div className="neo-tile-subtitle">{tile.subtitle}</div>
+            <div className="neo-tile-tags">
+              {tile.tags.map((t, i) => (
+                <span key={i}>{t}</span>
+              ))}
+            </div>
+          </div>
+        </button>
+      ))}
     </div>
   );
 }

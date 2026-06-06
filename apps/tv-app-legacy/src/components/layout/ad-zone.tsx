@@ -39,6 +39,11 @@ type DisplayAd = {
  *  fallback feels snappy regardless of what the API ships down. */
 const PLACEHOLDER_HOLD_MS = 7000;
 
+/** Maximum time we let a single video occupy the panel before forcing the
+ *  rotation onward — protects against stuck downloads, missing onEnded, or
+ *  super-long creatives that an advertiser uploaded by accident. */
+const VIDEO_MAX_DURATION_MS = 45000;
+
 /**
  * Self-contained animated NEOFILM placeholder. Renders when there is no real
  * creative to play AND on video-load errors. Pure SVG + CSS — never depends on
@@ -90,8 +95,11 @@ function NeoFilmHousePlaceholder() {
           src={`${BASE_PATH}/neofilm-wordmark.png`}
           alt="NEOFILM"
           style={{
+            // Crop the wordmark padding away — same trick as the TopBar.
             width: 'min(60%, 28rem)',
-            height: 'auto',
+            height: '7rem',
+            objectFit: 'cover',
+            objectPosition: 'center',
             filter: 'drop-shadow(0 8px 28px rgba(230,57,70,0.4))',
           }}
         />
@@ -172,24 +180,25 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
       }));
 
     // Empty pool → seed with TWO fallback slides that cycle one after the
-    // other: the branded NEOFILM placeholder (~7s) → Le Dupplex spot
-    // (plays end-to-end) → loop. This lets partners see proper rotation even
-    // before they upload their own creatives.
+    // other: Le Dupplex spot (plays end-to-end) → NEOFILM branded
+    // placeholder (~7s) → loop. Order matters — Dupplex first means the
+    // panel boots straight into a real video, then the branded card buys
+    // the next clip a chance to start loading.
     if (targeted.length === 0 && house.length === 0) {
       return [
-        {
-          id: 'neofilm_house_placeholder',
-          kind: 'placeholder',
-          fileUrl: '',
-          mimeType: 'application/neofilm-placeholder',
-          isTargeted: false,
-          source: null,
-        },
         {
           id: 'neofilm_house_dupplex',
           kind: 'video',
           fileUrl: `${BASE_PATH}/dupplex.mp4`,
           mimeType: 'video/mp4',
+          isTargeted: false,
+          source: null,
+        },
+        {
+          id: 'neofilm_house_placeholder',
+          kind: 'placeholder',
+          fileUrl: '',
+          mimeType: 'application/neofilm-placeholder',
           isTargeted: false,
           source: null,
         },
@@ -220,7 +229,13 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
       const timer = setTimeout(playNext, PLACEHOLDER_HOLD_MS);
       return () => clearTimeout(timer);
     }
-  }, [currentAd, playNext, rotationInterval]);
+    if (currentAd.kind === 'video' && adPool.length > 1) {
+      // Safety net: if onEnded never fires (stuck download, network hung,
+      // muted-autoplay rejected), force the rotation onward.
+      const timer = setTimeout(playNext, VIDEO_MAX_DURATION_MS);
+      return () => clearTimeout(timer);
+    }
+  }, [currentAd, playNext, rotationInterval, adPool.length]);
 
   useEffect(() => {
     setCurrentIndex(0);

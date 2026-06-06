@@ -464,7 +464,7 @@ body.neo-tv-body {
   z-index: 10;
   position: relative;
 }
-.neo-topbar .neo-logo img { height: 2.75rem; width: auto; display: block; }
+.neo-topbar .neo-logo img { height: 4rem; display: block; }
 .neo-topbar .neo-right {
   display: flex; align-items: center; gap: 1.375rem;
   color: var(--neo-t-2);

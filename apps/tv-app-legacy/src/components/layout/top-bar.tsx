@@ -33,10 +33,21 @@ export function TopBar({ partnerLogoUrl, welcomeMessage, isConnected, screenName
             onError={() => setPartnerLogoFailed(true)}
           />
         ) : (
+          // neofilm-wordmark.png is the white-outline mark CENTERED inside a
+          // giant transparent square. Just displaying it with height:3rem made
+          // the actual visible logo tiny because most of the box was padding.
+          // We size a wide rectangle and use object-fit:cover, which scales the
+          // image up until it fills the width then crops the empty padding.
           <img
             src={`${BASE_PATH}/neofilm-wordmark.png`}
             alt="NEOFILM"
-            style={{ height: '3rem', width: 'auto', display: 'block' }}
+            style={{
+              height: '4rem',
+              width: '17rem',
+              objectFit: 'cover',
+              objectPosition: 'center',
+              display: 'block',
+            }}
           />
         )}
       </div>

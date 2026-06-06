@@ -26,7 +26,16 @@ export function LoadingSpinner({ message }: LoadingSpinnerProps) {
       <img
         src={`${BASE_PATH}/neofilm-wordmark.png`}
         alt="NEOFILM"
-        style={{ width: '24rem', maxWidth: '50vw', height: 'auto' }}
+        style={{
+          // wordmark.png has heavy transparent padding around the logo —
+          // size a wide rectangle and crop with object-fit:cover so the
+          // visible logo is actually big.
+          width: '32rem',
+          maxWidth: '60vw',
+          height: '8rem',
+          objectFit: 'cover',
+          objectPosition: 'center',
+        }}
       />
       {message && (
         <div

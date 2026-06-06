@@ -144,6 +144,53 @@ function NeoFilmHousePlaceholder() {
 }
 
 /**
+ * Tiny diagnostic overlay shown at the bottom-left of the annonce panel.
+ * Helps us see — from the TV itself — whether the rotation is actually
+ * advancing, which clip is on screen, and what (if anything) failed to
+ * load. Strip this out once the rotation is confirmed working in the wild.
+ */
+function AdDebugOverlay({
+  adPool,
+  currentIndex,
+  lastError,
+}: {
+  adPool: DisplayAd[];
+  currentIndex: number;
+  lastError: string | null;
+}) {
+  const current = adPool[currentIndex % Math.max(1, adPool.length)];
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        bottom: '0.5rem',
+        left: '0.5rem',
+        zIndex: 5,
+        padding: '0.375rem 0.625rem',
+        background: 'rgba(0, 0, 0, 0.72)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: '0.375rem',
+        fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
+        fontSize: '0.625rem',
+        color: 'rgba(255, 255, 255, 0.85)',
+        lineHeight: 1.4,
+        maxWidth: '60%',
+        pointerEvents: 'none',
+      }}
+    >
+      <div>
+        ad {currentIndex + 1}/{adPool.length} · {current?.kind ?? 'none'} · {current?.id ?? '—'}
+      </div>
+      {lastError && (
+        <div style={{ color: '#fca5a5', marginTop: '0.125rem' }}>
+          last error → {lastError}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * Ad rotation zone — fills its container.
  * - Prioritises targetedAds, then houseAds.
  * - When the pool is empty OR a creative URL is the broken house-ad sentinel,
@@ -153,6 +200,7 @@ function NeoFilmHousePlaceholder() {
 export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }: AdZoneProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [videoFailed, setVideoFailed] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const startTimeRef = useRef(new Date());
   const rotationInterval = rotationMs ?? TV_CONFIG.AD_ROTATION_INTERVAL_MS;
@@ -249,7 +297,16 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
   }
 
   if (currentAd.kind === 'placeholder') {
-    return <NeoFilmHousePlaceholder />;
+    return (
+      <>
+        <NeoFilmHousePlaceholder />
+        <AdDebugOverlay
+          adPool={adPool}
+          currentIndex={currentIndex}
+          lastError={lastError}
+        />
+      </>
+    );
   }
 
   if (currentAd.kind === 'video') {
@@ -266,15 +323,29 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
           playsInline
           preload="auto"
           loop={onlyOneAd}
+          onLoadedData={() => {
+            console.log(`[AdZone] Video loaded: ${currentAd.id} (${currentAd.fileUrl})`);
+            setLastError(null);
+          }}
           onEnded={onlyOneAd ? undefined : playNext}
           onError={(e) => {
-            console.warn(`[AdZone] Video error: ${currentAd.id}`, (e.target as HTMLVideoElement).error);
+            const err = (e.target as HTMLVideoElement).error;
+            const msg = err
+              ? `code ${err.code}: ${err.message}`
+              : 'unknown error';
+            console.warn(`[AdZone] Video error: ${currentAd.id} (${currentAd.fileUrl}) — ${msg}`);
+            setLastError(`${currentAd.id} → ${msg}`);
             if (adPool.length <= 1) {
               setVideoFailed(true);
             } else {
               playNext();
             }
           }}
+        />
+        <AdDebugOverlay
+          adPool={adPool}
+          currentIndex={currentIndex}
+          lastError={lastError}
         />
       </div>
     );

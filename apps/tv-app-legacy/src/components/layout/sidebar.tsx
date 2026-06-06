@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { CatalogueListing, CreativeManifest, TvAdItem } from '@/lib/device-api';
 import { AdZone } from '@/components/layout/ad-zone';
 
@@ -12,10 +12,12 @@ interface SidebarProps {
   onAdImpression?: (ad: TvAdItem, startTime: Date, endTime: Date, skipped: boolean) => void;
   /** When true, render codes promo only (annonce shown elsewhere on this tab). */
   promosOnly?: boolean;
+  /** When true, render annonce on top + codes promo on bottom (used on TNT tab). */
+  reversed?: boolean;
 }
 
-const PROMO_LIMIT = 3;
-const PROMO_ROTATION_MS = 7000;
+/** Seconds per promo card for the continuous vertical marquee. Lower = faster. */
+const PROMO_SCROLL_SECONDS_PER_CARD = 6;
 
 const FALLBACK_PROMO_COLORS = [
   '#c2410c',
@@ -67,22 +69,13 @@ export function PromoList({ catalogue }: { catalogue: CatalogueListing[] }) {
     [catalogue],
   );
 
-  const [offset, setOffset] = useState(0);
-  useEffect(() => {
-    if (promos.length <= PROMO_LIMIT) return;
-    const t = setInterval(() => {
-      setOffset((o) => (o + 1) % promos.length);
-    }, PROMO_ROTATION_MS);
-    return () => clearInterval(t);
-  }, [promos.length]);
-
-  const visiblePromos = useMemo(() => {
-    if (promos.length <= PROMO_LIMIT) return promos;
-    return Array.from({ length: PROMO_LIMIT }, (_, i) => {
-      const idx = (offset + i) % promos.length;
-      return Object.assign({}, promos[idx], { __paletteIndex: idx });
-    });
-  }, [promos, offset]);
+  // The list is duplicated so a single translateY(-50%) animation produces a
+  // seamless infinite scroll: as the first copy disappears past the top, the
+  // duplicate copy starts at where the first one was — there is no visible
+  // wrap-around. Duration scales with promo count so each card always has a
+  // similar amount of time on screen regardless of how many partners there are.
+  const duplicated = useMemo(() => [...promos, ...promos], [promos]);
+  const scrollDurationS = Math.max(20, promos.length * PROMO_SCROLL_SECONDS_PER_CARD);
 
   return (
     <div className="neo-panel" style={{ height: '100%', minHeight: 0 }}>
@@ -111,41 +104,31 @@ export function PromoList({ catalogue }: { catalogue: CatalogueListing[] }) {
         </div>
       ) : (
         <div
-          key={offset}
-          className="neo-promo-fade"
+          className="neo-promo-marquee"
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.625rem',
             flex: 1,
             minHeight: 0,
             overflow: 'hidden',
+            position: 'relative',
           }}
         >
-          {(visiblePromos as (CatalogueListing & { __paletteIndex?: number })[]).map(
-            (p, i) => (
+          <div
+            className="neo-promo-marquee-track"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.625rem',
+              animationDuration: `${scrollDurationS}s`,
+            }}
+          >
+            {duplicated.map((p, i) => (
               <PromoRow
                 key={`${p.id}-${i}`}
                 listing={p}
-                paletteIndex={p.__paletteIndex ?? i}
+                paletteIndex={i % Math.max(1, promos.length)}
               />
-            ),
-          )}
-          {promos.length > PROMO_LIMIT && (
-            <div
-              style={{
-                marginTop: 'auto',
-                padding: '0.5rem 0.75rem',
-                fontSize: '0.6875rem',
-                color: 'var(--neo-t-3)',
-                textAlign: 'center',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
-            >
-              {promos.length} codes · rotation {Math.round(PROMO_ROTATION_MS / 1000)}s
-            </div>
-          )}
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -228,10 +211,20 @@ export function Sidebar({
   adRotationMs,
   onAdImpression,
   promosOnly,
+  reversed,
 }: SidebarProps) {
   if (promosOnly) {
     return <PromoList catalogue={catalogue} />;
   }
+  const annonce = (
+    <AnnoncePanel
+      houseAds={houseAds}
+      rotationAds={rotationAds}
+      adRotationMs={adRotationMs}
+      onAdImpression={onAdImpression}
+    />
+  );
+  const promos = <PromoList catalogue={catalogue} />;
   return (
     <div
       style={{
@@ -242,13 +235,8 @@ export function Sidebar({
         height: '100%',
       }}
     >
-      <PromoList catalogue={catalogue} />
-      <AnnoncePanel
-        houseAds={houseAds}
-        rotationAds={rotationAds}
-        adRotationMs={adRotationMs}
-        onAdImpression={onAdImpression}
-      />
+      {reversed ? annonce : promos}
+      {reversed ? promos : annonce}
     </div>
   );
 }

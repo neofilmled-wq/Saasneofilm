@@ -329,6 +329,7 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
               rotationAds={rotationAds}
               adRotationMs={macros?.adRotationMs}
               onAdImpression={reportImpression}
+              reversed={activeTab === 'TNT'}
             />
           </div>
         )}

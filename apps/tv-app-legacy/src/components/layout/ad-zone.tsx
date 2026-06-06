@@ -26,11 +26,18 @@ interface AdZoneProps {
 
 type DisplayAd = {
   id: string;
+  /** Either 'video', 'image', or 'placeholder' (the NEOFILM branded slide). */
+  kind: 'video' | 'image' | 'placeholder';
   fileUrl: string;
   mimeType: string;
   isTargeted: boolean;
-  source: TvAdItem | CreativeManifest;
+  source: TvAdItem | CreativeManifest | null;
 };
+
+/** How long the NEOFILM placeholder stays on screen between video plays.
+ *  Same scale as TV_CONFIG.AD_ROTATION_INTERVAL_MS but kept local so the
+ *  fallback feels snappy regardless of what the API ships down. */
+const PLACEHOLDER_HOLD_MS = 7000;
 
 /**
  * Self-contained animated NEOFILM placeholder. Renders when there is no real
@@ -143,24 +150,52 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
   const rotationInterval = rotationMs ?? TV_CONFIG.AD_ROTATION_INTERVAL_MS;
 
   const adPool = useMemo<DisplayAd[]>(() => {
-    const targeted = targetedAds
+    const targeted: DisplayAd[] = targetedAds
       .filter((ad) => !isSentinel(ad.fileUrl))
       .map((ad) => ({
         id: ad.creativeId,
+        kind: ad.mimeType.startsWith('video/') ? 'video' : 'image',
         fileUrl: resolveMediaUrl(ad.fileUrl),
         mimeType: ad.mimeType,
         isTargeted: true,
         source: ad,
       }));
-    const house = houseAds
+    const house: DisplayAd[] = houseAds
       .filter((ad) => !isSentinel(ad.fileUrl))
       .map((ad) => ({
         id: ad.creativeId,
+        kind: ad.mimeType.startsWith('video/') ? 'video' : 'image',
         fileUrl: resolveMediaUrl(ad.fileUrl),
         mimeType: ad.mimeType,
         isTargeted: false,
         source: ad,
       }));
+
+    // Empty pool → seed with TWO fallback slides that cycle one after the
+    // other: the branded NEOFILM placeholder (~7s) → Le Dupplex spot
+    // (plays end-to-end) → loop. This lets partners see proper rotation even
+    // before they upload their own creatives.
+    if (targeted.length === 0 && house.length === 0) {
+      return [
+        {
+          id: 'neofilm_house_placeholder',
+          kind: 'placeholder',
+          fileUrl: '',
+          mimeType: 'application/neofilm-placeholder',
+          isTargeted: false,
+          source: null,
+        },
+        {
+          id: 'neofilm_house_dupplex',
+          kind: 'video',
+          fileUrl: `${BASE_PATH}/dupplex.mp4`,
+          mimeType: 'video/mp4',
+          isTargeted: false,
+          source: null,
+        },
+      ];
+    }
+
     return [...targeted, ...house];
   }, [targetedAds, houseAds]);
 
@@ -177,8 +212,12 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
 
   useEffect(() => {
     if (!currentAd) return;
-    if (currentAd.mimeType.startsWith('image/')) {
+    if (currentAd.kind === 'image') {
       const timer = setTimeout(playNext, rotationInterval);
+      return () => clearTimeout(timer);
+    }
+    if (currentAd.kind === 'placeholder') {
+      const timer = setTimeout(playNext, PLACEHOLDER_HOLD_MS);
       return () => clearTimeout(timer);
     }
   }, [currentAd, playNext, rotationInterval]);
@@ -194,7 +233,11 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
     return <NeoFilmHousePlaceholder />;
   }
 
-  if (currentAd.mimeType.startsWith('video/')) {
+  if (currentAd.kind === 'placeholder') {
+    return <NeoFilmHousePlaceholder />;
+  }
+
+  if (currentAd.kind === 'video') {
     const onlyOneAd = adPool.length === 1;
     return (
       <div className="relative h-full w-full overflow-hidden">

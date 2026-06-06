@@ -10,49 +10,13 @@ interface TopBarProps {
   screenName: string | null;
 }
 
-/** Inline text logo — no static asset dependency, no basePath issues. */
-function NeofilmWordmark() {
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        fontFamily: 'inherit',
-        fontWeight: 800,
-        letterSpacing: '0.05em',
-        fontSize: '1.625rem',
-        color: '#ffffff',
-        textShadow: '0 2px 12px rgba(230, 57, 70, 0.35)',
-      }}
-    >
-      <span
-        style={{
-          display: 'inline-block',
-          width: '0.6rem',
-          height: '1.5rem',
-          background: 'linear-gradient(180deg, #E63946, #b71c2c)',
-          borderRadius: '0.15rem',
-          boxShadow: '0 0 14px rgba(230, 57, 70, 0.55)',
-        }}
-      />
-      <span>
-        NEO<span style={{ color: '#E63946' }}>FILM</span>
-      </span>
-    </span>
-  );
-}
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
 /**
  * NEOFILM TopBar (Netflix-grade cinematic design).
  *
- * ┌───────────────────────────────────────────────────────────────┐
- * │ [NEOFILM logo]                14:32  Logement Loft·Lyon ● Online │
- * └───────────────────────────────────────────────────────────────┘
- *
- * Uses neofilm-wordmark.png on the left and shows the partner name +
- * connection status on the right. Partner logo only replaces the
- * wordmark when explicitly provided.
+ * Left: the official `neofilm-wordmark.png` (or partner logo override).
+ * Right: clock, screen name, connectivity badge.
  */
 export function TopBar({ partnerLogoUrl, welcomeMessage, isConnected, screenName }: TopBarProps) {
   const [partnerLogoFailed, setPartnerLogoFailed] = useState(false);
@@ -60,7 +24,6 @@ export function TopBar({ partnerLogoUrl, welcomeMessage, isConnected, screenName
 
   return (
     <div className="neo-topbar">
-      {/* Left: NEOFILM wordmark (or partner logo override) */}
       <div className="neo-logo">
         {showPartnerLogo ? (
           <img
@@ -70,11 +33,14 @@ export function TopBar({ partnerLogoUrl, welcomeMessage, isConnected, screenName
             onError={() => setPartnerLogoFailed(true)}
           />
         ) : (
-          <NeofilmWordmark />
+          <img
+            src={`${BASE_PATH}/neofilm-wordmark.png`}
+            alt="NEOFILM"
+            style={{ height: '3rem', width: 'auto', display: 'block' }}
+          />
         )}
       </div>
 
-      {/* Right: clock + stay name + connectivity badge */}
       <div className="neo-right">
         <div className="neo-clock">
           <ClockWidget />

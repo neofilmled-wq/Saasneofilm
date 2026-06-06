@@ -1,16 +1,22 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { CatalogueListing } from '@/lib/device-api';
+import type { CatalogueListing, CreativeManifest, TvAdItem } from '@/lib/device-api';
+import { AdZone } from '@/components/layout/ad-zone';
 
 interface SidebarProps {
   catalogue: CatalogueListing[];
+  houseAds: CreativeManifest[];
+  rotationAds: TvAdItem[];
+  adRotationMs?: number;
+  onAdImpression?: (ad: TvAdItem, startTime: Date, endTime: Date, skipped: boolean) => void;
+  /** When true, render codes promo only (annonce shown elsewhere on this tab). */
+  promosOnly?: boolean;
 }
 
-const PROMO_LIMIT = 4;
+const PROMO_LIMIT = 3;
 const PROMO_ROTATION_MS = 7000;
 
-// Tailwind-ish soft palette used when a listing has no specific color.
 const FALLBACK_PROMO_COLORS = [
   '#c2410c',
   '#0e7490',
@@ -55,20 +61,12 @@ function PromoRow({ listing, paletteIndex }: { listing: CatalogueListing; palett
   );
 }
 
-/**
- * Right-side sidebar — codes promo only. The annonce panel moved to a wide
- * bottom row in smart-tv-display so it can fill all the empty horizontal
- * space the codes promo column leaves above the partner banner.
- */
-export function Sidebar({ catalogue }: SidebarProps) {
+export function PromoList({ catalogue }: { catalogue: CatalogueListing[] }) {
   const promos = useMemo(
     () => catalogue.filter((c) => typeof c.promoCode === 'string' && c.promoCode.trim() !== ''),
     [catalogue],
   );
 
-  // When there are more than PROMO_LIMIT promos, rotate the visible window
-  // through the full list so every code gets airtime. Window size stays at
-  // PROMO_LIMIT — only the offset changes.
   const [offset, setOffset] = useState(0);
   useEffect(() => {
     if (promos.length <= PROMO_LIMIT) return;
@@ -118,7 +116,7 @@ export function Sidebar({ catalogue }: SidebarProps) {
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '0.75rem',
+            gap: '0.625rem',
             flex: 1,
             minHeight: 0,
             overflow: 'hidden',
@@ -150,6 +148,107 @@ export function Sidebar({ catalogue }: SidebarProps) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The "Annonce" panel — a glass card wrapping the AdZone with a top-right
+ * label badge. Reused both inside the sidebar (default) and as a standalone
+ * panel on the HOME tab (where it extends across the empty home-grid cell).
+ */
+export function AnnoncePanel({
+  houseAds,
+  rotationAds,
+  adRotationMs,
+  onAdImpression,
+}: {
+  houseAds: CreativeManifest[];
+  rotationAds: TvAdItem[];
+  adRotationMs?: number;
+  onAdImpression?: (ad: TvAdItem, startTime: Date, endTime: Date, skipped: boolean) => void;
+}) {
+  return (
+    <div
+      className="neo-panel"
+      style={{ padding: 0, overflow: 'hidden', position: 'relative', height: '100%' }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          top: '1rem',
+          right: '1.125rem',
+          zIndex: 4,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          padding: '0.375rem 0.75rem',
+          background: 'rgba(0,0,0,0.55)',
+          border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: 100,
+          fontSize: '0.65625rem',
+          letterSpacing: '0.18em',
+          textTransform: 'uppercase',
+          color: '#fff',
+        }}
+      >
+        <span
+          style={{
+            display: 'inline-block',
+            width: '0.375rem',
+            height: '0.375rem',
+            borderRadius: '50%',
+            background: 'var(--neo-accent)',
+            boxShadow: '0 0 0 3px rgba(var(--neo-accent-glow), 0.25)',
+          }}
+        />
+        Annonce
+      </div>
+      <div style={{ width: '100%', height: '100%' }}>
+        <AdZone
+          houseAds={houseAds}
+          targetedAds={rotationAds}
+          rotationMs={adRotationMs}
+          onImpression={onAdImpression}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Right-side sidebar — codes promo (top) + annonce (bottom) by default.
+ * In `promosOnly` mode the annonce is rendered elsewhere (e.g. on the HOME tab
+ * we render it spanning across the empty home-grid cell + the sidebar bottom).
+ */
+export function Sidebar({
+  catalogue,
+  houseAds,
+  rotationAds,
+  adRotationMs,
+  onAdImpression,
+  promosOnly,
+}: SidebarProps) {
+  if (promosOnly) {
+    return <PromoList catalogue={catalogue} />;
+  }
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateRows: 'minmax(0, 1fr) minmax(0, 1fr)',
+        gap: 'var(--neo-gap)',
+        minHeight: 0,
+        height: '100%',
+      }}
+    >
+      <PromoList catalogue={catalogue} />
+      <AnnoncePanel
+        houseAds={houseAds}
+        rotationAds={rotationAds}
+        adRotationMs={adRotationMs}
+        onAdImpression={onAdImpression}
+      />
     </div>
   );
 }

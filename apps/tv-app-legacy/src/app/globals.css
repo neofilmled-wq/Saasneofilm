@@ -815,6 +815,13 @@ body.neo-tv-body {
   display: flex; flex-direction: column;
   min-height: 0;
   box-shadow: var(--neo-card-shadow);
+  /* contain: paint forces a paint-clipping boundary so NOTHING — not
+     box-shadows, not focus outlines, not background blurs — can render
+     outside this panel. The cyan lines on Bonnes adresses were the
+     WebView's GPU compositor painting overflow that overflow:hidden alone
+     couldn't catch. */
+  contain: paint;
+  isolation: isolate;
 }
 .neo-sub-head {
   display: flex; justify-content: space-between; align-items: flex-end;
@@ -985,5 +992,6 @@ html {
   border-radius: 0.75rem;
   isolation: isolate;
   overflow: hidden;
+  contain: paint;
 }
 

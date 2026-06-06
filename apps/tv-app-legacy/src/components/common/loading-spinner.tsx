@@ -4,11 +4,11 @@ interface LoadingSpinnerProps {
   message?: string;
 }
 
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+
 /**
- * Boot-style loading screen — same inline NEOFILM logo + red animated bar as
- * the very first paint splash (layout.tsx). This replaces the old circular
- * spinner so the user never sees a design discontinuity between phases:
- * head-script splash → React-shell loader → SmartTvDisplay config loader.
+ * Branded loading screen — uses the official neofilm-wordmark.png so the
+ * "loader" looks identical to the boot splash injected by layout.tsx.
  */
 export function LoadingSpinner({ message }: LoadingSpinnerProps) {
   return (
@@ -23,32 +23,11 @@ export function LoadingSpinner({ message }: LoadingSpinnerProps) {
         fontFamily: 'inherit',
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1.125rem',
-          fontWeight: 800,
-          letterSpacing: '0.05em',
-          fontSize: '4rem',
-          lineHeight: 1,
-          textShadow: '0 4px 32px rgba(230, 57, 70, 0.35)',
-        }}
-      >
-        <span
-          style={{
-            display: 'inline-block',
-            width: '1.125rem',
-            height: '3.75rem',
-            background: 'linear-gradient(180deg, #E63946, #b71c2c)',
-            borderRadius: '0.25rem',
-            boxShadow: '0 0 2rem rgba(230, 57, 70, 0.6)',
-          }}
-        />
-        <span>
-          NEO<span style={{ color: '#E63946' }}>FILM</span>
-        </span>
-      </div>
+      <img
+        src={`${BASE_PATH}/neofilm-wordmark.png`}
+        alt="NEOFILM"
+        style={{ width: '24rem', maxWidth: '50vw', height: 'auto' }}
+      />
       {message && (
         <div
           style={{

@@ -37,6 +37,8 @@ type DisplayAd = {
  * creative to play AND on video-load errors. Pure SVG + CSS — never depends on
  * network or file assets, so the annonce panel is never empty.
  */
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+
 function NeoFilmHousePlaceholder() {
   return (
     <div
@@ -45,7 +47,7 @@ function NeoFilmHousePlaceholder() {
         inset: 0,
         overflow: 'hidden',
         background:
-          'radial-gradient(ellipse 70% 80% at 20% 30%, rgba(230,57,70,0.18), transparent 60%),' +
+          'radial-gradient(ellipse 70% 80% at 20% 30%, rgba(230,57,70,0.22), transparent 60%),' +
           'radial-gradient(ellipse 60% 70% at 85% 75%, rgba(80,90,210,0.18), transparent 65%),' +
           'linear-gradient(180deg, #11132a 0%, #050714 100%)',
       }}
@@ -56,12 +58,12 @@ function NeoFilmHousePlaceholder() {
           position: 'absolute',
           inset: 0,
           background:
-            'repeating-linear-gradient(45deg, rgba(255,255,255,0.018) 0 18px, transparent 18px 64px)',
+            'repeating-linear-gradient(45deg, rgba(255,255,255,0.022) 0 18px, transparent 18px 64px)',
           animation: 'neo-marquee 16s linear infinite',
           mixBlendMode: 'screen',
         }}
       />
-      {/* Centered NEOFILM mark + tagline */}
+      {/* Centered NEOFILM wordmark + tagline */}
       <div
         style={{
           position: 'absolute',
@@ -71,38 +73,21 @@ function NeoFilmHousePlaceholder() {
           alignItems: 'center',
           justifyContent: 'center',
           gap: '1.5rem',
-          padding: '1rem',
+          padding: '1.5rem',
           textAlign: 'center',
           color: '#fff',
+          animation: 'neo-placeholder-breathe 4s ease-in-out infinite',
         }}
       >
-        <div
+        <img
+          src={`${BASE_PATH}/neofilm-wordmark.png`}
+          alt="NEOFILM"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1.25rem',
-            fontWeight: 800,
-            letterSpacing: '0.05em',
-            fontSize: '4rem',
-            lineHeight: 1,
-            textShadow: '0 4px 32px rgba(230,57,70,0.45)',
+            width: 'min(60%, 28rem)',
+            height: 'auto',
+            filter: 'drop-shadow(0 8px 28px rgba(230,57,70,0.4))',
           }}
-        >
-          <span
-            style={{
-              display: 'inline-block',
-              width: '1.125rem',
-              height: '3.75rem',
-              background: 'linear-gradient(180deg,#E63946,#b71c2c)',
-              borderRadius: '0.25rem',
-              boxShadow: '0 0 2rem rgba(230,57,70,0.6)',
-              animation: 'neo-bar-pulse 2s ease-in-out infinite',
-            }}
-          />
-          <span>
-            NEO<span style={{ color: '#E63946' }}>FILM</span>
-          </span>
-        </div>
+        />
         <div
           style={{
             fontSize: '0.9rem',
@@ -134,9 +119,9 @@ function NeoFilmHousePlaceholder() {
           from { transform: translateX(0); }
           to   { transform: translateX(64px); }
         }
-        @keyframes neo-bar-pulse {
-          0%, 100% { box-shadow: 0 0 1.5rem rgba(230,57,70,0.5); }
-          50%      { box-shadow: 0 0 3rem rgba(230,57,70,0.9); }
+        @keyframes neo-placeholder-breathe {
+          0%, 100% { transform: scale(1); }
+          50%      { transform: scale(1.015); }
         }
       `}</style>
     </div>

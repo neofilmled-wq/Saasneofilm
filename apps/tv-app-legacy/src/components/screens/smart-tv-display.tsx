@@ -6,10 +6,9 @@ import { useTvConfig } from '@/hooks/use-tv-config';
 import { useAdQueue } from '@/hooks/use-ad-queue';
 import { TopBar } from '@/components/layout/top-bar';
 import { TabNavigation, type TabKey } from '@/components/layout/tab-navigation';
-import { Sidebar } from '@/components/layout/sidebar';
-import { AdZone } from '@/components/layout/ad-zone';
+import { Sidebar, PromoList, AnnoncePanel } from '@/components/layout/sidebar';
 import { PartnerBanner } from '@/components/layout/partner-banner';
-import { HomePage, type HomeDestination } from '@/components/pages/home-page';
+import { HomeTileCard, buildHomeTiles, type HomeDestination } from '@/components/pages/home-page';
 import { TntPage } from '@/components/pages/tnt-page';
 import { StreamingPage } from '@/components/pages/streaming-page';
 import { ActivitiesPage } from '@/components/pages/activities-page';
@@ -211,14 +210,24 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
     if (tab) handleTabChange(tab);
   };
 
+  // HOME tab gets a custom 4-column grid so the annonce panel can span the
+  // empty bottom-right home-grid cell + the sidebar bottom in ONE seamless
+  // wide panel — that's the "annonce takes the empty space recommendation
+  // left" layout the user asked for.
+  const homeTiles = buildHomeTiles({
+    channelCount: channels?.filter((c: any) => c.streamUrl).length,
+    streamingCount: streamingServices?.length,
+    activitiesCount: activities?.length,
+    addressesCount: catalogue?.length,
+  }).filter((t) => !t.module || enabledModules.includes(t.module));
+
   return (
     <div className="neo-fit-wrap" data-neofilm-ready>
       <div
         className="neo-fit-stage neo-grain"
         style={{
           display: 'grid',
-          // topbar | tabnav | content+codes_promo | wide annonce | partner banner
-          gridTemplateRows: '5.25rem 4.75rem minmax(0, 1fr) 22vh auto',
+          gridTemplateRows: '5.25rem 4.75rem minmax(0, 1fr) auto',
         }}
       >
         <TopBar
@@ -234,98 +243,95 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
           onTabChange={handleTabChange}
         />
 
-        {/* Top main row: page content (left) + codes promo sidebar (right) */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) 38rem',
-            gap: '1.75rem',
-            padding: '1.25rem 3rem 0.75rem',
-            minHeight: 0,
-            overflow: 'hidden',
-          }}
-        >
-          <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-            {activeTab === 'HOME' && (
-              <HomePage
-                onNavigate={onHomeNavigate}
-                enabledModules={enabledModules}
-                channelCount={channels?.filter((c: any) => c.streamUrl).length}
-                streamingCount={streamingServices?.length}
-                activitiesCount={activities?.length}
-                addressesCount={catalogue?.length}
+        {activeTab === 'HOME' ? (
+          /* HOME tab: 4-col 2-row unified grid.
+              Top row    : 3 tiles + codes promo (sidebar col)
+              Bottom row : 2 tiles + annonce (spans cols 3+4) */
+          <div
+            data-tv-nav-group="home-tiles"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 33rem',
+              gridTemplateRows: 'minmax(0, 1fr) minmax(0, 1fr)',
+              gap: 'var(--neo-gap)',
+              padding: '1.25rem 3rem 0.75rem',
+              minHeight: 0,
+              overflow: 'hidden',
+            }}
+          >
+            {homeTiles.slice(0, 3).map((tile, idx) => (
+              <HomeTileCard
+                key={tile.id}
+                tile={tile}
+                idx={idx}
+                onClick={() => onHomeNavigate(tile.id)}
               />
-            )}
-            {activeTab === 'TNT' && (
-              <TntPage
-                channels={channels}
-                onChannelOpen={(ch) => onHlsChannelOpen?.({ name: ch.name, streamUrl: ch.streamUrl! })}
+            ))}
+            <div style={{ gridColumn: '4', gridRow: '1', minHeight: 0 }}>
+              <PromoList catalogue={catalogue ?? []} />
+            </div>
+            {homeTiles.slice(3, 5).map((tile, i) => (
+              <HomeTileCard
+                key={tile.id}
+                tile={tile}
+                idx={3 + i}
+                onClick={() => onHomeNavigate(tile.id)}
               />
-            )}
-            {activeTab === 'STREAMING' && <StreamingPage services={streamingServices} />}
-            {activeTab === 'ADDRESSES' && (
-              <ActivitiesPage activities={activities} catalogue={catalogue} />
-            )}
-            {activeTab === 'ACTIVITIES' && (
-              <ActivitiesPage activities={activities} catalogue={catalogue} />
-            )}
-            {activeTab === 'APPS' && <AppsPage />}
-            {activeTab === 'SETTINGS' && <SettingsPage />}
-          </div>
-
-          <Sidebar catalogue={catalogue ?? []} />
-        </div>
-
-        {/* Wide annonce row — fills all the horizontal space the codes-promo
-            sidebar leaves above the partner banner. Always rendered: AdZone
-            has its own self-contained fallback so something is always playing. */}
-        <div
-          style={{
-            padding: '0 3rem 1rem',
-            minHeight: 0,
-            overflow: 'hidden',
-          }}
-        >
-          <div className="neo-panel" style={{ padding: 0, height: '100%', position: 'relative' }}>
+            ))}
             <div
               style={{
-                position: 'absolute',
-                top: '0.75rem',
-                right: '1.125rem',
-                zIndex: 4,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.375rem 0.75rem',
-                background: 'rgba(0,0,0,0.55)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                borderRadius: 100,
-                fontSize: '0.65625rem',
-                letterSpacing: '0.18em',
-                textTransform: 'uppercase',
-                color: '#fff',
+                gridColumn: '3 / span 2',
+                gridRow: '2',
+                minHeight: 0,
               }}
             >
-              <span
-                style={{
-                  display: 'inline-block',
-                  width: '0.375rem',
-                  height: '0.375rem',
-                  borderRadius: '50%',
-                  background: 'var(--neo-accent)',
-                  boxShadow: '0 0 0 3px rgba(var(--neo-accent-glow), 0.25)',
-                }}
+              <AnnoncePanel
+                houseAds={houseAds}
+                rotationAds={rotationAds}
+                adRotationMs={macros?.adRotationMs}
+                onAdImpression={reportImpression}
               />
-              Annonce
             </div>
-            <AdZone
+          </div>
+        ) : (
+          /* Other tabs: classic content + sidebar (codes promo + annonce). */
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 1fr) 33rem',
+              gap: '1.75rem',
+              padding: '1.25rem 3rem 0.75rem',
+              minHeight: 0,
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+              {activeTab === 'TNT' && (
+                <TntPage
+                  channels={channels}
+                  onChannelOpen={(ch) => onHlsChannelOpen?.({ name: ch.name, streamUrl: ch.streamUrl! })}
+                />
+              )}
+              {activeTab === 'STREAMING' && <StreamingPage services={streamingServices} />}
+              {activeTab === 'ADDRESSES' && (
+                <ActivitiesPage activities={activities} catalogue={catalogue} />
+              )}
+              {activeTab === 'ACTIVITIES' && (
+                <ActivitiesPage activities={activities} catalogue={catalogue} />
+              )}
+              {activeTab === 'APPS' && <AppsPage />}
+              {activeTab === 'SETTINGS' && <SettingsPage />}
+            </div>
+
+            <Sidebar
+              catalogue={catalogue ?? []}
               houseAds={houseAds}
-              targetedAds={rotationAds}
-              rotationMs={macros?.adRotationMs}
-              onImpression={reportImpression}
+              rotationAds={rotationAds}
+              adRotationMs={macros?.adRotationMs}
+              onAdImpression={reportImpression}
             />
           </div>
-        </div>
+        )}
 
         <PartnerBanner
           partnerName={config?.welcomeMessage ?? screenName ?? null}

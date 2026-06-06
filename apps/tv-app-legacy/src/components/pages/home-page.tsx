@@ -14,7 +14,7 @@ interface HomePageProps {
   addressesCount?: number;
 }
 
-interface TileConfig {
+export interface TileConfig {
   id: HomeDestination;
   title: string;
   subtitle: string;
@@ -25,11 +25,8 @@ interface TileConfig {
   hasLive?: boolean;
 }
 
-/**
- * Decorative SVG art for each home tile — pure SVG (no images = no network /
- * no Android WebView caching issues).
- */
-function TileArt({ kind }: { kind: TileConfig['art'] }) {
+/** Decorative SVG art for each home tile. Pure SVG = no network deps. */
+export function TileArt({ kind }: { kind: TileConfig['art'] }) {
   switch (kind) {
     case 'tv':
       return (
@@ -132,31 +129,69 @@ function TileArt({ kind }: { kind: TileConfig['art'] }) {
   }
 }
 
-/**
- * HomePage — entry point of the TV app.
- *
- * 6 tiles in a 2x3 (or 3x2 depending on layout) grid, each with chromatic
- * background, decorative SVG art, gradient overlay and a focus state with
- * red glow. The ad sidebar is rendered alongside by the parent
- * smart-tv-display, so this component only owns the left column.
- */
-export function HomePage({
-  onNavigate,
-  enabledModules,
+/** A single home tile button — extracted so smart-tv-display can lay tiles out
+ * inside a custom grid (HOME tab spans the annonce across cell 6). */
+export function HomeTileCard({
+  tile,
+  idx,
+  onClick,
+  style,
+}: {
+  tile: TileConfig;
+  idx: number;
+  onClick: () => void;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <button
+      data-tv-focusable
+      data-tv-row={1 + Math.floor(idx / 3)}
+      data-tv-col={idx % 3}
+      onClick={onClick}
+      className={`neo-tile ${tile.bgClass}`}
+      style={{
+        appearance: 'none',
+        cursor: 'pointer',
+        color: 'inherit',
+        textAlign: 'left',
+        fontFamily: 'inherit',
+        ...style,
+      }}
+    >
+      {tile.hasLive && (
+        <div className="neo-ribbon">
+          <span className="neo-live-dot" /> En direct
+        </div>
+      )}
+      <div className="neo-tile-art">
+        <TileArt kind={tile.art} />
+      </div>
+      <div className="neo-tile-overlay" />
+      <div className="neo-tile-content">
+        <div className="neo-tile-title">{tile.title}</div>
+        <div className="neo-tile-subtitle">{tile.subtitle}</div>
+        <div className="neo-tile-tags">
+          {tile.tags.map((t, i) => (
+            <span key={i}>{t}</span>
+          ))}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+export function buildHomeTiles({
   channelCount,
   streamingCount,
   activitiesCount,
   addressesCount,
-}: HomePageProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { focusFirst } = useDpadNavigation({ containerRef, autoFocus: true, initialIndex: 0 });
-
-  useEffect(() => {
-    const t = setTimeout(focusFirst, 120);
-    return () => clearTimeout(t);
-  }, [focusFirst]);
-
-  const allTiles: TileConfig[] = [
+}: {
+  channelCount?: number;
+  streamingCount?: number;
+  activitiesCount?: number;
+  addressesCount?: number;
+}): TileConfig[] {
+  return [
     {
       id: 'TNT',
       title: 'TV en Direct',
@@ -203,7 +238,35 @@ export function HomePage({
       art: 'apps',
     },
   ];
+}
 
+/**
+ * Legacy standalone HomePage — kept for backward compatibility.
+ * Smart-tv-display now renders HOME via its own custom grid so the annonce
+ * panel can span across the empty 6th cell + the sidebar bottom.
+ */
+export function HomePage({
+  onNavigate,
+  enabledModules,
+  channelCount,
+  streamingCount,
+  activitiesCount,
+  addressesCount,
+}: HomePageProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { focusFirst } = useDpadNavigation({ containerRef, autoFocus: true, initialIndex: 0 });
+
+  useEffect(() => {
+    const t = setTimeout(focusFirst, 120);
+    return () => clearTimeout(t);
+  }, [focusFirst]);
+
+  const allTiles = buildHomeTiles({
+    channelCount,
+    streamingCount,
+    activitiesCount,
+    addressesCount,
+  });
   const tiles = allTiles.filter((t) => !t.module || enabledModules.includes(t.module));
 
   return (
@@ -213,7 +276,6 @@ export function HomePage({
       className="tv-page-enter"
       style={{
         display: 'grid',
-        // 5 tuiles : 3 colonnes / 2 lignes (la dernière ligne a 2 tuiles centrées)
         gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
         gridTemplateRows: 'repeat(2, minmax(0, 1fr))',
         gap: 'var(--neo-gap)',
@@ -223,40 +285,7 @@ export function HomePage({
       }}
     >
       {tiles.map((tile, idx) => (
-        <button
-          key={tile.id}
-          data-tv-focusable
-          data-tv-row={1 + Math.floor(idx / 3)}
-          data-tv-col={idx % 3}
-          onClick={() => onNavigate(tile.id)}
-          className={`neo-tile ${tile.bgClass}`}
-          style={{
-            appearance: 'none',
-            cursor: 'pointer',
-            color: 'inherit',
-            textAlign: 'left',
-            fontFamily: 'inherit',
-          }}
-        >
-          {tile.hasLive && (
-            <div className="neo-ribbon">
-              <span className="neo-live-dot" /> En direct
-            </div>
-          )}
-          <div className="neo-tile-art">
-            <TileArt kind={tile.art} />
-          </div>
-          <div className="neo-tile-overlay" />
-          <div className="neo-tile-content">
-            <div className="neo-tile-title">{tile.title}</div>
-            <div className="neo-tile-subtitle">{tile.subtitle}</div>
-            <div className="neo-tile-tags">
-              {tile.tags.map((t, i) => (
-                <span key={i}>{t}</span>
-              ))}
-            </div>
-          </div>
-        </button>
+        <HomeTileCard key={tile.id} tile={tile} idx={idx} onClick={() => onNavigate(tile.id)} />
       ))}
     </div>
   );

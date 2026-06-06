@@ -936,15 +936,14 @@ body.neo-tv-body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* INSET shadow — drawn INSIDE the element, physically incapable of
-   bleeding past the border. Replaces the outer shadow that was leaking
-   sideways on Bonnes adresses cards. */
+/* Clean thin outline only — no zoom, no background tint, no inner glow.
+   Matches the user's reference mockup: a single 2px red ring around the
+   focused card. Inset keeps the ring physically inside the border so it
+   can never bleed sideways on the Bonnes adresses scroller. */
 .neo-addr[data-tv-focused="true"] {
   border-color: var(--neo-accent) !important;
-  background: rgba(var(--neo-accent-glow), 0.1) !important;
-  box-shadow:
-    inset 0 0 0 2px rgba(var(--neo-accent-glow), 0.55),
-    inset 0 0 1.25rem rgba(var(--neo-accent-glow), 0.18) !important;
+  box-shadow: inset 0 0 0 2px var(--neo-accent) !important;
+  transform: none !important;
 }
 .neo-addr-thumb {
   width: 5.5rem; height: 4rem; border-radius: 0.625rem;

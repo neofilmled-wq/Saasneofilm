@@ -1,0 +1,21 @@
+{
+  "_README_": "Ce fichier est lu par l'app TV au démarrage pour piloter la rotation des publicités d'annonce. Chaque entrée du tableau 'ads' devient une slide qui tourne dans l'ordre, en boucle. Pour ajouter une nouvelle vidéo : poser le fichier dans /public/ et ajouter une entrée ici. Pour modifier sans rebuild de l'image Docker : monter ce fichier comme volume dans docker-compose (voir README du repo).",
+  "_FIELDS_": {
+    "id": "Identifiant unique de la slide (apparait dans les logs et l'overlay debug)",
+    "kind": "video | image | placeholder",
+    "url": "Chemin relatif (/dupplex.mp4) OU URL absolue (https://...). Ignoré pour kind=placeholder.",
+    "holdMs": "Optionnel. Durée d'affichage pour image/placeholder. Ignoré pour video (lue jusqu'à la fin)."
+  },
+  "ads": [
+    {
+      "id": "dupplex",
+      "kind": "video",
+      "url": "/dupplex.mp4"
+    },
+    {
+      "id": "neofilm_placeholder",
+      "kind": "placeholder",
+      "holdMs": 7000
+    }
+  ]
+}

@@ -32,6 +32,8 @@ type DisplayAd = {
   mimeType: string;
   isTargeted: boolean;
   source: TvAdItem | CreativeManifest | null;
+  /** For image/placeholder slides only — overrides the default hold timer. */
+  holdMs?: number;
 };
 
 /** How long the NEOFILM placeholder stays on screen between video plays.
@@ -43,6 +45,28 @@ const PLACEHOLDER_HOLD_MS = 7000;
  *  rotation onward — protects against stuck downloads, missing onEnded, or
  *  super-long creatives that an advertiser uploaded by accident. */
 const VIDEO_MAX_DURATION_MS = 45000;
+
+/** Manifest fetched from /house-ads.json. Lets partners add/remove videos by
+ *  editing a single JSON file on the NAS instead of rebuilding the TS bundle. */
+interface HouseAdManifestEntry {
+  id: string;
+  kind: 'video' | 'image' | 'placeholder';
+  url?: string;
+  holdMs?: number;
+}
+interface HouseAdManifest {
+  ads: HouseAdManifestEntry[];
+}
+
+const HOUSE_AD_MANIFEST_URL = `${BASE_PATH}/house-ads.json`;
+
+/** Hardcoded last-resort pool — used only if the JSON manifest can't be
+ *  fetched (404, parse error, etc.). Keeps the panel from going dark even on
+ *  a misconfigured container. */
+const FALLBACK_ADS: HouseAdManifestEntry[] = [
+  { id: 'dupplex', kind: 'video', url: '/dupplex.mp4' },
+  { id: 'neofilm_placeholder', kind: 'placeholder', holdMs: 7000 },
+];
 
 /**
  * Self-contained animated NEOFILM placeholder. Renders when there is no real
@@ -201,9 +225,35 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
   const [currentIndex, setCurrentIndex] = useState(0);
   const [videoFailed, setVideoFailed] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [manifestAds, setManifestAds] = useState<HouseAdManifestEntry[]>(FALLBACK_ADS);
   const videoRef = useRef<HTMLVideoElement>(null);
   const startTimeRef = useRef(new Date());
   const rotationInterval = rotationMs ?? TV_CONFIG.AD_ROTATION_INTERVAL_MS;
+
+  // Fetch the JSON ads manifest on mount. This is the "text file on server"
+  // mechanism: partners edit /public/house-ads.json (or a Docker-mounted copy
+  // of it) to add/remove videos. We use the fetched list as the fallback pool
+  // when no real campaign creatives are scheduled.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(HOUSE_AD_MANIFEST_URL, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((j: HouseAdManifest) => {
+        if (cancelled) return;
+        if (!Array.isArray(j?.ads) || j.ads.length === 0) {
+          console.warn('[AdZone] Manifest has no ads, keeping fallback');
+          return;
+        }
+        setManifestAds(j.ads);
+        console.log(`[AdZone] Manifest loaded: ${j.ads.length} ads`, j.ads.map((a) => a.id));
+      })
+      .catch((err) => {
+        console.warn(`[AdZone] Manifest fetch failed (${HOUSE_AD_MANIFEST_URL}): ${err.message}`);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const adPool = useMemo<DisplayAd[]>(() => {
     const targeted: DisplayAd[] = targetedAds
@@ -227,34 +277,34 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
         source: ad,
       }));
 
-    // Empty pool → seed with TWO fallback slides that cycle one after the
-    // other: Le Dupplex spot (plays end-to-end) → NEOFILM branded
-    // placeholder (~7s) → loop. Order matters — Dupplex first means the
-    // panel boots straight into a real video, then the branded card buys
-    // the next clip a chance to start loading.
+    // Empty pool → use the JSON manifest we fetched (or the hardcoded
+    // FALLBACK_ADS if the fetch failed). Each entry becomes a slide that
+    // cycles in order — videos play end-to-end, placeholders hold for
+    // holdMs (default 7000), images hold for the standard rotation interval.
     if (targeted.length === 0 && house.length === 0) {
-      return [
-        {
-          id: 'neofilm_house_dupplex',
-          kind: 'video',
-          fileUrl: `${BASE_PATH}/dupplex.mp4`,
-          mimeType: 'video/mp4',
-          isTargeted: false,
-          source: null,
-        },
-        {
-          id: 'neofilm_house_placeholder',
-          kind: 'placeholder',
-          fileUrl: '',
-          mimeType: 'application/neofilm-placeholder',
-          isTargeted: false,
-          source: null,
-        },
-      ];
+      return manifestAds.map((entry) => ({
+        id: `manifest_${entry.id}`,
+        kind: entry.kind,
+        fileUrl:
+          entry.kind === 'placeholder'
+            ? ''
+            : entry.url && /^https?:\/\//.test(entry.url)
+              ? entry.url
+              : `${BASE_PATH}${entry.url ?? ''}`,
+        mimeType:
+          entry.kind === 'placeholder'
+            ? 'application/neofilm-placeholder'
+            : entry.kind === 'image'
+              ? 'image/png'
+              : 'video/mp4',
+        isTargeted: false,
+        source: null,
+        holdMs: entry.holdMs,
+      }));
     }
 
     return [...targeted, ...house];
-  }, [targetedAds, houseAds]);
+  }, [targetedAds, houseAds, manifestAds]);
 
   const currentAd = adPool[currentIndex % adPool.length] ?? null;
 
@@ -270,11 +320,11 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
   useEffect(() => {
     if (!currentAd) return;
     if (currentAd.kind === 'image') {
-      const timer = setTimeout(playNext, rotationInterval);
+      const timer = setTimeout(playNext, currentAd.holdMs ?? rotationInterval);
       return () => clearTimeout(timer);
     }
     if (currentAd.kind === 'placeholder') {
-      const timer = setTimeout(playNext, PLACEHOLDER_HOLD_MS);
+      const timer = setTimeout(playNext, currentAd.holdMs ?? PLACEHOLDER_HOLD_MS);
       return () => clearTimeout(timer);
     }
     if (currentAd.kind === 'video' && adPool.length > 1) {

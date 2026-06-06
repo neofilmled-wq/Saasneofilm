@@ -47,7 +47,7 @@ export function ActivitiesPage({ activities, catalogue = [] }: ActivitiesPagePro
 
   if (activities.length === 0 && catalogue.length === 0) {
     return (
-      <div className="neo-subscreen-main neo-stage" style={{ height: '100%' }}>
+      <div className="neo-subscreen-main" style={{ height: '100%' }}>
         <div className="neo-sub-head">
           <div>
             <div className="neo-crumb">Accueil › Bonnes adresses</div>
@@ -99,7 +99,7 @@ export function ActivitiesPage({ activities, catalogue = [] }: ActivitiesPagePro
     categoryOrder.reduce((sum, c) => sum + (grouped[c]?.length ?? 0), 0);
 
   const content = (
-    <div className="neo-subscreen-main neo-stage" style={{ height: '100%' }}>
+    <div className="neo-subscreen-main" style={{ height: '100%' }}>
       <div className="neo-sub-head">
         <div>
           <div className="neo-crumb">Accueil › Bonnes adresses</div>

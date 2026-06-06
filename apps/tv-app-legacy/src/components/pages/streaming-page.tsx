@@ -163,7 +163,7 @@ export function StreamingPage({ services }: StreamingPageProps) {
   const hasConfiguredServices = services.length > 0;
 
   return (
-    <div className="neo-subscreen-main neo-stage" style={{ height: '100%' }}>
+    <div className="neo-subscreen-main" style={{ height: '100%' }}>
       <div className="neo-sub-head">
         <div>
           <div className="neo-crumb">Accueil › Streaming</div>

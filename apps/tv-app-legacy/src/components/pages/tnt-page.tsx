@@ -65,7 +65,7 @@ export function TntPage({ channels: dbChannels, onChannelOpen }: TntPageProps) {
   useEffect(() => () => stopInterval(), [stopInterval]);
 
   return (
-    <div className="neo-subscreen-main neo-stage" style={{ height: '100%' }}>
+    <div className="neo-subscreen-main" style={{ height: '100%' }}>
       <div className="neo-sub-head">
         <div>
           <div className="neo-crumb">Accueil › TV / TNT</div>

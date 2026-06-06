@@ -23,6 +23,7 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
   return (
     <html lang="fr" className="dark">
       <head>
@@ -45,7 +46,7 @@ if(typeof globalThis==='undefined'){window.globalThis=window}
   var d=document,s=d.createElement('div');
   s.id='neofilm-boot-splash';
   s.style.cssText='position:fixed;top:0;right:0;bottom:0;left:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse 80% 60% at 30% 20%, #1a1f4a 0%, #050714 55%),#050714;color:#fff;font-family:system-ui,sans-serif';
-  s.innerHTML=\'<img src="/neofilm-wordmark.png" alt="NEOFILM" style="width:280px;max-width:60vw;height:auto;opacity:0.95"/><div style="margin-top:1.5rem;font-size:1rem;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.55)">Chargement</div><div style="margin-top:1.5rem;width:4rem;height:3px;background:#E63946;border-radius:2px;animation:nf-pulse 1.5s ease-in-out infinite;box-shadow:0 0 14px rgba(230,57,70,0.6)"></div><style>@keyframes nf-pulse{0%,100%{opacity:.3;width:4rem}50%{opacity:1;width:8rem}}</style>\';
+  s.innerHTML=\'<img src="${basePath}/neofilm-wordmark.png" alt="NEOFILM" style="width:280px;max-width:60vw;height:auto;opacity:0.95"/><div style="margin-top:1.5rem;font-size:1rem;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.55)">Chargement</div><div style="margin-top:1.5rem;width:4rem;height:3px;background:#E63946;border-radius:2px;animation:nf-pulse 1.5s ease-in-out infinite;box-shadow:0 0 14px rgba(230,57,70,0.6)"></div><style>@keyframes nf-pulse{0%,100%{opacity:.3;width:4rem}50%{opacity:1;width:8rem}}</style>\';
   d.addEventListener('DOMContentLoaded',function(){
     d.body.insertBefore(s,d.body.firstChild);
     var o=new MutationObserver(function(){

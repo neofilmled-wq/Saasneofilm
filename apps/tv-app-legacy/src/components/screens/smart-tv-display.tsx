@@ -213,18 +213,12 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
   };
 
   return (
-    <div className="neo-stage neo-grain" style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-      {/* Cinematic background — body gets ::before grain + ::after red glow via .neo-grain */}
-
+    <div className="neo-fit-wrap" data-neofilm-ready>
       <div
+        className="neo-fit-stage neo-grain"
         style={{
-          position: 'absolute',
-          inset: 0,
           display: 'grid',
           gridTemplateRows: '84px 76px minmax(0, 1fr) auto',
-          height: '100%',
-          width: '100%',
-          zIndex: 2,
         }}
       >
         <TopBar
@@ -300,4 +294,21 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
       </div>
     </div>
   );
+}
+
+/* --- fit-to-viewport script (1920×1080 stage, transform-scale) ---
+ * Runs in the browser as soon as smart-tv-display renders. Updates
+ * .neo-stage transform on every resize so the app fills 100% of the
+ * TV without depending on a specific resolution. */
+if (typeof window !== 'undefined') {
+  const fit = () => {
+    const stage = document.querySelector('.neo-fit-stage') as HTMLElement | null;
+    if (!stage) return;
+    const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+  };
+  window.addEventListener('resize', fit);
+  requestAnimationFrame(fit);
+  setTimeout(fit, 50);
+  setTimeout(fit, 250);
 }

@@ -36,7 +36,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="neo-subscreen-main neo-stage" style={{ height: '100%', overflow: 'auto' }}>
+    <div className="neo-subscreen-main" style={{ height: '100%', overflow: 'auto' }}>
       <div className="neo-sub-head">
         <div>
           <div className="neo-crumb">Accueil › Paramètres</div>

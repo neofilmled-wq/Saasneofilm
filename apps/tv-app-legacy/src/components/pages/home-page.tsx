@@ -218,7 +218,7 @@ export function HomePage({
     <div
       ref={containerRef}
       data-tv-nav-group="home-tiles"
-      className="tv-page-enter neo-stage"
+      className="tv-page-enter"
       style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',

@@ -60,7 +60,7 @@ export function AppsPage() {
     : 'Aucune application installée';
 
   return (
-    <div className="neo-subscreen-main neo-stage" style={{ height: '100%' }}>
+    <div className="neo-subscreen-main" style={{ height: '100%' }}>
       <div className="neo-sub-head">
         <div>
           <div className="neo-crumb">Accueil › Applications</div>

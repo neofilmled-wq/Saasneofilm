@@ -33,7 +33,10 @@ export function TopBar({ partnerLogoUrl, welcomeMessage, isConnected, screenName
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         ) : (
-          <img src="/neofilm-wordmark.png" alt="NEOFILM" />
+          <img
+            src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/neofilm-wordmark.png`}
+            alt="NEOFILM"
+          />
         )}
       </div>
 

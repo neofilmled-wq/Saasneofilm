@@ -4,14 +4,67 @@ interface LoadingSpinnerProps {
   message?: string;
 }
 
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+
+/**
+ * Branded loading screen — uses the official neofilm-wordmark.png so the
+ * "loader" looks identical to the boot splash injected by layout.tsx.
+ */
 export function LoadingSpinner({ message }: LoadingSpinnerProps) {
   return (
-    <div className="flex flex-col items-center gap-6">
-      <div className="relative h-16 w-16">
-        <div className="absolute inset-0 rounded-full border-4 border-muted" />
-        <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-      </div>
-      {message && <p className="text-xl text-muted-foreground">{message}</p>}
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '2rem',
+        color: '#fff',
+        fontFamily: 'inherit',
+      }}
+    >
+      <img
+        src={`${BASE_PATH}/neofilm-wordmark.png`}
+        alt="NEOFILM"
+        style={{
+          // wordmark.png has heavy transparent padding around the logo —
+          // size a wide rectangle and crop with object-fit:cover so the
+          // visible logo is actually big.
+          width: '32rem',
+          maxWidth: '60vw',
+          height: '8rem',
+          objectFit: 'cover',
+          objectPosition: 'center',
+        }}
+      />
+      {message && (
+        <div
+          style={{
+            fontSize: '0.875rem',
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            color: 'rgba(255, 255, 255, 0.55)',
+          }}
+        >
+          {message}
+        </div>
+      )}
+      <div
+        style={{
+          width: '4rem',
+          height: '3px',
+          background: '#E63946',
+          borderRadius: '2px',
+          boxShadow: '0 0 14px rgba(230, 57, 70, 0.6)',
+          animation: 'neo-loading-pulse 1.5s ease-in-out infinite',
+        }}
+      />
+      <style>{`
+        @keyframes neo-loading-pulse {
+          0%, 100% { opacity: 0.3; width: 4rem; }
+          50%      { opacity: 1;   width: 8rem; }
+        }
+      `}</style>
     </div>
   );
 }

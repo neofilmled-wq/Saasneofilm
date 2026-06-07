@@ -1,7 +1,7 @@
 'use client';
 
+import { useState } from 'react';
 import { ClockWidget } from '@/components/common/clock-widget';
-import { StatusIndicator } from '@/components/common/status-indicator';
 
 interface TopBarProps {
   partnerLogoUrl: string | null;
@@ -10,58 +10,65 @@ interface TopBarProps {
   screenName: string | null;
 }
 
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+
 /**
- * Top bar for Smart TV shell.
- * ┌─────────────────────────────────────────────────┐
- * │ [LOGO]  Bienvenue...   │  14:32  ● Connecte     │
- * └─────────────────────────────────────────────────┘
+ * NEOFILM TopBar (Netflix-grade cinematic design).
+ *
+ * Left: the official `neofilm-wordmark.png` (or partner logo override).
+ * Right: clock, screen name, connectivity badge.
  */
 export function TopBar({ partnerLogoUrl, welcomeMessage, isConnected, screenName }: TopBarProps) {
+  const [partnerLogoFailed, setPartnerLogoFailed] = useState(false);
+  const showPartnerLogo = partnerLogoUrl && !partnerLogoFailed;
+
   return (
-    <div
-      className="tv-glass-panel flex w-full shrink-0 items-center justify-between"
-      style={{
-        height: 'var(--tv-topbar-h, 64px)',
-        paddingLeft: 'var(--tv-safe-x, 1.5rem)',
-        paddingRight: 'var(--tv-safe-x, 1.5rem)',
-      }}
-    >
-      {/* Left: logo + welcome message */}
-      <div className="flex h-full items-center gap-[1em]">
-        {partnerLogoUrl ? (
+    <div className="neo-topbar">
+      <div className="neo-logo">
+        {showPartnerLogo ? (
           <img
             src={partnerLogoUrl}
             alt="Partner"
-            className="max-h-[70%] w-auto object-contain"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            style={{ height: '2.75rem', width: 'auto' }}
+            onError={() => setPartnerLogoFailed(true)}
           />
         ) : (
+          // neofilm-wordmark.png is the white-outline mark CENTERED inside a
+          // giant transparent square. Just displaying it with height:3rem made
+          // the actual visible logo tiny because most of the box was padding.
+          // We size a wide rectangle and use object-fit:cover, which scales the
+          // image up until it fills the width then crops the empty padding.
           <img
-            src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/neofilm-logo.png`}
-            alt="NeoFilm"
-            className="max-h-[70%] w-auto object-contain"
+            src={`${BASE_PATH}/neofilm-wordmark.png`}
+            alt="NEOFILM"
+            style={{
+              height: '4rem',
+              width: '17rem',
+              objectFit: 'cover',
+              objectPosition: 'center',
+              display: 'block',
+            }}
           />
-        )}
-        {welcomeMessage && (
-          <>
-            <div className="bg-border" style={{ width: '1px', height: '1.5em' }} />
-            <span className="text-muted-foreground" style={{ fontSize: '0.9em' }}>
-              {welcomeMessage}
-            </span>
-          </>
         )}
       </div>
 
-      {/* Right: screen name + clock + status */}
-      <div className="flex items-center gap-[1em]">
-        {screenName && (
-          <span className="text-muted-foreground" style={{ fontSize: '0.8em' }}>
-            {screenName}
-          </span>
+      <div className="neo-right">
+        <div className="neo-clock">
+          <ClockWidget />
+        </div>
+        {(screenName || welcomeMessage) && (
+          <div className="neo-stay">
+            <span className="neo-label">Logement</span>
+            <span className="neo-name">{screenName || welcomeMessage}</span>
+          </div>
         )}
-        <div className="bg-border" style={{ width: '1px', height: '1.25em' }} />
-        <ClockWidget />
-        <StatusIndicator connected={isConnected} />
+        <div className="neo-status">
+          <span
+            className="neo-dot"
+            style={!isConnected ? { background: '#ef4444', boxShadow: '0 0 0 3px rgba(239,68,68,0.22), 0 0 12px rgba(239,68,68,0.8)' } : undefined}
+          />
+          {isConnected ? 'Online' : 'Offline'}
+        </div>
       </div>
     </div>
   );

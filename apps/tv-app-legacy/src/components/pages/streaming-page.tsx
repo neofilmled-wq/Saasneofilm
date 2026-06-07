@@ -6,6 +6,78 @@ import { useAdInterval } from '@/hooks/use-ad-interval';
 
 import type { StreamingService } from '@/lib/device-api';
 
+/**
+ * Inline brand glyphs — embedded as SVG so they render reliably in the WebView
+ * regardless of network availability or asset caching. Each glyph fills its
+ * container and uses object-fit: contain semantics via viewBox.
+ */
+function BrandGlyph({ name }: { name: string }) {
+  const base = {
+    width: '6.5rem',
+    height: '6.5rem',
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: '1.25rem',
+    background: 'rgba(0, 0, 0, 0.45)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+  } as const;
+  if (name === 'Netflix') {
+    return (
+      <div style={{ ...base, background: '#000' }}>
+        <svg viewBox="0 0 60 80" width="60%" height="60%">
+          <defs>
+            <linearGradient id="nfx" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#E50914" />
+              <stop offset="1" stopColor="#7a0610" />
+            </linearGradient>
+          </defs>
+          <path d="M10 5 L10 75 L22 75 L22 38 L38 75 L50 75 L50 5 L38 5 L38 42 L22 5 Z" fill="url(#nfx)" />
+        </svg>
+      </div>
+    );
+  }
+  if (name === 'Prime Video') {
+    return (
+      <div style={{ ...base, background: '#0a1428' }}>
+        <svg viewBox="0 0 120 60" width="80%" height="80%">
+          <text x="60" y="36" textAnchor="middle" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="800" fontSize="22" fill="#fff">
+            prime
+          </text>
+          <path d="M16 46 Q60 60 104 46" stroke="#00A8E1" strokeWidth="4" fill="none" strokeLinecap="round" />
+        </svg>
+      </div>
+    );
+  }
+  if (name === 'Disney+') {
+    return (
+      <div style={{ ...base, background: '#0b1838' }}>
+        <svg viewBox="0 0 120 50" width="85%" height="85%">
+          <text x="55" y="36" textAnchor="middle" fontFamily="Georgia, serif" fontStyle="italic" fontWeight="700" fontSize="26" fill="#fff">
+            Disney
+          </text>
+          <text x="100" y="22" textAnchor="middle" fontFamily="system-ui, sans-serif" fontWeight="700" fontSize="22" fill="#fff">+</text>
+        </svg>
+      </div>
+    );
+  }
+  if (name === 'YouTube') {
+    return (
+      <div style={{ ...base, background: '#fff' }}>
+        <svg viewBox="0 0 100 70" width="75%" height="75%">
+          <rect x="2" y="6" width="96" height="58" rx="14" fill="#FF0000" />
+          <polygon points="40,22 40,48 64,35" fill="#fff" />
+        </svg>
+      </div>
+    );
+  }
+  // Fallback initial
+  return (
+    <div style={{ ...base, background: '#1a1a1a' }}>
+      <span style={{ color: '#fff', fontWeight: 800, fontSize: '1.5rem' }}>{name.charAt(0)}</span>
+    </div>
+  );
+}
+
 interface StreamingPageProps {
   services: StreamingService[];
 }
@@ -117,156 +189,114 @@ export function StreamingPage({ services }: StreamingPageProps) {
     }
   }, [isAndroid]);
 
+  // Featured services that always appear, even if the matching native app
+  // isn't installed on the Fire Stick yet. Opens in the WebView split-screen
+  // browser via the NeoFilmAndroid bridge — same UX as a native app launch.
+  const FEATURED_SERVICES: InstalledStreamingApp[] = [
+    { packageName: 'com.netflix.ninja',          name: 'Netflix',     color: '#E50914', icon: '', webUrl: 'https://www.netflix.com/browse' },
+    { packageName: 'com.amazon.amazonvideo.livingroom', name: 'Prime Video', color: '#00A8E1', icon: '', webUrl: 'https://www.primevideo.com' },
+    { packageName: 'com.disney.disneyplus',      name: 'Disney+',     color: '#113CCF', icon: '', webUrl: 'https://www.disneyplus.com' },
+    { packageName: 'com.google.android.youtube.tv', name: 'YouTube', color: '#FF0000', icon: '', webUrl: 'https://m.youtube.com' },
+  ];
+
+  // Merge installed apps + featured ones (avoiding duplicates by name).
+  const displayApps = (() => {
+    const seenNames = new Set(installedApps.map((a) => a.name));
+    const featured = FEATURED_SERVICES.filter((s) => !seenNames.has(s.name));
+    return [...installedApps, ...featured];
+  })();
+
   const handleAppClick = useCallback((app: InstalledStreamingApp) => {
     if (app.webUrl && window.NeoFilmAndroid?.openWebPage) {
-      // Open in split-screen browser WebView (native Android side)
       window.NeoFilmAndroid.openWebPage(app.webUrl);
     } else {
       launchApp(app.packageName);
     }
   }, []);
 
-  /** Map service names to web URLs for split-screen browsing */
-  const handleServiceClick = useCallback((service: StreamingService) => {
-    const webUrls: Record<string, string> = {
-      'Netflix': 'https://www.netflix.com/browse',
-      'Disney+': 'https://www.disneyplus.com',
-      'Amazon Prime Video': 'https://www.primevideo.com',
-      'Prime Video': 'https://www.primevideo.com',
-      'YouTube': 'https://m.youtube.com',
-      'HBO Max': 'https://play.max.com',
-      'Max': 'https://play.max.com',
-      'Apple TV+': 'https://tv.apple.com',
-      'Canal+': 'https://www.canalplus.com',
-      'myCanal': 'https://www.canalplus.com',
-      'myCANAL': 'https://www.canalplus.com',
-      'Paramount+': 'https://www.paramountplus.com',
-      'Crunchyroll': 'https://www.crunchyroll.com',
-      'Twitch': 'https://m.twitch.tv',
-      'ARTE': 'https://www.arte.tv/fr/',
-      'france.tv': 'https://www.france.tv',
-      'Molotov': 'https://www.molotov.tv',
-      'Spotify': 'https://open.spotify.com',
-      'DAZN': 'https://www.dazn.com',
-      'Plex': 'https://app.plex.tv',
-    };
-    const url = webUrls[service.name];
-    if (url && window.NeoFilmAndroid?.openWebPage) {
-      window.NeoFilmAndroid.openWebPage(url);
-    }
-  }, []);
-
-  const hasInstalledApps = installedApps.length > 0;
-  const hasConfiguredServices = services.length > 0;
-
-  // ── Grid mode ──
-  if (!hasInstalledApps && !hasConfiguredServices) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-muted-foreground" style={{ fontSize: '1.25em' }}>
-          Aucun service de streaming disponible
-        </p>
-      </div>
-    );
-  }
+  // The new UI surfaces featured + installed apps directly; partner-configured
+  // services (passed in via props) are no longer rendered.
+  void services;
 
   return (
-    <div className="relative h-full" style={{ background: 'transparent' }}>
-      {/* Ambient mesh glow — deep blue/cyan tones */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <div style={{
-          position: 'absolute', top: '-20%', right: '-10%', width: '50%', height: '60%',
-          background: 'radial-gradient(ellipse, rgba(14, 165, 233, 0.1) 0%, transparent 65%)',
-          filter: 'blur(60px)',
-        }} />
-        <div style={{
-          position: 'absolute', bottom: '-10%', left: '-5%', width: '40%', height: '50%',
-          background: 'radial-gradient(ellipse, rgba(6, 182, 212, 0.08) 0%, transparent 65%)',
-          filter: 'blur(80px)',
-        }} />
-        <div style={{
-          position: 'absolute', top: '30%', left: '40%', width: '30%', height: '40%',
-          background: 'radial-gradient(ellipse, rgba(2, 132, 199, 0.05) 0%, transparent 70%)',
-          filter: 'blur(60px)',
-        }} />
+    <div className="neo-subscreen-main" style={{ height: '100%' }}>
+      <div className="neo-sub-head">
+        <div>
+          <div className="neo-crumb">Accueil › Streaming</div>
+          <h1>Applications de streaming</h1>
+        </div>
+        <div className="neo-count">{displayApps.length} apps disponibles</div>
       </div>
-      {/* Periodic ad overlay — shown for 15–30 s every 2 h */}
+
       {isShowingAd && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90">
-          <p className="mb-[0.5em] text-muted-foreground" style={{ fontSize: '0.75em', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-            Publicite
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 50,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0,0,0,0.9)',
+          }}
+        >
+          <p
+            style={{
+              color: 'var(--neo-t-3)',
+              fontSize: 12,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+            }}
+          >
+            Publicité
           </p>
-          <div className="flex h-[60%] w-[80%] max-w-[960px] items-center justify-center rounded-xl bg-card">
-            <span className="text-muted-foreground" style={{ fontSize: '1.25em' }}>Espace publicitaire</span>
-          </div>
         </div>
       )}
+
       <div
         ref={containerRef}
-        className="relative z-10 h-full overflow-y-auto tv-page-enter"
-        style={{ padding: 'var(--tv-safe-x, 1.5rem)' }}
+        data-tv-nav-group="streaming-apps"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+          gap: '1.125rem',
+          padding: '0.25rem',
+          overflow: 'auto',
+        }}
       >
-        {/* Installed streaming apps from Android */}
-        {hasInstalledApps && (
-          <>
-            <h2
-              className="mb-[0.75em] font-semibold text-muted-foreground"
-              style={{ fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+        {displayApps.map((app) => (
+            <button
+              key={app.packageName}
+              data-tv-focusable
+              onClick={() => handleAppClick(app)}
+              className="neo-app-card"
+              style={{
+                appearance: 'none',
+                cursor: 'pointer',
+                color: 'inherit',
+                fontFamily: 'inherit',
+                gap: 10,
+                flexDirection: 'column',
+                background: `linear-gradient(135deg, ${app.color}, ${app.color}33)`,
+              }}
             >
-              Vos applications de streaming
-            </h2>
-            <div
-              className="grid gap-[1em] mb-[1.5em]"
-              style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}
-            >
-              {installedApps.map((app) => (
-                <button
-                  key={app.packageName}
-                  data-tv-focusable
-                  className="tv-card tv-card--service flex flex-col items-center justify-center"
+              {app.icon ? (
+                <img
+                  src={`data:image/png;base64,${app.icon}`}
+                  alt={app.name}
                   style={{
-                    backgroundColor: `${app.color}22`,
-                    borderColor: app.color,
-                    padding: '1.5em 1em',
-                    aspectRatio: '16/9',
+                    width: '6.5rem',
+                    height: '6.5rem',
+                    borderRadius: '1.25rem',
+                    objectFit: 'contain',
                   }}
-                  onClick={() => handleAppClick(app)}
-                >
-                  {app.icon ? (
-                    <img
-                      src={`data:image/png;base64,${app.icon}`}
-                      alt={app.name}
-                      className="mb-[0.5em] h-[3em] w-[3em] rounded-xl object-contain"
-                    />
-                  ) : (
-                    <div
-                      className="mb-[0.5em] flex items-center justify-center rounded-xl font-bold"
-                      style={{
-                        width: '3em',
-                        height: '3em',
-                        fontSize: '1.25em',
-                        backgroundColor: app.color,
-                        color: '#fff',
-                      }}
-                    >
-                      {app.name.charAt(0)}
-                    </div>
-                  )}
-                  <span className="text-center font-semibold text-foreground" style={{ fontSize: '1em' }}>
-                    {app.name}
-                  </span>
-                  {app.webUrl && (
-                    <span className="mt-[0.2em] text-muted-foreground" style={{ fontSize: '0.65em' }}>
-                      Web
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* Backend services hidden — only show installed apps */}
+                />
+              ) : (
+                <BrandGlyph name={app.name} />
+              )}
+              <span className="neo-app-name">{app.name}</span>
+            </button>
+          ))}
       </div>
     </div>
   );

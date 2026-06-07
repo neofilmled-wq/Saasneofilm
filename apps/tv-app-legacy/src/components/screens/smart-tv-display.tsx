@@ -6,10 +6,9 @@ import { useTvConfig } from '@/hooks/use-tv-config';
 import { useAdQueue } from '@/hooks/use-ad-queue';
 import { TopBar } from '@/components/layout/top-bar';
 import { TabNavigation, type TabKey } from '@/components/layout/tab-navigation';
-import { TickerBar } from '@/components/layout/ticker-bar';
-import { AdZone } from '@/components/layout/ad-zone';
-import { PromoMarquee } from '@/components/layout/promo-marquee';
-import { HomePage, type HomeDestination } from '@/components/pages/home-page';
+import { Sidebar, PromoList, AnnoncePanel } from '@/components/layout/sidebar';
+import { PartnerBanner } from '@/components/layout/partner-banner';
+import { HomeTileCard, buildHomeTiles, type HomeDestination } from '@/components/pages/home-page';
 import { TntPage } from '@/components/pages/tnt-page';
 import { StreamingPage } from '@/components/pages/streaming-page';
 import { ActivitiesPage } from '@/components/pages/activities-page';
@@ -43,7 +42,7 @@ interface SmartTvDisplayProps {
  *
  * Interstitial ads overlay the entire screen on boot, tab change, etc.
  */
-export function SmartTvDisplay({ layout, onHlsChannelOpen, onChannelListReady }: SmartTvDisplayProps) {
+export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelListReady }: SmartTvDisplayProps) {
   const { schedule, isConnected, token, screenId, registerTvCallbacks } = useDevice();
 
   const handleAuthError = useCallback(() => {
@@ -171,9 +170,6 @@ export function SmartTvDisplay({ layout, onHlsChannelOpen, onChannelListReady }:
     [activeTab],
   );
 
-  // Global ad sidebar — shared across all tabs so the <video> instance persists
-  const hasAds = rotationAds.length > 0 || houseAds.length > 0;
-
   const screenName =
     typeof window !== 'undefined' ? localStorage.getItem('neofilm_screen_name') : null;
 
@@ -188,6 +184,7 @@ export function SmartTvDisplay({ layout, onHlsChannelOpen, onChannelListReady }:
     return () => clearTimeout(timer);
   }, [isLoading]);
 
+
   if (isLoading && !configTimedOut) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-[#0a0a0f]">
@@ -199,23 +196,40 @@ export function SmartTvDisplay({ layout, onHlsChannelOpen, onChannelListReady }:
     );
   }
 
+  // Map home tile destinations → tab keys
+  const onHomeNavigate = (dest: HomeDestination) => {
+    const map: Partial<Record<HomeDestination, TabKey>> = {
+      TNT: 'TNT',
+      ACTIVITIES: 'ACTIVITIES',
+      STREAMING: 'STREAMING',
+      APPS: 'APPS',
+      ADDRESSES: 'ADDRESSES',
+      CONCIERGE: 'HOME',
+    };
+    const tab = map[dest];
+    if (tab) handleTabChange(tab);
+  };
+
+  // HOME tab gets a custom 4-column grid so the annonce panel can span the
+  // empty bottom-right home-grid cell + the sidebar bottom in ONE seamless
+  // wide panel — that's the "annonce takes the empty space recommendation
+  // left" layout the user asked for.
+  const homeTiles = buildHomeTiles({
+    channelCount: channels?.filter((c: any) => c.streamUrl).length,
+    streamingCount: streamingServices?.length,
+    activitiesCount: activities?.length,
+    addressesCount: catalogue?.length,
+  }).filter((t) => !t.module || enabledModules.includes(t.module));
+
   return (
-    <>
-      {/* Interstitial disabled — AdActivity native handles ads */}
-
-      {/* Ambient background gradient */}
-      <div className="tv-ambient-bg" />
-
-      {/* Glass shell — main floating container */}
+    <div className="neo-fit-wrap" data-neofilm-ready>
       <div
-        className="tv-glass-shell relative z-10 flex flex-col overflow-hidden"
+        className="neo-fit-stage neo-grain"
         style={{
-          position: 'absolute',
-          top: 'var(--tv-safe-y, 1.2vh)', right: 'var(--tv-safe-x, 1.2vw)',
-          bottom: 'var(--tv-safe-y, 1.2vh)', left: 'var(--tv-safe-x, 1.2vw)',
+          display: 'grid',
+          gridTemplateRows: '5.25rem 4.75rem minmax(0, 1fr) auto',
         }}
       >
-        {/* Top bar */}
         <TopBar
           partnerLogoUrl={config?.partnerLogoUrl ?? null}
           welcomeMessage={config?.welcomeMessage ?? null}
@@ -223,123 +237,110 @@ export function SmartTvDisplay({ layout, onHlsChannelOpen, onChannelListReady }:
           screenName={screenName}
         />
 
-        {/* Tab navigation */}
         <TabNavigation
           enabledModules={enabledModules}
           activeTab={activeTab}
           onTabChange={handleTabChange}
         />
 
-        {/* Main content area — split between page and ads */}
-        <div
-          className="flex min-h-0 flex-1 overflow-hidden"
-          style={{ flexDirection: layout.orientation === 'horizontal' ? 'row' : 'column' }}
-        >
-          {/* Content page — only the active tab is mounted.
-              The shared AdZone below keeps the <video> instance alive across tab
-              changes, so unmounting the inactive pages here is safe. */}
+        {activeTab === 'HOME' ? (
+          /* HOME tab: 4-col 2-row unified grid.
+              Top row    : 3 tiles + codes promo (sidebar col)
+              Bottom row : 2 tiles + annonce (spans cols 3+4) */
           <div
-            className="relative min-h-0 min-w-0 overflow-hidden"
-            style={{ flex: hasAds ? layout.mainFlex : 1 }}
+            data-tv-nav-group="home-tiles"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 33rem',
+              gridTemplateRows: 'minmax(0, 1fr) minmax(0, 1fr)',
+              gap: 'var(--neo-gap)',
+              padding: '1.25rem 3rem 0.75rem',
+              minHeight: 0,
+              overflow: 'hidden',
+            }}
           >
-            {activeTab === 'HOME' && (
-              <HomePage
-                onNavigate={(dest: HomeDestination) => {
-                  const map: Record<HomeDestination, TabKey | null> = { TNT:'TNT', ACTIVITIES:'ACTIVITIES', STREAMING:'STREAMING', APPS:'APPS' };
-                  const tab = map[dest]; if (tab) handleTabChange(tab);
-                }}
-                enabledModules={enabledModules}
+            {homeTiles.slice(0, 3).map((tile, idx) => (
+              <HomeTileCard
+                key={tile.id}
+                tile={tile}
+                idx={idx}
+                onClick={() => onHomeNavigate(tile.id)}
               />
-            )}
-            {activeTab === 'TNT' && (
-              <TntPage
-                channels={channels}
-                onChannelOpen={(ch) => onHlsChannelOpen?.({ name: ch.name, streamUrl: ch.streamUrl! })}
+            ))}
+            <div style={{ gridColumn: '4', gridRow: '1', minHeight: 0 }}>
+              <PromoList catalogue={catalogue ?? []} />
+            </div>
+            {homeTiles.slice(3, 5).map((tile, i) => (
+              <HomeTileCard
+                key={tile.id}
+                tile={tile}
+                idx={3 + i}
+                onClick={() => onHomeNavigate(tile.id)}
               />
-            )}
-            {activeTab === 'STREAMING' && <StreamingPage services={streamingServices} />}
-            {activeTab === 'ACTIVITIES' && (
-              <ActivitiesPage activities={activities} catalogue={catalogue} />
-            )}
-            {activeTab === 'APPS' && <AppsPage />}
-            {activeTab === 'SETTINGS' && <SettingsPage />}
-          </div>
-
-          {/* Global ad zone — always shown across all tabs so the same <video>
-              instance keeps playing without restart when switching categories. */}
-          {hasAds && (
-            <>
-              <div
-                className="tv-glass-divider shrink-0"
-                style={{
-                  width: layout.orientation === 'horizontal' ? '1px' : '100%',
-                  height: layout.orientation === 'horizontal' ? '100%' : '1px',
-                }}
-              />
-              <div
-                className="min-h-0 min-w-0 overflow-hidden flex flex-col"
-                style={{ flex: layout.adFlex, padding: '1.5vw 0.5em', gap: '0.75em' }}
-              >
-                {/* Top portion — infinite vertical marquee of all promo codes (random order) */}
-                <div className="flex min-h-0 flex-1 flex-col gap-[0.5em]">
-                  <p
-                    className="text-muted-foreground"
-                    style={{ fontSize: '0.7em', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-                  >
-                    Codes promo partenaires
-                  </p>
-                  <PromoMarquee catalogue={catalogue ?? []} />
-                </div>
-
-                {/* Bottom portion — ad video aligned to the very bottom of the column
-                    so its edge matches the bottom of the home cards on the left. */}
-                <div className="flex flex-col mt-auto">
-                  <p
-                    className="text-muted-foreground"
-                    style={{ fontSize: '0.7em', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5em' }}
-                  >
-                    Nos partenaires
-                  </p>
-                  <div
-                    className="overflow-hidden rounded-xl"
-                    style={{ width: '100%', aspectRatio: '16 / 9' }}
-                  >
-                    <AdZone
-                      houseAds={houseAds}
-                      targetedAds={rotationAds}
-                      rotationMs={macros?.adRotationMs}
-                      onImpression={reportImpression}
-                    />
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Partner banner — full width, shown above the ticker */}
-        {partnerBannerUrl && (
-          <div
-            className="shrink-0 overflow-hidden"
-            style={{ height: '6.5vh', background: '#000' }}
-          >
-            <img
-              src={partnerBannerUrl}
-              alt="Bannière partenaire"
-              className="h-full w-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
+            ))}
+            <div
+              style={{
+                gridColumn: '3 / span 2',
+                gridRow: '2',
+                minHeight: 0,
               }}
+            >
+              <AnnoncePanel
+                houseAds={houseAds}
+                rotationAds={rotationAds}
+                adRotationMs={macros?.adRotationMs}
+                onAdImpression={reportImpression}
+              />
+            </div>
+          </div>
+        ) : (
+          /* Other tabs: classic content + sidebar (codes promo + annonce). */
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 1fr) 33rem',
+              gap: '1.75rem',
+              padding: '1.25rem 3rem 0.75rem',
+              minHeight: 0,
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+              {activeTab === 'TNT' && (
+                <TntPage
+                  channels={channels}
+                  onChannelOpen={(ch) => onHlsChannelOpen?.({ name: ch.name, streamUrl: ch.streamUrl! })}
+                />
+              )}
+              {activeTab === 'STREAMING' && <StreamingPage services={streamingServices} />}
+              {activeTab === 'ADDRESSES' && (
+                <ActivitiesPage activities={activities} catalogue={catalogue} />
+              )}
+              {activeTab === 'ACTIVITIES' && (
+                <ActivitiesPage activities={activities} catalogue={catalogue} />
+              )}
+              {activeTab === 'APPS' && <AppsPage />}
+              {activeTab === 'SETTINGS' && <SettingsPage />}
+            </div>
+
+            <Sidebar
+              catalogue={catalogue ?? []}
+              houseAds={houseAds}
+              rotationAds={rotationAds}
+              adRotationMs={macros?.adRotationMs}
+              onAdImpression={reportImpression}
+              reversed={activeTab === 'TNT'}
             />
           </div>
         )}
 
-        {/* Ticker bar */}
-        <TickerBar
-          isConnected={isConnected}
-          tickerHeight={layout.tickerHeight}
+        <PartnerBanner
+          partnerName={config?.welcomeMessage ?? screenName ?? null}
+          city={null}
+          partnerBannerUrl={partnerBannerUrl ?? null}
         />
       </div>
-    </>
+    </div>
   );
 }
+

@@ -1,12 +1,24 @@
 'use client';
 
+import { Wifi, Volume2, Monitor, Globe, Bluetooth, Info, Settings as SettingsIcon } from 'lucide-react';
 import { useDevice } from '@/providers/device-provider';
-import { StatusIndicator } from '@/components/common/status-indicator';
 
-/**
- * Settings / device info page.
- * Shows connection status, device ID, screen info, version.
- */
+interface SettingTile {
+  key: string;
+  label: string;
+  desc: string;
+  icon: React.ComponentType<{ size?: number }>;
+}
+
+const SETTING_TILES: SettingTile[] = [
+  { key: 'wifi',      label: 'Wi-Fi',     desc: 'Configurer le réseau sans fil', icon: Wifi },
+  { key: 'display',   label: 'Affichage', desc: 'Résolution, luminosité',         icon: Monitor },
+  { key: 'sound',     label: 'Son',       desc: 'Volume, sortie audio',           icon: Volume2 },
+  { key: 'language',  label: 'Langue',    desc: 'Langue de l\'interface',         icon: Globe },
+  { key: 'bluetooth', label: 'Bluetooth', desc: 'Appairer télécommandes / casque',icon: Bluetooth },
+  { key: 'about',     label: 'À propos',  desc: 'Numéro de série, version',       icon: Info },
+];
+
 export function SettingsPage() {
   const { deviceId, screenId, isConnected, state } = useDevice();
 
@@ -15,86 +27,115 @@ export function SettingsPage() {
   const serial =
     typeof window !== 'undefined' ? localStorage.getItem('neofilm_device_serial') : null;
 
-  const infoRows = [
-    { label: 'Etat', value: state },
-    { label: 'Appareil', value: deviceId || '-' },
-    { label: 'Numero de serie', value: serial || '-' },
-    { label: 'Ecran', value: screenName || screenId || '-' },
-    { label: 'Version', value: 'v1.0.0' },
-  ];
+  const openSystemSettings = () => {
+    try {
+      (window as { NeoFilmAndroid?: { openSystemSettings?: () => void } }).NeoFilmAndroid?.openSystemSettings?.();
+    } catch (e) {
+      console.error('[Settings] openSystemSettings failed:', e);
+    }
+  };
 
   return (
-    <div
-      className="h-full overflow-y-auto"
-      style={{ padding: 'var(--tv-safe-x, 1.5rem)' }}
-    >
-      <h2
-        className="mb-[1em] font-semibold text-muted-foreground"
-        style={{ fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-      >
-        Parametres de l'appareil
-      </h2>
-
-      {/* Connection status */}
-      <div
-        className="mb-[1.5em] flex items-center gap-[0.75em] rounded-xl"
-        style={{ padding: '1em', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(12px)' }}
-      >
-        <StatusIndicator connected={isConnected} />
-        <span style={{ fontSize: '1em' }}>
-          {isConnected ? 'Connecte au serveur' : 'Hors ligne'}
-        </span>
-      </div>
-
-      {/* Info rows */}
-      <div className="rounded-xl" style={{ padding: '0.5em 0', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(12px)' }}>
-        {infoRows.map((row, i) => (
-          <div
-            key={row.label}
-            className={`flex items-center justify-between ${
-              i < infoRows.length - 1 ? 'border-b border-border' : ''
-            }`}
-            style={{ padding: '0.75em 1em' }}
-          >
-            <span className="text-muted-foreground" style={{ fontSize: '0.85em' }}>
-              {row.label}
-            </span>
-            <span
-              className="max-w-[60%] truncate font-mono text-foreground"
-              style={{ fontSize: '0.85em' }}
-            >
-              {row.value}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* System settings access — gated by PIN on the native side */}
-      <button
-        data-tv-focusable
-        onClick={() => {
-          try {
-            (window as any).NeoFilmAndroid?.openSystemSettings?.();
-          } catch (e) {
-            console.error('[Settings] openSystemSettings failed:', e);
-          }
-        }}
-        className="tv-card mt-[1.5em] flex w-full items-center gap-[0.75em] text-left"
-        style={{ padding: '1em' }}
-      >
-        <span style={{ fontSize: '1.5em' }}>⚙️</span>
-        <div className="flex flex-1 flex-col">
-          <span className="font-semibold text-foreground" style={{ fontSize: '1em' }}>
-            Paramètres système Fire TV
-          </span>
-          <span className="text-muted-foreground" style={{ fontSize: '0.8em' }}>
-            Wi-Fi, son, affichage… (code requis)
-          </span>
+    <div className="neo-subscreen-main" style={{ height: '100%', overflow: 'auto' }}>
+      <div className="neo-sub-head">
+        <div>
+          <div className="neo-crumb">Accueil › Paramètres</div>
+          <h1>Paramètres</h1>
         </div>
-        <span className="text-muted-foreground" style={{ fontSize: '1.2em' }}>›</span>
-      </button>
+        <div className="neo-count">{isConnected ? 'Système connecté' : 'Hors ligne'}</div>
+      </div>
 
-      {/* Reset pairing — disabled on TV, only available from partner dashboard */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        {SETTING_TILES.map((tile) => {
+          const Ic = tile.icon;
+          return (
+            <button
+              key={tile.key}
+              data-tv-focusable
+              onClick={openSystemSettings}
+              className="neo-addr"
+              style={{
+                appearance: 'none',
+                color: 'inherit',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                gridTemplateColumns: '88px 1fr auto',
+                textAlign: 'left',
+              }}
+            >
+              <div
+                className="neo-addr-thumb"
+                style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#fff' }}
+              >
+                <Ic size={24} />
+              </div>
+              <div className="neo-addr-body">
+                <div className="neo-name">{tile.label}</div>
+                <div className="neo-desc">{tile.desc}</div>
+              </div>
+              <div className="neo-addr-cta">Ouvrir →</div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Device info footer */}
+      <div
+        style={{
+          marginTop: 24,
+          padding: 18,
+          border: '1px solid var(--neo-line)',
+          borderRadius: 14,
+          background: 'rgba(255,255,255,0.02)',
+        }}
+      >
+        <div
+          style={{
+            fontSize: 11,
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            color: 'var(--neo-t-3)',
+            marginBottom: 12,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <SettingsIcon size={12} /> Informations appareil
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 13 }}>
+          <div style={{ color: 'var(--neo-t-3)' }}>État</div>
+          <div style={{ color: 'var(--neo-t-1)', fontFamily: 'monospace' }}>{state}</div>
+          <div style={{ color: 'var(--neo-t-3)' }}>Écran</div>
+          <div style={{ color: 'var(--neo-t-1)', fontFamily: 'monospace' }}>
+            {screenName || screenId || '—'}
+          </div>
+          <div style={{ color: 'var(--neo-t-3)' }}>Appareil</div>
+          <div
+            style={{
+              color: 'var(--neo-t-1)',
+              fontFamily: 'monospace',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {deviceId || '—'}
+          </div>
+          <div style={{ color: 'var(--neo-t-3)' }}>Numéro de série</div>
+          <div
+            style={{
+              color: 'var(--neo-t-1)',
+              fontFamily: 'monospace',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {serial || '—'}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

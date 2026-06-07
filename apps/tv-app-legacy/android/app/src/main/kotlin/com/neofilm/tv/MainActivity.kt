@@ -991,6 +991,18 @@ class MainActivity : AppCompatActivity() {
             if (request.method != "GET") return null
             if (!url.startsWith("http")) return null
 
+            // The browser <video> element always issues Range requests (bytes=0-, then
+            // pulls more chunks as it plays). Returning a plain 200 OK with the full
+            // file confuses the media stack into emitting MediaPlaybackErrorEvent
+            // hundreds of times per second. Supporting Range properly here means
+            // parsing the header and emitting 206 Partial Content with Content-Range,
+            // which is non-trivial — for now, when the request asks for a range we
+            // fall back to the network path so the video plays correctly. The bulk of
+            // the speedup still comes from AdCacheManager's background prefetch +
+            // Chromium's own HTTP cache, just without the disk fast-path for videos.
+            val hasRange = request.requestHeaders?.keys?.any { it.equals("Range", ignoreCase = true) } == true
+            if (hasRange) return null
+
             val cached = AdCacheManager.getCachedFile(applicationContext, url) ?: return null
 
             return try {
@@ -1008,6 +1020,8 @@ class MainActivity : AppCompatActivity() {
                 val headers = mapOf(
                     "Access-Control-Allow-Origin" to "*",
                     "Cache-Control" to "public, max-age=31536000",
+                    "Content-Length" to cached.length().toString(),
+                    "Accept-Ranges" to "bytes",
                 )
                 android.webkit.WebResourceResponse(
                     mime,

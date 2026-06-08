@@ -7,7 +7,8 @@ import { useAdQueue } from '@/hooks/use-ad-queue';
 import { TopBar } from '@/components/layout/top-bar';
 import { TabNavigation, type TabKey } from '@/components/layout/tab-navigation';
 import { Sidebar, PromoList, AnnoncePanel } from '@/components/layout/sidebar';
-import { PartnerBanner } from '@/components/layout/partner-banner';
+// PartnerBanner removed from the WebView per product call — the partner
+// banner uploaded in the portal is no longer rendered on the TV.
 import { HomeTileCard, buildHomeTiles, type HomeDestination } from '@/components/pages/home-page';
 import { TntPage } from '@/components/pages/tnt-page';
 import { StreamingPage } from '@/components/pages/streaming-page';
@@ -49,7 +50,7 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
     // Auth errors are handled by DeviceProvider
   }, []);
 
-  const { config, channels, streamingServices, activities, catalogue, macros, partnerBannerUrl, isLoading, refetch, updateMacros } = useTvConfig({
+  const { config, channels, streamingServices, activities, catalogue, macros, isLoading, refetch, updateMacros } = useTvConfig({
     token,
     onAuthError: handleAuthError,
   });
@@ -321,11 +322,6 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
           </div>
         )}
 
-        <PartnerBanner
-          partnerName={config?.welcomeMessage ?? screenName ?? null}
-          city={null}
-          partnerBannerUrl={partnerBannerUrl ?? null}
-        />
       </div>
     </div>
   );

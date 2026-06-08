@@ -68,23 +68,8 @@ export function BannerUpload({ value, onChange }: BannerUploadProps) {
     if (file) handleFile(file);
   }
 
-  if (value) {
-    return (
-      <div className="relative aspect-[10/1] w-full overflow-hidden rounded-lg border bg-muted">
-        <img src={value} alt="Aperçu bannière" className="h-full w-full object-cover" />
-        <button
-          type="button"
-          onClick={() => onChange(null)}
-          className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <>
+    <div className="space-y-3">
       <div
         className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors ${
           dragOver ? 'border-primary bg-primary/5' : 'hover:border-primary/50 hover:bg-muted/50'
@@ -108,7 +93,9 @@ export function BannerUpload({ value, onChange }: BannerUploadProps) {
               <Upload className="h-6 w-6 text-muted-foreground" />
               <ImageIcon className="h-6 w-6 text-muted-foreground" />
             </div>
-            <p className="text-sm font-medium">Glissez une bannière ou cliquez</p>
+            <p className="text-sm font-medium">
+              {value ? 'Glissez une nouvelle bannière pour la remplacer' : 'Glissez une bannière ou cliquez'}
+            </p>
             <p className="text-xs text-muted-foreground">
               JPEG, PNG, WebP — max {MAX_SIZE_MB}MB. Recommandé : 1920×200.
             </p>
@@ -118,6 +105,24 @@ export function BannerUpload({ value, onChange }: BannerUploadProps) {
           </div>
         )}
       </div>
+
+      {value && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground">Bannière actuelle</p>
+          <div className="relative aspect-[10/1] w-full overflow-hidden rounded-lg border bg-muted">
+            <img src={value} alt="Bannière actuelle" className="h-full w-full object-cover" />
+            <button
+              type="button"
+              onClick={() => onChange(null)}
+              className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
+              title="Supprimer la bannière"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <input
         ref={inputRef}
         type="file"
@@ -125,6 +130,6 @@ export function BannerUpload({ value, onChange }: BannerUploadProps) {
         className="hidden"
         onChange={handleInputChange}
       />
-    </>
+    </div>
   );
 }

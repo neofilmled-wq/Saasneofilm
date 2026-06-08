@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Film, CreditCard, AlertCircle, Pencil, Tv, BookOpen } from 'lucide-react';
+import { Check, Film, CreditCard, AlertCircle, Pencil, Tv, BookOpen, Loader2 } from 'lucide-react';
 import { Button, Card, CardContent, Checkbox } from '@neofilm/ui';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
@@ -29,6 +29,11 @@ export function StepReview() {
   const updateCampaign = useUpdateCampaign();
   const isEditing = !!editingCampaignId;
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Granular step messaging so the 1.5–3 s Stripe round-trip doesn't feel
+  // like the app is frozen — each phase of the submit pipeline updates this.
+  const [submitStep, setSubmitStep] = useState<
+    null | 'creating' | 'booking' | 'stripe' | 'redirecting'
+  >(null);
 
   const hasAdSpot = draft.types.includes('AD_SPOT');
   const hasCatalog = draft.types.includes('CATALOG_LISTING');
@@ -159,6 +164,7 @@ export function StepReview() {
         router.push(`/campaigns/${editingCampaignId}`);
       } else {
         // 1. Create the campaign first
+        setSubmitStep('creating');
         const firstId = await createCampaigns();
 
         // 2. Create a subscription draft (booking) linked to the campaign
@@ -166,6 +172,7 @@ export function StepReview() {
           ...new Set([...draft.selectedScreenIds, ...draft.catalogSelectedScreenIds]),
         ];
 
+        setSubmitStep('booking');
         const bookingDraft = await apiFetch<any>('/billing/subscription-draft', {
           method: 'POST',
           body: JSON.stringify({
@@ -178,6 +185,7 @@ export function StepReview() {
         });
 
         // 3. Create Stripe checkout session
+        setSubmitStep('stripe');
         const currentUrl = window.location.origin;
         const checkout = await apiFetch<{ sessionId: string; url: string }>('/billing/checkout', {
           method: 'POST',
@@ -190,6 +198,7 @@ export function StepReview() {
 
         // 4. Redirect to Stripe checkout
         if (checkout?.url) {
+          setSubmitStep('redirecting');
           reset();
           window.location.href = checkout.url;
           return;
@@ -205,6 +214,7 @@ export function StepReview() {
       toast.error(isEditing ? 'Erreur lors de la modification' : `Erreur lors de la création : ${err?.message ?? 'erreur inconnue'}`);
     } finally {
       setIsSubmitting(false);
+      setSubmitStep(null);
     }
   }
 
@@ -507,8 +517,21 @@ export function StepReview() {
             onClick={handleSubmit}
             disabled={isEditing ? isSubmitting : (!allChecksPass || !draft.agreedToTerms || isSubmitting)}
           >
+            {isSubmitting && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
             {isSubmitting
-              ? (isEditing ? 'Enregistrement...' : 'Redirection vers le paiement...')
+              ? (isEditing
+                  ? 'Enregistrement...'
+                  : submitStep === 'creating'
+                    ? 'Création de la campagne...'
+                    : submitStep === 'booking'
+                      ? 'Préparation de la réservation...'
+                      : submitStep === 'stripe'
+                        ? 'Connexion au paiement Stripe...'
+                        : submitStep === 'redirecting'
+                          ? 'Redirection en cours...'
+                          : 'Traitement...')
               : (isEditing ? 'Sauvegarder' : 'Payer et soumettre')}
           </Button>
         </div>

@@ -119,12 +119,17 @@ export class BillingService {
       );
     }
 
-    // Check capacity (MAX 40 advertisers per screen)
+    // Check capacity (MAX 40 advertisers per screen) — single query instead
+    // of N findUnique calls in a loop. Selecting 30 screens used to fire 30
+    // sequential SQL queries before the Stripe round-trip.
+    const fills = await this.prisma.screenFill.findMany({
+      where: { screenId: { in: screenIds } },
+      select: { screenId: true, activeAdvertiserCount: true },
+    });
+    const fillByScreen = new Map(fills.map((f) => [f.screenId, f.activeAdvertiserCount]));
     for (const screen of screens) {
-      const fill = await this.prisma.screenFill.findUnique({
-        where: { screenId: screen.id },
-      });
-      if ((fill?.activeAdvertiserCount ?? 0) >= screen.capacityMaxAdvertisers) {
+      const count = fillByScreen.get(screen.id) ?? 0;
+      if (count >= screen.capacityMaxAdvertisers) {
         throw new BadRequestException(
           `Screen "${screen.name}" (${screen.id}) has reached capacity (${screen.capacityMaxAdvertisers} advertisers)`,
         );

@@ -23,5 +23,17 @@ export async function apiFetch<T = any>(path: string, options?: RequestInit): Pr
     throw new Error(err.message || `API error: ${res.status}`);
   }
   if (res.status === 204) return undefined as T;
-  return res.json();
+  const json = await res.json();
+  // Auto-unwrap NestJS TransformInterceptor envelope so callers receive the
+  // payload directly (matches the convention in web-admin / web-advertiser).
+  if (
+    json !== null &&
+    typeof json === 'object' &&
+    'data' in json &&
+    'statusCode' in json &&
+    'timestamp' in json
+  ) {
+    return json.data as T;
+  }
+  return json as T;
 }

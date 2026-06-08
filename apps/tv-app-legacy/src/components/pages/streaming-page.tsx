@@ -96,6 +96,7 @@ const KNOWN_STREAMING_APPS: {
   { packageName: 'com.disney.disneyplus.tv', name: 'Disney+', color: '#113CCF' },
   { packageName: 'com.amazon.amazonvideo.livingroom', name: 'Prime Video', color: '#00A8E1' },
   { packageName: 'com.amazon.avod', name: 'Prime Video', color: '#00A8E1' },
+  { packageName: 'com.amazon.firetv.youtube', name: 'YouTube', color: '#FF0000' },
   { packageName: 'com.google.android.youtube.tv', name: 'YouTube', color: '#FF0000' },
   { packageName: 'com.google.android.youtube', name: 'YouTube', color: '#FF0000' },
   { packageName: 'com.google.android.youtube.tvkids', name: 'YouTube Kids', color: '#FF0000' },
@@ -194,9 +195,12 @@ export function StreamingPage({ services }: StreamingPageProps) {
   // browser via the NeoFilmAndroid bridge — same UX as a native app launch.
   const FEATURED_SERVICES: InstalledStreamingApp[] = [
     { packageName: 'com.netflix.ninja',          name: 'Netflix',     color: '#E50914', icon: '', webUrl: 'https://www.netflix.com/browse' },
-    { packageName: 'com.amazon.amazonvideo.livingroom', name: 'Prime Video', color: '#00A8E1', icon: '', webUrl: 'https://www.primevideo.com' },
+    // Prime Video skipped on purpose: no standalone app exists on Fire Stick
+    // (Fire OS integrates it into the launcher home, not as a separate APK).
+    // Surfacing a tile that can only open a website is worse UX than not
+    // showing it at all.
     { packageName: 'com.disney.disneyplus',      name: 'Disney+',     color: '#113CCF', icon: '', webUrl: 'https://www.disneyplus.com' },
-    { packageName: 'com.google.android.youtube.tv', name: 'YouTube', color: '#FF0000', icon: '', webUrl: 'https://m.youtube.com' },
+    { packageName: 'com.amazon.firetv.youtube', name: 'YouTube', color: '#FF0000', icon: '', webUrl: 'https://m.youtube.com' },
   ];
 
   // Merge installed apps + featured ones (avoiding duplicates by name).
@@ -207,10 +211,31 @@ export function StreamingPage({ services }: StreamingPageProps) {
   })();
 
   const handleAppClick = useCallback((app: InstalledStreamingApp) => {
+    // Always try the native app first. The Kotlin bridge returns true if the
+    // launch intent fired (app installed), false otherwise — only then we
+    // fall back to the in-WebView browser. Old logic did the opposite: every
+    // featured tile (Netflix/Disney+/YouTube) opened the website even when
+    // the native APK was installed on the Fire Stick.
+    //
+    // Some brands ship under multiple package names (e.g. Netflix
+    // com.netflix.ninja Fire-TV-flavored vs com.netflix.mediaclient
+    // generic-Android). We probe every known package for this brand before
+    // giving up on a native launch.
+    const candidatePkgs = [
+      app.packageName,
+      ...KNOWN_STREAMING_APPS
+        .filter((k) => k.name === app.name && k.packageName !== app.packageName)
+        .map((k) => k.packageName),
+    ];
+
+    for (const pkg of candidatePkgs) {
+      const launched = window.NeoFilmAndroid?.launchApp?.(pkg);
+      if (launched === true) return;
+    }
+
+    // None of the native packages launched — fall back to the web app.
     if (app.webUrl && window.NeoFilmAndroid?.openWebPage) {
       window.NeoFilmAndroid.openWebPage(app.webUrl);
-    } else {
-      launchApp(app.packageName);
     }
   }, []);
 

@@ -1044,6 +1044,18 @@ class MainActivity : AppCompatActivity() {
         view.evaluateJavascript("""
         (function(){
           if (window.__neoNav) return;
+          // Helper: focus an element and scroll it into view ONLY if it's
+          // currently off-screen. preventScroll skips the smooth-scroll
+          // layout flush that used to lag the tile navigation, while still
+          // letting overflow:auto grids (TNT channels) reveal hidden rows.
+          var focusInto = function(el) {
+            el.focus({preventScroll:true});
+            var r = el.getBoundingClientRect();
+            var vh = window.innerHeight, vw = window.innerWidth;
+            if (r.bottom > vh || r.top < 0 || r.right > vw || r.left < 0) {
+              el.scrollIntoView({behavior:'auto', block:'nearest', inline:'nearest'});
+            }
+          };
           window.__neoNav = function(dir, keyCode) {
             try {
               window.dispatchEvent(new KeyboardEvent('keydown', { key: dir, keyCode: keyCode || 0, bubbles: true }));
@@ -1059,7 +1071,7 @@ class MainActivity : AppCompatActivity() {
             );
             if (all.length === 0) return;
             var cur = document.activeElement;
-            if (!cur || all.indexOf(cur) < 0) { all[0].focus({preventScroll:true}); return; }
+            if (!cur || all.indexOf(cur) < 0) { focusInto(all[0]); return; }
 
             // Descending from the top tab bar → pick the top-left-most visible
             // focusable located below the tab bar, regardless of the active tab.
@@ -1076,7 +1088,7 @@ class MainActivity : AppCompatActivity() {
                   if (Math.abs(ar.top - br.top) > 8) return ar.top - br.top;
                   return ar.left - br.left;
                 });
-                below[0].focus({preventScroll:true});
+                focusInto(below[0]);
                 return;
               }
             }
@@ -1093,7 +1105,7 @@ class MainActivity : AppCompatActivity() {
               else if (dir === 'ArrowLeft') tc--;
               else if (dir === 'ArrowRight') tc++;
               var target = document.querySelector('[data-tv-focusable][data-tv-row="'+tr+'"][data-tv-col="'+tc+'"]');
-              if (target) { target.focus({preventScroll:true}); return; }
+              if (target) { focusInto(target); return; }
             }
 
             // Spatial fallback for layouts without row/col — single pass, no
@@ -1115,7 +1127,7 @@ class MainActivity : AppCompatActivity() {
               var score = primary + secondary * 2;
               if (score < bestScore) { bestScore = score; best = el; }
             }
-            if (best) best.focus({preventScroll:true});
+            if (best) focusInto(best);
           };
         })();
         """.trimIndent(), null)

@@ -153,22 +153,23 @@ html, body {
 
 [data-tv-focusable]:focus {
   outline: none;
+  /* Stronger ring instead of transform scale — compositing layers from
+     scale() were the heaviest per-keypress cost on the Fire Stick basique. */
   box-shadow:
     0 0 0 3px hsl(var(--background)),
-    0 0 0 5px hsl(var(--primary));
-  transform: scale(1.04);
+    0 0 0 6px hsl(var(--primary));
   z-index: 10;
   position: relative;
   border-color: hsl(var(--primary)) !important;
   transition:
-    box-shadow 0.15s ease,
-    transform 0.15s ease,
-    border-color 0.15s ease;
+    box-shadow 0.12s ease,
+    border-color 0.12s ease;
 }
 
 [data-tv-focusable]:active {
-  transform: scale(0.97);
-  transition: transform 0.08s ease;
+  /* No active scale either — same reason. */
+  filter: brightness(0.9);
+  transition: filter 0.06s ease;
 }
 
 /* ============================================================
@@ -199,8 +200,7 @@ html, body {
   background: rgba(15, 40, 70, 0.85);
   box-shadow:
     0 0 0 2px hsl(var(--background)),
-    0 0 0 4px hsl(var(--primary));
-  transform: scale(1.04);
+    0 0 0 5px hsl(var(--primary));
   z-index: 10;
 }
 
@@ -210,10 +210,12 @@ html, body {
   font-size: 1.1em;
 }
 
-/* Channel + service variants share the base focus style */
+/* Channel + service variants share the base focus style (no scale — perf) */
 .tv-card--channel:focus,
 .tv-card--service:focus {
-  transform: scale(1.05);
+  box-shadow:
+    0 0 0 2px hsl(var(--background)),
+    0 0 0 6px hsl(var(--primary));
 }
 
 /* Active/selected state */
@@ -274,8 +276,7 @@ html, body {
   color: hsl(var(--primary-foreground));
   box-shadow:
     0 0 0 2px hsl(var(--background)),
-    0 0 0 4px hsl(var(--primary));
-  transform: scale(1.03);
+    0 0 0 5px hsl(var(--primary));
   z-index: 10;
   position: relative;
 }
@@ -308,27 +309,19 @@ html, body {
 .tv-app-card:focus {
   border-color: hsl(var(--primary));
   background: hsl(var(--primary) / 0.15);
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.3);
-  transform: scale(1.05);
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  box-shadow: 0 0 0 4px hsl(var(--primary) / 0.4);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 /* ============================================================
    PAGE TRANSITIONS
    ============================================================ */
+/* tv-page-enter was a 300ms fade+slide on every tab switch. On Fire Stick
+   it added 300ms of perceived lag on top of the actual mount cost, so the
+   navigation felt sluggish. Keep the class for backward compat but make it
+   a no-op — switches are now instant. */
 .tv-page-enter {
-  animation: tvPageIn 0.3s ease forwards;
-}
-
-@keyframes tvPageIn {
-  from {
-    opacity: 0;
-    transform: translateX(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  /* no animation — instant switch */
 }
 
 /* Netflix-like shimmer placeholder */
@@ -357,10 +350,10 @@ html, body {
   position: fixed;
   top: 0; right: 0; bottom: 0; left: 0;
   z-index: 0;
+  /* 1 radial + 1 linear (was 2 radials + 1 linear) — Fire Stick perf. */
   background:
-    radial-gradient(ellipse 70% 55% at 8% -5%, rgba(14, 165, 233, 0.35) 0%, transparent 55%),
-    radial-gradient(ellipse 55% 65% at 82% 85%, rgba(2, 132, 199, 0.3) 0%, transparent 55%),
-    linear-gradient(135deg, hsl(220 50% 5%) 0%, hsl(215 45% 7%) 40%, hsl(210 40% 4%) 100%);
+    radial-gradient(ellipse 70% 55% at 8% -5%, rgba(14, 165, 233, 0.32) 0%, transparent 60%),
+    linear-gradient(135deg, hsl(220 50% 5%) 0%, hsl(210 40% 4%) 100%);
   pointer-events: none;
 }
 
@@ -421,38 +414,20 @@ html, body {
   --neo-card-shadow: 0 1.25rem 3.75rem -20px rgba(0,0,0,0.6);
 }
 
-/* Cinematic background applied to the whole TV WebView */
+/* Cinematic background applied to the whole TV WebView.
+   Simplified to 1 radial + solid base (was 2 radials) for Fire Stick perf. */
 body.neo-tv-body {
   background:
-    radial-gradient(ellipse 80% 60% at 30% 20%, #1a1f4a 0%, var(--neo-bg-0) 55%),
-    radial-gradient(ellipse 60% 50% at 90% 80%, rgba(230, 57, 70, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 60% at 30% 20%, #1a1f4a 0%, var(--neo-bg-0) 60%),
     var(--neo-bg-0) !important;
 }
 
-/* Subtle film grain over the whole stage */
-.neo-grain::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.4 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.5'/></svg>");
-  opacity: 0.05;
-  pointer-events: none;
-  z-index: 1;
-  mix-blend-mode: overlay;
-}
-
-/* Ambient red glow in bottom-left */
-.neo-grain::after {
-  content: "";
-  position: absolute;
-  left: -10%;
-  bottom: -30%;
-  width: 60%;
-  height: 70%;
-  background: radial-gradient(circle, rgba(230, 57, 70, 0.18), transparent 60%);
-  pointer-events: none;
-  z-index: 0;
-}
+/* Performance: the film-grain ::before and ambient red ::after were
+   compositing a full-viewport mix-blend-mode overlay + radial gradient
+   every frame. On Fire Stick HD (Mali GPU, 1 GB RAM) that's enough to
+   make every focus change feel sluggish. Both are decorative — the user
+   barely notices them missing. Re-enable for higher-end hardware via
+   a feature flag if/when needed. */
 
 /* TopBar */
 .neo-topbar {
@@ -496,7 +471,8 @@ body.neo-tv-body {
   width: 0.5rem; height: 0.5rem; border-radius: 50%;
   background: #2ee07a;
   box-shadow: 0 0 0 3px rgba(46, 224, 122, 0.22), 0 0 0.75rem rgba(46, 224, 122, 0.8);
-  animation: neo-pulse 2.4s ease-in-out infinite;
+  /* Animated box-shadow keyframes were repainting the topbar every frame
+     for a barely-visible pulse. Static glow keeps the look, saves the GPU. */
 }
 @keyframes neo-pulse {
   0%, 100% { box-shadow: 0 0 0 3px rgba(46, 224, 122, 0.22), 0 0 0.75rem rgba(46, 224, 122, 0.8); }
@@ -550,9 +526,12 @@ body.neo-tv-body {
   border-radius: var(--neo-radius);
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.35s cubic-bezier(.2, .7, .2, 1), box-shadow 0.35s, border-color 0.2s;
+  /* Focus visual on Fire Stick HD: just a border-color swap. outline +
+     `contain` blocked the main thread long enough on each focus change to
+     freeze the sidebar <video>. Border-color is a single property change
+     on an existing layer — minimal style recalc, no layer recreation. */
   background: var(--neo-card-bg);
-  border: var(--neo-card-border);
+  border: 2px solid rgba(255, 255, 255, 0.08);
   box-shadow: var(--neo-card-shadow);
   isolation: isolate;
   display: flex;
@@ -600,8 +579,9 @@ body.neo-tv-body {
 }
 .neo-tile[data-tv-focused="true"],
 .neo-tile:focus {
-  border-color: var(--neo-accent) !important;
-  box-shadow: 0 0 0 1px var(--neo-accent) !important;
+  /* Single property change on an existing border — minimal style recalc,
+     no layer recreation, no main-thread stall on Fire Stick HD. */
+  border-color: var(--neo-accent);
   outline: none !important;
   transform: none !important;
   z-index: 5;
@@ -620,6 +600,12 @@ body.neo-tv-body {
   width: 0.4375rem; height: 0.4375rem; border-radius: 50%;
   background: var(--neo-accent);
   box-shadow: 0 0 0 3px rgba(var(--neo-accent-glow), 0.3);
+  /* Pulse only while the tile is focused — running the animation on every
+     tile in the background forced an extra paint per frame on the TV tile,
+     which then competed with the focus-out repaint and made leaving the
+     "TV en Direct" tile feel sluggish on Fire Stick basique. */
+}
+.neo-tile:focus .neo-live-dot {
   animation: neo-pulse-red 1.6s ease-in-out infinite;
 }
 @keyframes neo-pulse-red {
@@ -627,41 +613,38 @@ body.neo-tv-body {
   50% { opacity: 0.4; }
 }
 
-/* Per-tile chromatic gradients */
+/* Per-tile chromatic gradients — reduced from 2 radials + linear to
+   1 radial + 1 linear so the Fire Stick basique stops sweating on the
+   GPU composite stack. The dominant accent + base gradient keep the
+   intended look; the secondary accent is dropped. */
 .neo-bg-tv {
   background:
-    radial-gradient(circle at 30% 30%, #2a3a8a 0%, transparent 50%),
-    radial-gradient(circle at 80% 70%, #5a2380 0%, transparent 50%),
+    radial-gradient(circle at 30% 30%, #2a3a8a 0%, transparent 55%),
     linear-gradient(135deg, #1a1f4a, #0a0e22);
 }
 .neo-bg-streaming {
   background:
-    radial-gradient(circle at 20% 80%, #7a1a4f 0%, transparent 55%),
-    radial-gradient(circle at 90% 10%, #3a2080 0%, transparent 55%),
+    radial-gradient(circle at 20% 80%, #7a1a4f 0%, transparent 60%),
     linear-gradient(150deg, #2a1647, #0a0e22);
 }
 .neo-bg-bonnes {
   background:
-    radial-gradient(circle at 60% 30%, #c2410c 0%, transparent 55%),
-    radial-gradient(circle at 20% 90%, #7c2d12 0%, transparent 55%),
+    radial-gradient(circle at 60% 30%, #c2410c 0%, transparent 60%),
     linear-gradient(135deg, #4a1e0a, #1a0a05);
 }
 .neo-bg-activites {
   background:
-    radial-gradient(circle at 40% 60%, #0e7490 0%, transparent 55%),
-    radial-gradient(circle at 90% 20%, #047857 0%, transparent 55%),
+    radial-gradient(circle at 40% 60%, #0e7490 0%, transparent 60%),
     linear-gradient(135deg, #0a3a3a, #052024);
 }
 .neo-bg-apps {
   background:
-    radial-gradient(circle at 20% 30%, #4338ca 0%, transparent 55%),
-    radial-gradient(circle at 80% 70%, #0891b2 0%, transparent 55%),
+    radial-gradient(circle at 20% 30%, #4338ca 0%, transparent 60%),
     linear-gradient(135deg, #1e1a4a, #0a0e22);
 }
 .neo-bg-concierge {
   background:
-    radial-gradient(circle at 50% 30%, #7c2d12 0%, transparent 60%),
-    radial-gradient(circle at 30% 80%, #b91c1c 0%, transparent 55%),
+    radial-gradient(circle at 50% 30%, #7c2d12 0%, transparent 65%),
     linear-gradient(135deg, #3a0a0e, #1a0508);
 }
 

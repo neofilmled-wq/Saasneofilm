@@ -25,9 +25,18 @@ export interface TileConfig {
   hasLive?: boolean;
 }
 
-/** Decorative SVG art for each home tile. Pure SVG = no network deps. */
-export function TileArt({ kind }: { kind: TileConfig['art'] }) {
-  switch (kind) {
+/** Decorative SVG art for each home tile. Pure SVG = no network deps.
+ *
+ * Performance: returning null. The art was 15-20 SVG paths per tile and on
+ * the Fire Stick HD (1 GB RAM, Mali GPU) it kept the compositor busy every
+ * frame, making focus changes between tiles feel sluggish. The chromatic
+ * gradient (.neo-bg-*) and the per-tile title/subtitle/tags already give
+ * each tile its identity. Comment out the early return to restore the art
+ * on higher-end hardware. */
+export function TileArt({ kind: _kind }: { kind: TileConfig['art'] }) {
+  return null;
+  // eslint-disable-next-line no-unreachable
+  switch (_kind) {
     case 'tv':
       return (
         <svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMin slice" style={{ width: '100%', height: '100%' }}>

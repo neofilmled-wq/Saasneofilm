@@ -146,53 +146,6 @@ function NeoFilmHousePlaceholder() {
 }
 
 /**
- * Tiny diagnostic overlay shown at the bottom-left of the annonce panel.
- * Helps us see — from the TV itself — whether the rotation is actually
- * advancing, which clip is on screen, and what (if anything) failed to
- * load. Strip this out once the rotation is confirmed working in the wild.
- */
-function AdDebugOverlay({
-  adPool,
-  currentIndex,
-  lastError,
-}: {
-  adPool: DisplayAd[];
-  currentIndex: number;
-  lastError: string | null;
-}) {
-  const current = adPool[currentIndex % Math.max(1, adPool.length)];
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        bottom: '0.5rem',
-        left: '0.5rem',
-        zIndex: 5,
-        padding: '0.375rem 0.625rem',
-        background: 'rgba(0, 0, 0, 0.72)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        borderRadius: '0.375rem',
-        fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
-        fontSize: '0.625rem',
-        color: 'rgba(255, 255, 255, 0.85)',
-        lineHeight: 1.4,
-        maxWidth: '60%',
-        pointerEvents: 'none',
-      }}
-    >
-      <div>
-        ad {currentIndex + 1}/{adPool.length} · {current?.kind ?? 'none'} · {current?.id ?? '—'}
-      </div>
-      {lastError && (
-        <div style={{ color: '#fca5a5', marginTop: '0.125rem' }}>
-          last error → {lastError}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
  * Ad rotation zone — fills its container.
  * - Prioritises targetedAds, then houseAds.
  * - When the pool is empty OR a creative URL is the broken house-ad sentinel,
@@ -201,7 +154,11 @@ function AdDebugOverlay({
  */
 export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }: AdZoneProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [videoFailed, setVideoFailed] = useState(false);
+  // Track every URL that has failed to load. When every URL in the pool
+  // ends up here, we know the rotation can't recover — fall back to the
+  // NEOFILM placeholder instead of cycling between dead URLs (which
+  // otherwise leaves a black panel forever).
+  const [failedUrls, setFailedUrls] = useState<Set<string>>(() => new Set());
   const [lastError, setLastError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const startTimeRef = useRef(new Date());
@@ -246,75 +203,89 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
     return [...targeted, ...house];
   }, [targetedAds, houseAds]);
 
-  const currentAd = adPool[currentIndex % adPool.length] ?? null;
+  const markFailed = useCallback((url: string) => {
+    setFailedUrls((prev) => {
+      if (prev.has(url)) return prev;
+      const next = new Set(prev);
+      next.add(url);
+      return next;
+    });
+  }, []);
+
+  // Skip past creatives that have already failed since this render cycle.
+  // Without this, we'd cycle right back onto a dead URL and re-trigger the
+  // <video> error path forever.
+  const liveAdPool = useMemo(
+    () => adPool.filter((ad) => !failedUrls.has(ad.fileUrl) || ad.kind === 'placeholder'),
+    [adPool, failedUrls],
+  );
+  const liveCurrentAd = liveAdPool[currentIndex % Math.max(1, liveAdPool.length)] ?? null;
 
   const playNext = useCallback(() => {
-    if (currentAd?.isTargeted && onImpression) {
-      onImpression(currentAd.source as TvAdItem, startTimeRef.current, new Date(), false);
+    if (liveCurrentAd?.isTargeted && onImpression) {
+      onImpression(liveCurrentAd.source as TvAdItem, startTimeRef.current, new Date(), false);
     }
     startTimeRef.current = new Date();
-    setVideoFailed(false);
-    setCurrentIndex((i) => (adPool.length > 0 ? (i + 1) % adPool.length : 0));
-  }, [adPool.length, currentAd, onImpression]);
+    setCurrentIndex((i) => (liveAdPool.length > 0 ? (i + 1) % liveAdPool.length : 0));
+  }, [liveAdPool.length, liveCurrentAd, onImpression]);
 
   useEffect(() => {
-    if (!currentAd) return;
-    if (currentAd.kind === 'image') {
-      const timer = setTimeout(playNext, currentAd.holdMs ?? rotationInterval);
+    if (!liveCurrentAd) return;
+    if (liveCurrentAd.kind === 'image') {
+      const timer = setTimeout(playNext, liveCurrentAd.holdMs ?? rotationInterval);
       return () => clearTimeout(timer);
     }
-    if (currentAd.kind === 'placeholder') {
-      const timer = setTimeout(playNext, currentAd.holdMs ?? PLACEHOLDER_HOLD_MS);
+    if (liveCurrentAd.kind === 'placeholder') {
+      const timer = setTimeout(playNext, liveCurrentAd.holdMs ?? PLACEHOLDER_HOLD_MS);
       return () => clearTimeout(timer);
     }
-    if (currentAd.kind === 'video' && adPool.length > 1) {
+    if (liveCurrentAd.kind === 'video' && liveAdPool.length > 1) {
       // Safety net: if onEnded never fires (stuck download, network hung,
       // muted-autoplay rejected), force the rotation onward.
       const timer = setTimeout(playNext, VIDEO_MAX_DURATION_MS);
       return () => clearTimeout(timer);
     }
-  }, [currentAd, playNext, rotationInterval, adPool.length]);
+  }, [liveCurrentAd, playNext, rotationInterval, liveAdPool.length]);
 
   useEffect(() => {
     setCurrentIndex(0);
-    setVideoFailed(false);
+    setFailedUrls(new Set());
     startTimeRef.current = new Date();
   }, [targetedAds.length, houseAds.length]);
 
-  // Empty pool OR last attempt failed → NEOFILM placeholder.
-  if (!currentAd || (videoFailed && adPool.length <= 1)) {
+  // Every URL in the pool has failed → NEOFILM placeholder, don't keep
+  // bouncing between broken videos.
+  if (!liveCurrentAd) {
     return <NeoFilmHousePlaceholder />;
   }
 
-  if (currentAd.kind === 'placeholder') {
-    return (
-      <>
-        <NeoFilmHousePlaceholder />
-        <AdDebugOverlay
-          adPool={adPool}
-          currentIndex={currentIndex}
-          lastError={lastError}
-        />
-      </>
-    );
+  if (liveCurrentAd.kind === 'placeholder') {
+    return <NeoFilmHousePlaceholder />;
   }
 
-  if (currentAd.kind === 'video') {
-    const onlyOneAd = adPool.length === 1;
+  if (liveCurrentAd.kind === 'video') {
+    const onlyOneAd = liveAdPool.length === 1;
     return (
-      <div className="relative h-full w-full overflow-hidden">
+      <div
+        className="relative h-full w-full overflow-hidden bg-black"
+        // Force the <video> onto its own hardware compositor layer so a
+        // main-thread stall (e.g. focus repaint on a sibling tile) doesn't
+        // freeze video frames. WebView on Fire Stick HD picks SurfaceView
+        // for translateZ()-promoted layers, which has its own pipeline.
+        style={{ transform: 'translateZ(0)', willChange: 'transform' }}
+      >
         <video
           ref={videoRef}
-          key={currentAd.id}
-          src={currentAd.fileUrl}
-          className="absolute inset-0 h-full w-full object-cover"
+          key={liveCurrentAd.id}
+          src={liveCurrentAd.fileUrl}
+          className="absolute inset-0 h-full w-full object-contain"
           autoPlay
           muted
           playsInline
           preload="auto"
           loop={onlyOneAd}
           onLoadedData={() => {
-            console.log(`[AdZone] Video loaded: ${currentAd.id} (${currentAd.fileUrl})`);
+            console.log(`[AdZone] Video loaded: ${liveCurrentAd.id} (${liveCurrentAd.fileUrl})`);
             setLastError(null);
           }}
           onEnded={onlyOneAd ? undefined : playNext}
@@ -323,19 +294,11 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
             const msg = err
               ? `code ${err.code}: ${err.message}`
               : 'unknown error';
-            console.warn(`[AdZone] Video error: ${currentAd.id} (${currentAd.fileUrl}) — ${msg}`);
-            setLastError(`${currentAd.id} → ${msg}`);
-            if (adPool.length <= 1) {
-              setVideoFailed(true);
-            } else {
-              playNext();
-            }
+            console.warn(`[AdZone] Video error: ${liveCurrentAd.id} (${liveCurrentAd.fileUrl}) — ${msg}`);
+            setLastError(`${liveCurrentAd.id} → ${msg}`);
+            markFailed(liveCurrentAd.fileUrl);
+            playNext();
           }}
-        />
-        <AdDebugOverlay
-          adPool={adPool}
-          currentIndex={currentIndex}
-          lastError={lastError}
         />
       </div>
     );
@@ -344,17 +307,14 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
   return (
     <div className="relative h-full w-full overflow-hidden">
       <img
-        key={currentAd.id}
-        src={currentAd.fileUrl}
+        key={liveCurrentAd.id}
+        src={liveCurrentAd.fileUrl}
         alt=""
         className="absolute inset-0 h-full w-full object-cover"
         onError={() => {
-          console.warn(`[AdZone] Image load failed: ${currentAd.id} — ${currentAd.fileUrl}`);
-          if (adPool.length <= 1) {
-            setVideoFailed(true);
-          } else {
-            playNext();
-          }
+          console.warn(`[AdZone] Image load failed: ${liveCurrentAd.id} — ${liveCurrentAd.fileUrl}`);
+          markFailed(liveCurrentAd.fileUrl);
+          playNext();
         }}
       />
     </div>

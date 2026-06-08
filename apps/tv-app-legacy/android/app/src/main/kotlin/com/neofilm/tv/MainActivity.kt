@@ -725,111 +725,12 @@ class MainActivity : AppCompatActivity() {
 
         if (jsKey != null) {
             if (event.action == KeyEvent.ACTION_DOWN) {
-                // Secret DPAD trigger (7x OK) disabled — fired accidentally when
-                // users clicked rapidly on channels. Admin access stays available
-                // via the 7-tap top-left touch gesture only.
-
-                // Direct spatial navigation in JS (bypasses React hooks
-                // which fight each other when multiple useDpadNavigation exist)
-                Log.d(TAG, "DPAD inject: $jsKey")
-                // Matrix-based navigation — also dispatch KeyboardEvent for channel zapping
-                // (dispatched AFTER our nav so React hooks don't interfere)
+                // The full spatial-nav script lives in window.__neoNav() — installed
+                // once at onPageFinished. From here we only round-trip a tiny call,
+                // which is the only thing the WebView's JNI bridge can do quickly
+                // on a Fire Stick basique.
                 webView.evaluateJavascript(
-                    """(function(){
-                        var dir = '$jsKey';
-                        if (dir === 'Enter') {
-                            var el = document.activeElement;
-                            if (el && el.click) el.click();
-                            return;
-                        }
-                        var all = Array.from(document.querySelectorAll('[data-tv-focusable]')).filter(function(e){
-                            var s = getComputedStyle(e);
-                            return s.display !== 'none' && s.visibility !== 'hidden' && !e.disabled;
-                        });
-                        if (all.length === 0) return;
-                        var cur = document.activeElement;
-                        var idx = all.indexOf(cur);
-                        if (idx < 0) { all[0].focus(); return; }
-
-                        // Descending from the top tab bar → pick the top-left-most visible
-                        // focusable located below the tab bar, regardless of the active tab.
-                        if (dir === 'ArrowDown' && cur.closest('[data-tv-nav-group="tabs"]')) {
-                            var tabR = cur.getBoundingClientRect();
-                            var below = all.filter(function(e){
-                                var r = e.getBoundingClientRect();
-                                return r.width > 0 && r.height > 0 && r.top > tabR.bottom + 4;
-                            });
-                            if (below.length > 0) {
-                                below.sort(function(a, b){
-                                    var ar = a.getBoundingClientRect();
-                                    var br = b.getBoundingClientRect();
-                                    if (Math.abs(ar.top - br.top) > 8) return ar.top - br.top;
-                                    return ar.left - br.left;
-                                });
-                                below[0].focus();
-                                below[0].scrollIntoView({behavior:'smooth',block:'nearest'});
-                                return;
-                            }
-                        }
-
-                        // Build matrix from data-tv-row / data-tv-col attributes
-                        var curRow = parseInt(cur.getAttribute('data-tv-row') || '-1');
-                        var curCol = parseInt(cur.getAttribute('data-tv-col') || '-1');
-                        console.log('[NAV] cur=' + (cur.textContent||'').substring(0,20) + ' row=' + curRow + ' col=' + curCol + ' dir=' + dir + ' allCount=' + all.length);
-
-                        if (curRow >= 0 && curCol >= 0) {
-                            var targetRow = curRow, targetCol = curCol;
-                            if (dir === 'ArrowUp') targetRow--;
-                            if (dir === 'ArrowDown') targetRow++;
-                            if (dir === 'ArrowLeft') targetCol--;
-                            if (dir === 'ArrowRight') targetCol++;
-
-                            // Find element at target position
-                            var target = document.querySelector('[data-tv-focusable][data-tv-row="'+targetRow+'"][data-tv-col="'+targetCol+'"]');
-                            // If not found, try same row different col or same col different row
-                            if (!target && (dir === 'ArrowLeft' || dir === 'ArrowRight')) {
-                                // Wrap or stay
-                            }
-                            if (target) {
-                                target.focus();
-                                target.scrollIntoView({behavior:'smooth',block:'nearest'});
-                                return;
-                            }
-                        }
-
-                        // Spatial fallback: find nearest focusable in the requested geometric direction
-                        var cr = cur.getBoundingClientRect();
-                        var cxFB = cr.left + cr.width / 2;
-                        var cyFB = cr.top + cr.height / 2;
-                        var best = null;
-                        var bestScore = Infinity;
-                        for (var i = 0; i < all.length; i++) {
-                            var el = all[i];
-                            if (el === cur) continue;
-                            var r = el.getBoundingClientRect();
-                            var ex = r.left + r.width / 2;
-                            var ey = r.top + r.height / 2;
-                            var dx = ex - cxFB;
-                            var dy = ey - cyFB;
-                            var inDir = (dir === 'ArrowUp' && dy < -4) ||
-                                        (dir === 'ArrowDown' && dy > 4) ||
-                                        (dir === 'ArrowLeft' && dx < -4) ||
-                                        (dir === 'ArrowRight' && dx > 4);
-                            if (!inDir) continue;
-                            var primary = (dir === 'ArrowUp') ? -dy :
-                                          (dir === 'ArrowDown') ? dy :
-                                          (dir === 'ArrowLeft') ? -dx : dx;
-                            var secondary = (dir === 'ArrowUp' || dir === 'ArrowDown') ? Math.abs(dx) : Math.abs(dy);
-                            var score = primary + secondary * 2;
-                            if (score < bestScore) { bestScore = score; best = el; }
-                        }
-                        if (best) { best.focus(); best.scrollIntoView({behavior:'smooth',block:'nearest'}); }
-                    })()""".trimIndent(),
-                    null
-                )
-                // Also dispatch KeyboardEvent for channel zapping in IptvPlayer
-                webView.evaluateJavascript(
-                    "window.dispatchEvent(new KeyboardEvent('keydown',{key:'$jsKey',keyCode:${event.keyCode},bubbles:true}))",
+                    "window.__neoNav&&window.__neoNav('$jsKey',${event.keyCode})",
                     null
                 )
             }
@@ -1110,6 +1011,11 @@ class MainActivity : AppCompatActivity() {
             // Inject viewport fix + CSS polyfills for old WebViews
             injectViewportFix(view)
             injectLegacyCssIfNeeded(view)
+            // Install the spatial-nav function once per page load so each DPad
+            // press only round-trips a 30-byte call instead of a 1.6 KB script.
+            // The full inline script was the dominant cost between key press
+            // and visible focus change on Fire Stick basique.
+            injectNavFn(view)
         }
 
         override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -1122,6 +1028,99 @@ class MainActivity : AppCompatActivity() {
      * Inject a viewport meta tag to force the page to render at 1920px width
      * and scale down on smaller screens. This makes the layout identical on all resolutions.
      */
+    /**
+     * Install window.__neoNav() once per page load. dispatchKeyEvent then only
+     * pays a JNI round-trip for a 30-byte call instead of parsing a 1.6 KB
+     * script every DPad press — that was the dominant cost between key press
+     * and visible focus change on Fire Stick basique.
+     *
+     * The function takes the direction string ('ArrowUp'/'ArrowDown'/etc. or
+     * 'Enter') and the raw Android keyCode, and dispatches a synthetic
+     * KeyboardEvent for components (IptvPlayer channel zap) that still listen
+     * for window keydown.
+     */
+    private fun injectNavFn(view: WebView?) {
+        if (view == null) return
+        view.evaluateJavascript("""
+        (function(){
+          if (window.__neoNav) return;
+          window.__neoNav = function(dir, keyCode) {
+            try {
+              window.dispatchEvent(new KeyboardEvent('keydown', { key: dir, keyCode: keyCode || 0, bubbles: true }));
+            } catch(e) {}
+            if (dir === 'Enter') {
+              var el = document.activeElement;
+              if (el && el.click) el.click();
+              return;
+            }
+            var all = Array.prototype.filter.call(
+              document.querySelectorAll('[data-tv-focusable]'),
+              function(e){ return e.offsetParent !== null && !e.disabled; }
+            );
+            if (all.length === 0) return;
+            var cur = document.activeElement;
+            if (!cur || all.indexOf(cur) < 0) { all[0].focus({preventScroll:true}); return; }
+
+            // Descending from the top tab bar → pick the top-left-most visible
+            // focusable located below the tab bar, regardless of the active tab.
+            if (dir === 'ArrowDown' && cur.closest && cur.closest('[data-tv-nav-group="tabs"]')) {
+              var tabR = cur.getBoundingClientRect();
+              var below = all.filter(function(e){
+                var r = e.getBoundingClientRect();
+                return r.width > 0 && r.height > 0 && r.top > tabR.bottom + 4;
+              });
+              if (below.length > 0) {
+                below.sort(function(a, b){
+                  var ar = a.getBoundingClientRect();
+                  var br = b.getBoundingClientRect();
+                  if (Math.abs(ar.top - br.top) > 8) return ar.top - br.top;
+                  return ar.left - br.left;
+                });
+                below[0].focus({preventScroll:true});
+                return;
+              }
+            }
+
+            // Matrix shortcut: data-tv-row + data-tv-col → constant-time lookup,
+            // no getBoundingClientRect calls. Covers every tile on HOME and the
+            // nav-bar buttons.
+            var curRow = parseInt(cur.getAttribute('data-tv-row') || '-1');
+            var curCol = parseInt(cur.getAttribute('data-tv-col') || '-1');
+            if (curRow >= 0 && curCol >= 0) {
+              var tr = curRow, tc = curCol;
+              if (dir === 'ArrowUp') tr--;
+              else if (dir === 'ArrowDown') tr++;
+              else if (dir === 'ArrowLeft') tc--;
+              else if (dir === 'ArrowRight') tc++;
+              var target = document.querySelector('[data-tv-focusable][data-tv-row="'+tr+'"][data-tv-col="'+tc+'"]');
+              if (target) { target.focus({preventScroll:true}); return; }
+            }
+
+            // Spatial fallback for layouts without row/col — single pass, no
+            // computed-style query.
+            var cr = cur.getBoundingClientRect();
+            var cx = cr.left + cr.width / 2, cy = cr.top + cr.height / 2;
+            var best = null, bestScore = Infinity;
+            for (var i = 0; i < all.length; i++) {
+              var el = all[i]; if (el === cur) continue;
+              var r = el.getBoundingClientRect();
+              var ex = r.left + r.width / 2, ey = r.top + r.height / 2;
+              var dx = ex - cx, dy = ey - cy;
+              var inDir = (dir === 'ArrowUp' && dy < -4) || (dir === 'ArrowDown' && dy > 4) ||
+                          (dir === 'ArrowLeft' && dx < -4) || (dir === 'ArrowRight' && dx > 4);
+              if (!inDir) continue;
+              var primary = (dir === 'ArrowUp') ? -dy : (dir === 'ArrowDown') ? dy :
+                            (dir === 'ArrowLeft') ? -dx : dx;
+              var secondary = (dir === 'ArrowUp' || dir === 'ArrowDown') ? Math.abs(dx) : Math.abs(dy);
+              var score = primary + secondary * 2;
+              if (score < bestScore) { bestScore = score; best = el; }
+            }
+            if (best) best.focus({preventScroll:true});
+          };
+        })();
+        """.trimIndent(), null)
+    }
+
     private fun injectViewportFix(view: WebView?) {
         if (view == null) return
         val screenWidth = resources.displayMetrics.widthPixels

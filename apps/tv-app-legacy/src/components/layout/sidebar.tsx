@@ -241,6 +241,14 @@ export function Sidebar({
         gap: 'var(--neo-gap)',
         minHeight: 0,
         height: '100%',
+        // Lock the sidebar to its own paint/layout box so nothing scrolling
+        // in the adjacent content area can drag it visually. position:sticky
+        // is a no-op here (sidebar grid cell is fixed) but it forces the
+        // browser into a separate layer that ignores the sibling scroller.
+        position: 'sticky',
+        top: 0,
+        alignSelf: 'start',
+        contain: 'layout style',
       }}
     >
       {reversed ? annonce : promos}

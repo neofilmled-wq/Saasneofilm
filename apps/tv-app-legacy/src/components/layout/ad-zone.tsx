@@ -287,10 +287,12 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
           autoPlay
           muted
           playsInline
-          // preload="metadata" instead of "auto" — Fire Stick HD has 1 GB
-          // RAM, pre-buffering the whole creative was triggering the
-          // OOM killer to nuke our process along with 5 Amazon services.
-          preload="metadata"
+          // preload="auto" — safe now that the creative is 1.3 MB (was
+          // 22 MB before the 720p re-encode). The WebView fully buffers
+          // the file at boot so first frame appears within a render tick
+          // of the panel mounting, instead of waiting for the network
+          // round-trip when play() fires.
+          preload="auto"
           loop={onlyOneAd}
           onLoadedData={() => {
             console.log(`[AdZone] Video loaded: ${liveCurrentAd.id} (${liveCurrentAd.fileUrl})`);

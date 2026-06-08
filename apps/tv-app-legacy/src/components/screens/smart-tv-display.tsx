@@ -173,28 +173,12 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
   const screenName =
     typeof window !== 'undefined' ? localStorage.getItem('neofilm_screen_name') : null;
 
-  // Timeout: if config loading takes >10s, render anyway with defaults
-  const [configTimedOut, setConfigTimedOut] = useState(false);
-  useEffect(() => {
-    if (!isLoading) return;
-    const timer = setTimeout(() => {
-      console.warn('[SmartTvDisplay] Config loading timed out after 10s — rendering with defaults');
-      setConfigTimedOut(true);
-    }, 10_000);
-    return () => clearTimeout(timer);
-  }, [isLoading]);
-
-
-  if (isLoading && !configTimedOut) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-[#0a0a0f]">
-        <LoadingSpinner message="Chargement de la configuration..." />
-        <p className="absolute bottom-4 text-xs text-white/40">
-          {isConnected ? 'Connecté' : 'Hors ligne'} | {token ? 'Token OK' : 'Token manquant'}
-        </p>
-      </div>
-    );
-  }
+  // Render immediately with defaults — every downstream component already
+  // handles `config === undefined` and `channels === []`, so blocking the
+  // whole UI behind the config fetch just added latency the user saw as
+  // dead time on the splash. The data flows in as the API answers and the
+  // components re-render naturally.
+  void isLoading;
 
   // Map home tile destinations → tab keys
   const onHomeNavigate = (dest: HomeDestination) => {
@@ -251,7 +235,7 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
             data-tv-nav-group="home-tiles"
             style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 33rem',
+              gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 38rem',
               gridTemplateRows: 'minmax(0, 1fr) minmax(0, 1fr)',
               gap: 'var(--neo-gap)',
               padding: '1.25rem 3rem 0.75rem',
@@ -298,7 +282,7 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(0, 1fr) 33rem',
+              gridTemplateColumns: 'minmax(0, 1fr) 38rem',
               gap: '1.75rem',
               padding: '1.25rem 3rem 0.75rem',
               minHeight: 0,
@@ -329,7 +313,7 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
               rotationAds={rotationAds}
               adRotationMs={macros?.adRotationMs}
               onAdImpression={reportImpression}
-              reversed={activeTab === 'TNT'}
+              reversed={activeTab === 'TNT' || activeTab === 'ADDRESSES' || activeTab === 'ACTIVITIES'}
             />
           </div>
         )}

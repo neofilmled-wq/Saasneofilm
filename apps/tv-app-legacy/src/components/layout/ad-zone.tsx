@@ -66,14 +66,16 @@ function NeoFilmHousePlaceholder() {
           'linear-gradient(180deg, #11132a 0%, #050714 100%)',
       }}
     >
-      {/* Diagonal motion stripes — gives the panel "video-like" liveliness */}
+      {/* Diagonal motion stripes — disabled: animating a 1920-px-wide
+          repeating-linear-gradient with mixBlendMode:'screen' every frame
+          on the Fire Stick HD's Mali GPU was a significant compositor
+          tax. Static stripes look nearly identical and cost ~nothing. */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
           background:
             'repeating-linear-gradient(45deg, rgba(255,255,255,0.022) 0 18px, transparent 18px 64px)',
-          animation: 'neo-marquee 16s linear infinite',
           mixBlendMode: 'screen',
         }}
       />
@@ -90,7 +92,9 @@ function NeoFilmHousePlaceholder() {
           padding: '1.5rem',
           textAlign: 'center',
           color: '#fff',
-          animation: 'neo-placeholder-breathe 4s ease-in-out infinite',
+          // breathe animation disabled — the continuous scale() transform
+          // was promoting the entire placeholder subtree to its own
+          // compositor layer and re-painting it every frame.
         }}
       >
         <img
@@ -282,7 +286,10 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
           autoPlay
           muted
           playsInline
-          preload="auto"
+          // preload="metadata" instead of "auto" — Fire Stick HD has 1 GB
+          // RAM, pre-buffering the whole creative was triggering the
+          // OOM killer to nuke our process along with 5 Amazon services.
+          preload="metadata"
           loop={onlyOneAd}
           onLoadedData={() => {
             console.log(`[AdZone] Video loaded: ${liveCurrentAd.id} (${liveCurrentAd.fileUrl})`);

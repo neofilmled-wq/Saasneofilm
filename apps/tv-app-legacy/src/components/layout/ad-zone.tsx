@@ -325,6 +325,7 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
             }}
           />
         </div>
+      </div>
     );
   }
 

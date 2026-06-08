@@ -274,6 +274,30 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
         // for translateZ()-promoted layers, which has its own pipeline.
         style={{ transform: 'translateZ(0)', willChange: 'transform' }}
       >
+        {/* Ambient backdrop — same video URL, object-cover so it fills the
+            panel (small crop is fine, this layer is heavily blurred), used
+            only to paint over the letterbox bars the foreground produces.
+            Browser HTTP cache serves both <video> elements from the single
+            network fetch the foreground triggers. */}
+        <video
+          src={liveCurrentAd.fileUrl}
+          className="absolute inset-0 h-full w-full object-cover"
+          autoPlay
+          muted
+          playsInline
+          loop
+          preload="auto"
+          aria-hidden="true"
+          tabIndex={-1}
+          style={{
+            filter: 'blur(36px) saturate(1.3) brightness(0.55)',
+            transform: 'scale(1.18)',
+            pointerEvents: 'none',
+          }}
+        />
+        {/* Foreground — the actual creative, never cropped, never zoomed,
+            never distorted. Sits on top of the ambient layer so wherever
+            the contain leaves space, the ambient fills in seamlessly. */}
         <video
           ref={videoRef}
           key={liveCurrentAd.id}

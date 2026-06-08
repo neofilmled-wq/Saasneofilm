@@ -271,60 +271,43 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
     const onlyOneAd = liveAdPool.length === 1;
     return (
       <div
-        className="relative h-full w-full overflow-hidden bg-black flex items-center justify-center"
+        className="relative h-full w-full overflow-hidden bg-black"
         // Force the <video> onto its own hardware compositor layer so a
         // main-thread stall (e.g. focus repaint on a sibling tile) doesn't
         // freeze video frames. WebView on Fire Stick HD picks SurfaceView
         // for translateZ()-promoted layers, which has its own pipeline.
         style={{ transform: 'translateZ(0)', willChange: 'transform' }}
       >
-        {/* Auto-sizing wrapper: forces a 16:9 aspect ratio matching the
-            re-encoded dupplex.mp4. max-w/max-h clamp it to whatever the
-            annonce panel offers on this tab (wide on HOME, narrower in
-            the sidebar on Streaming/TNT/etc.). The video fills that 16:9
-            box edge-to-edge — no crop, no letterbox, never distorted —
-            and the panel's bg-black shows wherever the wrapper doesn't
-            reach so the result reads as a tidy framed creative. */}
-        <div
-          style={{
-            aspectRatio: '16 / 9',
-            maxWidth: '100%',
-            maxHeight: '100%',
-            width: '100%',
-            position: 'relative',
+        <video
+          ref={videoRef}
+          key={liveCurrentAd.id}
+          src={liveCurrentAd.fileUrl}
+          className="absolute inset-0 h-full w-full"
+          style={{ objectFit: 'cover' }}
+          autoPlay
+          muted
+          playsInline
+          // preload="metadata" instead of "auto" — Fire Stick HD has 1 GB
+          // RAM, pre-buffering the whole creative was triggering the
+          // OOM killer to nuke our process along with 5 Amazon services.
+          preload="metadata"
+          loop={onlyOneAd}
+          onLoadedData={() => {
+            console.log(`[AdZone] Video loaded: ${liveCurrentAd.id} (${liveCurrentAd.fileUrl})`);
+            setLastError(null);
           }}
-        >
-          <video
-            ref={videoRef}
-            key={liveCurrentAd.id}
-            src={liveCurrentAd.fileUrl}
-            className="absolute inset-0 h-full w-full"
-            style={{ objectFit: 'cover' }}
-            autoPlay
-            muted
-            playsInline
-            // preload="metadata" instead of "auto" — Fire Stick HD has 1 GB
-            // RAM, pre-buffering the whole creative was triggering the
-            // OOM killer to nuke our process along with 5 Amazon services.
-            preload="metadata"
-            loop={onlyOneAd}
-            onLoadedData={() => {
-              console.log(`[AdZone] Video loaded: ${liveCurrentAd.id} (${liveCurrentAd.fileUrl})`);
-              setLastError(null);
-            }}
-            onEnded={onlyOneAd ? undefined : playNext}
-            onError={(e) => {
-              const err = (e.target as HTMLVideoElement).error;
-              const msg = err
-                ? `code ${err.code}: ${err.message}`
-                : 'unknown error';
-              console.warn(`[AdZone] Video error: ${liveCurrentAd.id} (${liveCurrentAd.fileUrl}) — ${msg}`);
-              setLastError(`${liveCurrentAd.id} → ${msg}`);
-              markFailed(liveCurrentAd.fileUrl);
-              playNext();
-            }}
-          />
-        </div>
+          onEnded={onlyOneAd ? undefined : playNext}
+          onError={(e) => {
+            const err = (e.target as HTMLVideoElement).error;
+            const msg = err
+              ? `code ${err.code}: ${err.message}`
+              : 'unknown error';
+            console.warn(`[AdZone] Video error: ${liveCurrentAd.id} (${liveCurrentAd.fileUrl}) — ${msg}`);
+            setLastError(`${liveCurrentAd.id} → ${msg}`);
+            markFailed(liveCurrentAd.fileUrl);
+            playNext();
+          }}
+        />
       </div>
     );
   }

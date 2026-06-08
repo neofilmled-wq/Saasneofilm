@@ -216,20 +216,28 @@ export function Sidebar({
   if (promosOnly) {
     return <PromoList catalogue={catalogue} />;
   }
+  // Wrap the annonce panel in a 16:9 box. Sidebar width is fixed at 33rem,
+  // so the box collapses to 33rem × 18.5625rem — exact aspect ratio of the
+  // re-encoded dupplex.mp4. The video then fills it edge-to-edge with NO
+  // bars and NO crop. The codes-promo row expands to take all the height
+  // the annonce isn't using.
   const annonce = (
-    <AnnoncePanel
-      houseAds={houseAds}
-      rotationAds={rotationAds}
-      adRotationMs={adRotationMs}
-      onAdImpression={onAdImpression}
-    />
+    <div style={{ width: '100%', aspectRatio: '16 / 9' }}>
+      <AnnoncePanel
+        houseAds={houseAds}
+        rotationAds={rotationAds}
+        adRotationMs={adRotationMs}
+        onAdImpression={onAdImpression}
+      />
+    </div>
   );
   const promos = <PromoList catalogue={catalogue} />;
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateRows: 'minmax(0, 1fr) minmax(0, 1fr)',
+        // promos take whatever height is left after the annonce locks in 16:9.
+        gridTemplateRows: reversed ? 'auto minmax(0, 1fr)' : 'minmax(0, 1fr) auto',
         gap: 'var(--neo-gap)',
         minHeight: 0,
         height: '100%',

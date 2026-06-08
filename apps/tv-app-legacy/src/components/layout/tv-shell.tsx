@@ -1,6 +1,6 @@
 'use client';
 
-import { Component, useState, useEffect, useRef, type ReactNode } from 'react';
+import { Component, useState, useEffect, useRef, lazy, Suspense, type ReactNode } from 'react';
 import { useDevice } from '@/providers/device-provider';
 import { DeviceState } from '@/lib/state-machine';
 import { useTvScale } from '@/hooks/use-tv-scale';
@@ -8,10 +8,16 @@ import { useAdaptiveLayout } from '@/hooks/use-adaptive-layout';
 import { PairingScreen } from '@/components/screens/pairing-screen';
 import { SyncingScreen } from '@/components/screens/syncing-screen';
 import { SmartTvDisplay } from '@/components/screens/smart-tv-display';
-import { IptvPlayer } from '@/components/common/iptv-player';
 import { OfflineScreen } from '@/components/screens/offline-screen';
 import { ErrorScreen } from '@/components/screens/error-screen';
 import { LoadingSpinner } from '@/components/common/loading-spinner';
+
+// Lazy-load the IPTV player — it pulls hls.js (~50 KB gzip) which only
+// matters when the user actually opens a TNT channel. Keeping it out of
+// the initial bundle gets the home page on screen meaningfully faster.
+const IptvPlayer = lazy(() =>
+  import('@/components/common/iptv-player').then((m) => ({ default: m.IptvPlayer })),
+);
 
 /** Per-screen ErrorBoundary — catches render crashes without killing the whole app */
 class ScreenBoundary extends Component<
@@ -220,14 +226,16 @@ export function TvShell() {
         }}
       >
         <style dangerouslySetInnerHTML={{ __html: `@keyframes channelEnter { from { opacity:0; transform:scale(1.04); } to { opacity:1; transform:scale(1); } }` }} />
-        <IptvPlayer
-          key={hlsChannel.streamUrl}
-          streamUrl={hlsChannel.streamUrl}
-          channelName={hlsChannel.name}
-          onBack={() => setHlsChannel(null)}
-          onChannelDown={() => zapChannel(1)}
-          onChannelUp={() => zapChannel(-1)}
-        />
+        <Suspense fallback={<LoadingSpinner message="Ouverture de la chaîne..." />}>
+          <IptvPlayer
+            key={hlsChannel.streamUrl}
+            streamUrl={hlsChannel.streamUrl}
+            channelName={hlsChannel.name}
+            onBack={() => setHlsChannel(null)}
+            onChannelDown={() => zapChannel(1)}
+            onChannelUp={() => zapChannel(-1)}
+          />
+        </Suspense>
       </div>
     )
   ) : null;

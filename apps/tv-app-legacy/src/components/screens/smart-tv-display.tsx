@@ -282,7 +282,10 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(0, 1fr) 38rem',
+              // 42rem sidebar: the 16:9 annonce panel lands at 42 × 9/16
+              // = 23.625rem tall, ~12% bigger area than the previous
+              // 38rem sidebar without crowding the codes promo column.
+              gridTemplateColumns: 'minmax(0, 1fr) 42rem',
               gap: '1.75rem',
               padding: '1.25rem 3rem 0.75rem',
               minHeight: 0,

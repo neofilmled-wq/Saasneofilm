@@ -284,6 +284,11 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
           src={liveCurrentAd.fileUrl}
           className="absolute inset-0 h-full w-full"
           style={{ objectFit: 'cover' }}
+          // Intrinsic dimensions = re-encoded creative size. Lets the
+          // WebView reserve the surface BEFORE the metadata atom arrives,
+          // so the panel doesn't reflow once the first frame decodes.
+          width={1280}
+          height={720}
           autoPlay
           muted
           playsInline
@@ -295,7 +300,9 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
           preload="auto"
           loop={onlyOneAd}
           onLoadedData={() => {
-            console.log(`[AdZone] Video loaded: ${liveCurrentAd.id} (${liveCurrentAd.fileUrl})`);
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(`[AdZone] Video loaded: ${liveCurrentAd.id}`);
+            }
             setLastError(null);
           }}
           onEnded={onlyOneAd ? undefined : playNext}
@@ -304,7 +311,7 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
             const msg = err
               ? `code ${err.code}: ${err.message}`
               : 'unknown error';
-            console.warn(`[AdZone] Video error: ${liveCurrentAd.id} (${liveCurrentAd.fileUrl}) — ${msg}`);
+            console.warn(`[AdZone] Video error: ${liveCurrentAd.id} — ${msg}`);
             setLastError(`${liveCurrentAd.id} → ${msg}`);
             markFailed(liveCurrentAd.fileUrl);
             playNext();

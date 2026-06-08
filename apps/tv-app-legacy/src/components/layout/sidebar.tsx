@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import type { CatalogueListing, CreativeManifest, TvAdItem } from '@/lib/device-api';
 import { AdZone } from '@/components/layout/ad-zone';
 
@@ -63,7 +63,11 @@ function PromoRow({ listing, paletteIndex }: { listing: CatalogueListing; palett
   );
 }
 
-export function PromoList({ catalogue }: { catalogue: CatalogueListing[] }) {
+// memo prevents re-renders when the parent (smart-tv-display) re-renders
+// for unrelated reasons — e.g. config patches, focus changes elsewhere.
+// PromoList's only input is `catalogue`; if that reference is stable, the
+// marquee track doesn't get torn down and rebuilt on every tab switch.
+function PromoListInner({ catalogue }: { catalogue: CatalogueListing[] }) {
   const promos = useMemo(
     () => catalogue.filter((c) => typeof c.promoCode === 'string' && c.promoCode.trim() !== ''),
     [catalogue],
@@ -135,12 +139,14 @@ export function PromoList({ catalogue }: { catalogue: CatalogueListing[] }) {
   );
 }
 
+export const PromoList = memo(PromoListInner);
+
 /**
  * The "Annonce" panel — a glass card wrapping the AdZone with a top-right
  * label badge. Reused both inside the sidebar (default) and as a standalone
  * panel on the HOME tab (where it extends across the empty home-grid cell).
  */
-export function AnnoncePanel({
+function AnnoncePanelInner({
   houseAds,
   rotationAds,
   adRotationMs,
@@ -198,6 +204,8 @@ export function AnnoncePanel({
     </div>
   );
 }
+
+export const AnnoncePanel = memo(AnnoncePanelInner);
 
 /**
  * Right-side sidebar — codes promo (top) + annonce (bottom) by default.

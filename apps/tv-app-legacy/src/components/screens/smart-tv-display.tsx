@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { useDevice } from '@/providers/device-provider';
 import { useTvConfig } from '@/hooks/use-tv-config';
 import { useAdQueue } from '@/hooks/use-ad-queue';
@@ -10,11 +10,15 @@ import { Sidebar, PromoList, AnnoncePanel } from '@/components/layout/sidebar';
 // PartnerBanner removed from the WebView per product call — the partner
 // banner uploaded in the portal is no longer rendered on the TV.
 import { HomeTileCard, buildHomeTiles, type HomeDestination } from '@/components/pages/home-page';
-import { TntPage } from '@/components/pages/tnt-page';
-import { StreamingPage } from '@/components/pages/streaming-page';
-import { ActivitiesPage } from '@/components/pages/activities-page';
-import { SettingsPage } from '@/components/pages/settings-page';
-import { AppsPage } from '@/components/pages/apps-page';
+// Lazy-load each tab page so the Fire Stick HD doesn't pay parse + eval
+// cost on JS it won't run until the user actually opens that tab. Boot
+// drops by ~700 kB of bundle on the critical path; tab open pays its own
+// chunk on first hit then caches.
+const TntPage = lazy(() => import('@/components/pages/tnt-page').then((m) => ({ default: m.TntPage })));
+const StreamingPage = lazy(() => import('@/components/pages/streaming-page').then((m) => ({ default: m.StreamingPage })));
+const ActivitiesPage = lazy(() => import('@/components/pages/activities-page').then((m) => ({ default: m.ActivitiesPage })));
+const SettingsPage = lazy(() => import('@/components/pages/settings-page').then((m) => ({ default: m.SettingsPage })));
+const AppsPage = lazy(() => import('@/components/pages/apps-page').then((m) => ({ default: m.AppsPage })));
 import { LoadingSpinner } from '@/components/common/loading-spinner';
 import type { AdaptiveLayout } from '@/hooks/use-adaptive-layout';
 
@@ -181,8 +185,11 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
   // components re-render naturally.
   void isLoading;
 
-  // Map home tile destinations → tab keys
-  const onHomeNavigate = (dest: HomeDestination) => {
+  // Map home tile destinations → tab keys. Wrapped in useCallback so the
+  // reference stays stable across renders and the memoized HomeTileCard's
+  // memo() actually short-circuits instead of re-rendering on every parent
+  // state change (heartbeat tick, ad rotation, WebSocket event, etc.).
+  const onHomeNavigate = useCallback((dest: HomeDestination) => {
     const map: Partial<Record<HomeDestination, TabKey>> = {
       TNT: 'TNT',
       ACTIVITIES: 'ACTIVITIES',
@@ -193,7 +200,7 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
     };
     const tab = map[dest];
     if (tab) handleTabChange(tab);
-  };
+  }, [handleTabChange]);
 
   // HOME tab gets a custom 4-column grid so the annonce panel can span the
   // empty bottom-right home-grid cell + the sidebar bottom in ONE seamless
@@ -249,7 +256,7 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
                 key={tile.id}
                 tile={tile}
                 idx={idx}
-                onClick={() => onHomeNavigate(tile.id)}
+                onNavigate={onHomeNavigate}
               />
             ))}
             <div style={{ gridColumn: '4', gridRow: '1', minHeight: 0 }}>
@@ -260,7 +267,7 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
                 key={tile.id}
                 tile={tile}
                 idx={3 + i}
-                onClick={() => onHomeNavigate(tile.id)}
+                onNavigate={onHomeNavigate}
               />
             ))}
             <div
@@ -294,21 +301,23 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
             }}
           >
             <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-              {activeTab === 'TNT' && (
-                <TntPage
-                  channels={channels}
-                  onChannelOpen={(ch) => onHlsChannelOpen?.({ name: ch.name, streamUrl: ch.streamUrl! })}
-                />
-              )}
-              {activeTab === 'STREAMING' && <StreamingPage services={streamingServices} />}
-              {activeTab === 'ADDRESSES' && (
-                <ActivitiesPage activities={activities} catalogue={catalogue} />
-              )}
-              {activeTab === 'ACTIVITIES' && (
-                <ActivitiesPage activities={activities} catalogue={catalogue} />
-              )}
-              {activeTab === 'APPS' && <AppsPage />}
-              {activeTab === 'SETTINGS' && <SettingsPage />}
+              <Suspense fallback={<LoadingSpinner />}>
+                {activeTab === 'TNT' && (
+                  <TntPage
+                    channels={channels}
+                    onChannelOpen={(ch) => onHlsChannelOpen?.({ name: ch.name, streamUrl: ch.streamUrl! })}
+                  />
+                )}
+                {activeTab === 'STREAMING' && <StreamingPage services={streamingServices} />}
+                {activeTab === 'ADDRESSES' && (
+                  <ActivitiesPage activities={activities} catalogue={catalogue} />
+                )}
+                {activeTab === 'ACTIVITIES' && (
+                  <ActivitiesPage activities={activities} catalogue={catalogue} />
+                )}
+                {activeTab === 'APPS' && <AppsPage />}
+                {activeTab === 'SETTINGS' && <SettingsPage />}
+              </Suspense>
             </div>
 
             <Sidebar

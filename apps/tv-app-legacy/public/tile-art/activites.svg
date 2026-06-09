@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <g opacity="0.7" transform="translate(240, 40)">
+    <circle cx="50" cy="40" r="22" fill="#fde047" opacity="0.6" />
+    <path d="M 0 130 L 50 60 L 90 110 L 130 70 L 170 130 Z" fill="#fff" fill-opacity="0.3" stroke="#fff" stroke-width="1.5" stroke-opacity="0.6" />
+    <path d="M 50 60 L 60 80 L 40 80 Z" fill="#fff" fill-opacity="0.7" />
+  </g>
+</svg>

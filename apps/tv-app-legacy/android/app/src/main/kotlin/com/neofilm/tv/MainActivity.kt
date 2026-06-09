@@ -181,6 +181,11 @@ class MainActivity : AppCompatActivity() {
                 domStorageEnabled = true
                 mediaPlaybackRequiresUserGesture = false
                 allowFileAccess = false
+                // Default respects HTTP Cache-Control headers — Next.js
+                // already serves hashed JS chunks with `immutable, max-age=1y`
+                // so they're cached forever. LOAD_CACHE_ELSE_NETWORK was
+                // tempting but it would also pin the index.html to the cached
+                // version, breaking tv-legacy hot updates.
                 cacheMode = WebSettings.LOAD_DEFAULT
                 mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 useWideViewPort = true
@@ -189,8 +194,21 @@ class MainActivity : AppCompatActivity() {
                 displayZoomControls = false
                 builtInZoomControls = false
                 setSupportMultipleWindows(false)
+                // Skip a per-load round-trip to Google's safe-browsing
+                // service — saves CPU and a network call. Always on for
+                // dev/QA URLs and the NeoFilm domain anyway.
+                @Suppress("DEPRECATION") setSafeBrowsingEnabled(false)
+                // Bump Chromium's rendering thread priority on the host.
+                // Deprecated in modern WebView but still honored by Fire OS
+                // WebView (Chromium 77 lineage).
+                @Suppress("DEPRECATION") setRenderPriority(WebSettings.RenderPriority.HIGH)
                 // TV-friendly user agent
                 userAgentString = "${settings.userAgentString} NEOFILM-TV/${BuildConfig.VERSION_NAME} AndroidTV"
+            }
+            // Strip debug instrumentation in release-ish builds. The
+            // Chromium devtools agent costs a few ms per frame.
+            if (!BuildConfig.DEBUG) {
+                WebView.setWebContentsDebuggingEnabled(false)
             }
             // Force scale so page fills viewport on all resolutions
             // On 720p (1280px wide), scale = 1280/1920 * 100 = 66.67%

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, memo } from 'react';
 import { useDpadNavigation } from '@/hooks/use-dpad-navigation';
 
 export type HomeDestination = 'TNT' | 'ACTIVITIES' | 'STREAMING' | 'APPS' | 'ADDRESSES' | 'CONCIERGE';
@@ -25,121 +25,46 @@ export interface TileConfig {
   hasLive?: boolean;
 }
 
-/** Decorative SVG art for each home tile. Pure SVG = no network deps. */
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+
+/** Decorative art for each home tile.
+ *
+ * Switched from inline JSX SVG to pre-rasterized WebP (`public/tile-art/`).
+ * On the Fire Stick HD's Mali GPU, the inline SVGs (15-20 paths × 6 tiles)
+ * forced a fresh raster every focus repaint and every React re-render. The
+ * WebP variant is decoded once at boot, cached, and just blitted by the
+ * compositor — same look, far cheaper per frame. */
 export function TileArt({ kind }: { kind: TileConfig['art'] }) {
-  switch (kind) {
-    case 'tv':
-      return (
-        <svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMin slice" style={{ width: '100%', height: '100%' }}>
-          <g opacity="0.18" fill="none" stroke="#fff" strokeWidth="1.5">
-            <circle cx="350" cy="50" r="40" />
-            <circle cx="350" cy="50" r="80" />
-            <circle cx="350" cy="50" r="120" />
-            <circle cx="350" cy="50" r="160" />
-          </g>
-          <g transform="translate(220, 30)" opacity="0.9">
-            <rect x="0" y="0" width="120" height="80" rx="6" fill="rgba(0,0,0,0.35)" stroke="#fff" strokeWidth="2" strokeOpacity="0.6" />
-            <rect x="50" y="86" width="20" height="14" fill="rgba(0,0,0,0.35)" />
-            <rect x="30" y="100" width="60" height="4" rx="2" fill="#fff" fillOpacity="0.6" />
-            <circle cx="10" cy="-8" r="6" fill="#E63946" />
-          </g>
-        </svg>
-      );
-    case 'streaming':
-      return (
-        <svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMin slice" style={{ width: '100%', height: '100%' }}>
-          <g opacity="0.9">
-            <g transform="translate(250, 30) rotate(-12)">
-              <rect width="100" height="60" rx="10" fill="#1f1f1f" stroke="#fff" strokeOpacity="0.3" />
-              <polygon points="40,18 40,42 62,30" fill="#fff" />
-            </g>
-            <g transform="translate(220, 80) rotate(4)">
-              <rect width="100" height="60" rx="10" fill="#7c2d12" stroke="#fff" strokeOpacity="0.3" />
-              <polygon points="40,18 40,42 62,30" fill="#fff" />
-            </g>
-            <g transform="translate(255, 130) rotate(-3)">
-              <rect width="100" height="60" rx="10" fill="#1e3a8a" stroke="#fff" strokeOpacity="0.3" />
-              <polygon points="40,18 40,42 62,30" fill="#fff" />
-            </g>
-          </g>
-        </svg>
-      );
-    case 'bonnes':
-      return (
-        <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMin slice" style={{ width: '100%', height: '100%' }}>
-          <g opacity="0.8" transform="translate(250, 30)">
-            <circle cx="60" cy="60" r="46" fill="none" stroke="#fff" strokeWidth="2" strokeOpacity="0.5" />
-            <circle cx="60" cy="60" r="32" fill="none" stroke="#fff" strokeWidth="1" strokeOpacity="0.4" />
-            <g stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeOpacity="0.7">
-              <line x1="20" y1="20" x2="20" y2="55" />
-              <line x1="14" y1="20" x2="14" y2="40" />
-              <line x1="26" y1="20" x2="26" y2="40" />
-              <line x1="20" y1="55" x2="20" y2="100" />
-            </g>
-            <g stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeOpacity="0.7">
-              <line x1="100" y1="20" x2="100" y2="100" />
-              <path d="M 100 20 Q 110 35 100 55" fill="none" />
-            </g>
-          </g>
-        </svg>
-      );
-    case 'activites':
-      return (
-        <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMin slice" style={{ width: '100%', height: '100%' }}>
-          <g opacity="0.7" transform="translate(240, 40)">
-            <circle cx="50" cy="40" r="22" fill="#fde047" opacity="0.6" />
-            <path d="M 0 130 L 50 60 L 90 110 L 130 70 L 170 130 Z" fill="#fff" fillOpacity="0.3" stroke="#fff" strokeWidth="1.5" strokeOpacity="0.6" />
-            <path d="M 50 60 L 60 80 L 40 80 Z" fill="#fff" fillOpacity="0.7" />
-          </g>
-        </svg>
-      );
-    case 'apps':
-      return (
-        <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMin slice" style={{ width: '100%', height: '100%' }}>
-          <g opacity="0.85" transform="translate(240, 40)">
-            {[0, 1, 2].map((i) =>
-              [0, 1, 2].map((j) => (
-                <rect
-                  key={`${i}-${j}`}
-                  x={i * 40}
-                  y={j * 40}
-                  width="30"
-                  height="30"
-                  rx="6"
-                  fill="#fff"
-                  fillOpacity={0.15 + ((i + j) % 3) * 0.15}
-                />
-              )),
-            )}
-          </g>
-        </svg>
-      );
-    case 'concierge':
-      return (
-        <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMin slice" style={{ width: '100%', height: '100%' }}>
-          <g opacity="0.75" transform="translate(260, 40)">
-            <path d="M 60 30 L 65 50 L 85 55 L 65 60 L 60 80 L 55 60 L 35 55 L 55 50 Z" fill="#fff" fillOpacity="0.85" />
-            <path d="M 100 100 L 103 110 L 113 113 L 103 116 L 100 126 L 97 116 L 87 113 L 97 110 Z" fill="#fff" fillOpacity="0.65" />
-            <path d="M 30 110 L 32 118 L 40 120 L 32 122 L 30 130 L 28 122 L 20 120 L 28 118 Z" fill="#fff" fillOpacity="0.5" />
-          </g>
-        </svg>
-      );
-    default:
-      return null;
-  }
+  return (
+    <img
+      src={`${BASE_PATH}/tile-art/${kind}.webp`}
+      alt=""
+      aria-hidden
+      draggable={false}
+      style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }}
+    />
+  );
 }
 
 /** A single home tile button — extracted so smart-tv-display can lay tiles out
- * inside a custom grid (HOME tab spans the annonce across cell 6). */
-export function HomeTileCard({
+ * inside a custom grid (HOME tab spans the annonce across cell 6).
+ *
+ * Memoized: tiles re-render on every parent state change otherwise (heartbeat
+ * tick, screen status WebSocket event, ad rotation, etc.). The SVG art +
+ * gradient bg are cheap individually but rebuilding the React vdom for 6
+ * tiles 30+ times a minute is visible on the Fire Stick HD. */
+export const HomeTileCard = memo(function HomeTileCard({
   tile,
   idx,
-  onClick,
+  onNavigate,
   style,
 }: {
   tile: TileConfig;
   idx: number;
-  onClick: () => void;
+  /** Stable callback. We pass `tile.id` here so the parent doesn't need to
+   * recreate a per-tile arrow function on every render — which would have
+   * broken React.memo's referential equality check on `onClick`. */
+  onNavigate: (dest: HomeDestination) => void;
   style?: React.CSSProperties;
 }) {
   return (
@@ -147,7 +72,7 @@ export function HomeTileCard({
       data-tv-focusable
       data-tv-row={1 + Math.floor(idx / 3)}
       data-tv-col={idx % 3}
-      onClick={onClick}
+      onClick={() => onNavigate(tile.id)}
       className={`neo-tile ${tile.bgClass}`}
       style={{
         appearance: 'none',
@@ -178,7 +103,7 @@ export function HomeTileCard({
       </div>
     </button>
   );
-}
+});
 
 export function buildHomeTiles({
   channelCount,

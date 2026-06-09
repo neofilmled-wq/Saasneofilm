@@ -34,6 +34,7 @@ export function useUpsertPartnerProfile() {
       latitude?: number;
       longitude?: number;
       timezone?: string;
+      banderoleSlots?: { icon: string; label: string }[];
     }) => {
       return apiFetch(`/partner/profile?orgId=${orgId}`, {
         method: 'PATCH',

@@ -1,0 +1,225 @@
+'use client';
+
+import {
+  Wifi,
+  Utensils,
+  Clock,
+  Coffee,
+  QrCode,
+  MapPin,
+  Phone,
+  Info,
+  Star,
+  Bed,
+  Bath,
+  Car,
+  Dumbbell,
+  Tv,
+  Sparkles,
+  Croissant,
+  GlassWater,
+  Plane,
+  Ticket,
+  KeyRound,
+} from 'lucide-react';
+import type { ComponentType } from 'react';
+
+/** Whitelist of pill icons — IDs match the partner-facing
+ *  `BanderoleSlotsEditor` so picking one there always resolves to a real
+ *  component here. Unknown IDs render no icon (label-only pill). */
+const ICON_MAP: Record<string, ComponentType<{ size?: number }>> = {
+  wifi: Wifi,
+  utensils: Utensils,
+  clock: Clock,
+  coffee: Coffee,
+  qr: QrCode,
+  mappin: MapPin,
+  phone: Phone,
+  info: Info,
+  star: Star,
+  bed: Bed,
+  bath: Bath,
+  car: Car,
+  dumbbell: Dumbbell,
+  tv: Tv,
+  sparkles: Sparkles,
+  croissant: Croissant,
+  glass: GlassWater,
+  plane: Plane,
+  ticket: Ticket,
+  key: KeyRound,
+};
+
+/** Map ISO country code → French label for the footer. Falls back to the
+ *  raw code if unknown (keeps the UI from breaking on uncommon countries). */
+const COUNTRY_LABEL: Record<string, string> = {
+  FR: 'France',
+  BE: 'Belgique',
+  CH: 'Suisse',
+  LU: 'Luxembourg',
+  MC: 'Monaco',
+  CA: 'Canada',
+  GB: 'Royaume-Uni',
+  US: 'États-Unis',
+  ES: 'Espagne',
+  IT: 'Italie',
+  DE: 'Allemagne',
+  PT: 'Portugal',
+  NL: 'Pays-Bas',
+  MA: 'Maroc',
+  TN: 'Tunisie',
+  DZ: 'Algérie',
+};
+
+function formatCountry(code: string | null): string | null {
+  if (!code) return null;
+  return COUNTRY_LABEL[code.toUpperCase()] ?? code;
+}
+
+interface LocationFooterProps {
+  partnerName: string | null;
+  city: string | null;
+  country: string | null;
+  /** Up to 3 pills displayed on the right side of the bandeau. Each pill
+   *  has a Lucide icon (resolved via ICON_MAP) and a free-text label set
+   *  by the partner in the web portal. */
+  slots?: { icon: string; label: string }[];
+}
+
+/**
+ * Bottom-left footer rendered in the screen shell — replaces the old
+ * PartnerBanner. Keeps the same wide-strip look (badge + overline + big text)
+ * but pulls real data: partner organisation name (in red) plus the screen's
+ * city / country.
+ *
+ * Hidden entirely when no data is available, so screens that haven't filled
+ * in the partner profile don't render an empty bar.
+ */
+export function LocationFooter({ partnerName, city, country, slots }: LocationFooterProps) {
+  const validSlots = (slots ?? [])
+    .filter((s) => s && typeof s.icon === 'string' && typeof s.label === 'string' && s.label.length > 0)
+    .slice(0, 3);
+  if (!partnerName && !city && validSlots.length === 0) return null;
+
+  const initial = (partnerName ?? 'N').charAt(0).toUpperCase();
+  const countryLabel = formatCountry(country);
+  // "Paris, France" / "Paris" / "France" depending on what we have.
+  const locationLabel = [city, countryLabel].filter(Boolean).join(', ') || null;
+
+  return (
+    <div
+      style={{
+        // 4th row of the .neo-fit-stage grid (the `auto` row that used to
+        // host the PartnerBanner). Stays in the normal flow so it sits at
+        // the very bottom of the shell instead of overlapping the tile grid.
+        margin: '0 3rem 0.875rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '1.125rem',
+        padding: '0.75rem 1.25rem',
+        background:
+          'linear-gradient(90deg, rgba(20, 12, 25, 0.78) 0%, rgba(40, 18, 30, 0.62) 60%, rgba(20, 12, 25, 0.45) 100%)',
+        border: '1px solid rgba(230, 57, 70, 0.25)',
+        borderRadius: '0.875rem',
+        pointerEvents: 'none',
+      }}
+    >
+      {/* Red badge with the partner's first initial */}
+      <div
+        style={{
+          width: '2.5rem',
+          height: '2.5rem',
+          flexShrink: 0,
+          borderRadius: '0.625rem',
+          background: 'linear-gradient(135deg, #E63946 0%, #b71c2c 100%)',
+          color: '#fff',
+          display: 'grid',
+          placeItems: 'center',
+          fontWeight: 700,
+          fontSize: '1.125rem',
+          letterSpacing: '0.04em',
+          boxShadow: '0 4px 12px rgba(230, 57, 70, 0.35)',
+        }}
+      >
+        {initial}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, lineHeight: 1.2 }}>
+        <div
+          style={{
+            fontSize: '0.6875rem',
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            color: 'rgba(255, 255, 255, 0.55)',
+            marginBottom: '0.125rem',
+          }}
+        >
+          Votre conciergerie
+        </div>
+        <div
+          style={{
+            fontSize: '1.0625rem',
+            fontWeight: 600,
+            color: 'rgba(255, 255, 255, 0.92)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {partnerName && (
+            <span
+              style={{
+                color: '#E63946',
+                fontWeight: 700,
+                letterSpacing: '0.01em',
+              }}
+            >
+              {partnerName}
+            </span>
+          )}
+          {partnerName && locationLabel && (
+            <span style={{ color: 'rgba(255, 255, 255, 0.4)', margin: '0 0.5rem' }}>·</span>
+          )}
+          {locationLabel && <span>{locationLabel}</span>}
+        </div>
+      </div>
+
+      {validSlots.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.625rem',
+            flexShrink: 0,
+            color: 'rgba(255, 255, 255, 0.82)',
+          }}
+        >
+          {validSlots.map((slot, i) => {
+            const Icon = ICON_MAP[slot.icon];
+            return (
+              <div
+                key={`${slot.icon}-${i}`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.4375rem 0.875rem',
+                  borderRadius: '999px',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.10)',
+                  fontSize: '0.8125rem',
+                  fontWeight: 500,
+                  letterSpacing: '0.01em',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {Icon && <Icon size={14} />}
+                <span>{slot.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

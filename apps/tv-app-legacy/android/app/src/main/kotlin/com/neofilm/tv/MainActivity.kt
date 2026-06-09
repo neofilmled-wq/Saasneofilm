@@ -2,6 +2,7 @@ package com.neofilm.tv
 
 import android.annotation.SuppressLint
 import android.app.admin.DevicePolicyManager
+import android.content.ComponentCallbacks2
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -1307,6 +1308,31 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
         webView.onPause()
         browserWebView?.onPause()
+    }
+
+    /**
+     * Hook Android's memory-pressure callbacks into the WebView so Chromium
+     * frees its image / shader / network caches when the system is tight on
+     * RAM (e.g. user just launched YouTube). On the Fire Stick HD (1 GB),
+     * this is the single biggest knob: without it Chromium grows to ~80 MB
+     * and stays there even when most of NeoFilm is off-screen.
+     */
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        try {
+            if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
+                level == ComponentCallbacks2.TRIM_MEMORY_BACKGROUND ||
+                level == ComponentCallbacks2.TRIM_MEMORY_MODERATE ||
+                level == ComponentCallbacks2.TRIM_MEMORY_COMPLETE ||
+                level == ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL
+            ) {
+                webView.freeMemory()
+                browserWebView?.freeMemory()
+                Log.i(TAG, "onTrimMemory($level): WebView caches dropped")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "onTrimMemory($level) failed: ${e.message}")
+        }
     }
 
     /**

@@ -6,6 +6,7 @@ import { TvAdsService } from './tv-ads.service';
 import { TvMacrosService } from './tv-macros.service';
 import { ActivitySponsorsService } from './activity-sponsors.service';
 import { CatalogueService } from '../catalogue/catalogue.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 /**
  * Device-facing TV configuration endpoints.
@@ -34,6 +35,7 @@ export class TvConfigController {
     private readonly tvMacrosService: TvMacrosService,
     private readonly activitySponsorsService: ActivitySponsorsService,
     private readonly catalogueService: CatalogueService,
+    private readonly prisma: PrismaService,
   ) {}
 
   // ── Helper ──────────────────────────────────────────────────────────────
@@ -153,7 +155,7 @@ export class TvConfigController {
     const { screenId, orgId } = this.requireDevice(req);
 
     // Fetch all data in parallel
-    const [config, channels, streamingServices, activities, catalogue, macros, ads, partnerBanner] =
+    const [config, channels, streamingServices, activities, catalogue, macros, ads, partnerBanner, screenInfo] =
       await Promise.all([
         screenId
           ? this.tvConfigService.getConfigForScreen(screenId)
@@ -180,7 +182,55 @@ export class TvConfigController {
           ? this.tvAdsService.getAdsForScreen(screenId, 'POWER_ON', 5)
           : { ads: [], fallbackHouseAds: [] },
         screenId ? this.tvConfigService.getPartnerBannerForScreen(screenId) : null,
+        // Used to render the bottom-left "[partner] · [city]" footer on the
+        // TV WebView. Falls back gracefully to org.name if no PartnerProfile.
+        screenId
+          ? this.prisma.screen.findUnique({
+              where: { id: screenId },
+              select: {
+                city: true,
+                country: true,
+                // Screens optionally belong to a Site (a hotel/cinema group);
+                // when the Screen row itself has no address set, fall back to
+                // the Site's address so the bottom-left footer still shows
+                // something useful.
+                site: { select: { city: true, country: true } },
+                partnerOrg: {
+                  select: {
+                    name: true,
+                    partnerProfile: { select: { companyName: true, banderoleSlots: true } },
+                  },
+                },
+              },
+            })
+          : null,
       ]);
+
+    const partnerName =
+      screenInfo?.partnerOrg?.partnerProfile?.companyName?.trim() ||
+      screenInfo?.partnerOrg?.name ||
+      null;
+    const screenCity = screenInfo?.city || screenInfo?.site?.city || null;
+    const screenCountry = screenInfo?.country || screenInfo?.site?.country || null;
+    // Validate the JSON shape before forwarding so a stale/malformed value in
+    // the DB doesn't crash the TV bootstrap. Only entries with both icon and
+    // label survive; the partner UI already strips empties before saving.
+    const rawSlots = screenInfo?.partnerOrg?.partnerProfile?.banderoleSlots as
+      | { icon?: unknown; label?: unknown }[]
+      | null
+      | undefined;
+    const banderoleSlots = Array.isArray(rawSlots)
+      ? rawSlots
+          .filter(
+            (s): s is { icon: string; label: string } =>
+              !!s &&
+              typeof s.icon === 'string' &&
+              s.icon.length > 0 &&
+              typeof s.label === 'string' &&
+              s.label.length > 0,
+          )
+          .slice(0, 3)
+      : [];
 
     this.logger.log(
       `Bootstrap for screen=${screenId}: ${ads.ads.length} ads, ${(activities as any[]).length} activities, ${(catalogue as any[]).length} catalogue`,
@@ -195,6 +245,10 @@ export class TvConfigController {
       macros,
       ads: ads.ads,
       partnerBannerUrl: partnerBanner,
+      partnerName,
+      screenCity,
+      screenCountry,
+      banderoleSlots,
     };
   }
 }

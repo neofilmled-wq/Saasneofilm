@@ -25,6 +25,17 @@ interface TvConfigState {
   catalogue: CatalogueListing[];
   macros: TvMacroResponse | null;
   partnerBannerUrl: string | null;
+  /** Partner organisation display name — rendered in red in the bottom-left
+   *  footer of the TV WebView. Comes from PartnerProfile.companyName if set,
+   *  otherwise falls back to Organization.name. */
+  partnerName: string | null;
+  /** City of the Screen this device is paired to (falls back to Site.city). */
+  screenCity: string | null;
+  /** Country of the Screen this device is paired to (ISO code, falls back to Site.country). */
+  screenCountry: string | null;
+  /** Up to 3 customizable pill slots configured by the partner in the web
+   *  portal. Rendered on the right of the LocationFooter. */
+  banderoleSlots: { icon: string; label: string }[];
   isLoading: boolean;
 }
 
@@ -54,6 +65,10 @@ export function useTvConfig({ token, onAuthError }: UseTvConfigOptions) {
     catalogue: [],
     macros: null,
     partnerBannerUrl: null,
+    partnerName: null,
+    screenCity: null,
+    screenCountry: null,
+    banderoleSlots: [],
     isLoading: false,
   });
 
@@ -87,6 +102,12 @@ export function useTvConfig({ token, onAuthError }: UseTvConfigOptions) {
         catalogue: bootstrap.catalogue ?? [],
         macros: bootstrap.macros ?? DEFAULT_MACROS,
         partnerBannerUrl: (bootstrap as any).partnerBannerUrl ?? null,
+        partnerName: (bootstrap as any).partnerName ?? null,
+        screenCity: (bootstrap as any).screenCity ?? null,
+        screenCountry: (bootstrap as any).screenCountry ?? null,
+        banderoleSlots: Array.isArray((bootstrap as any).banderoleSlots)
+          ? (bootstrap as any).banderoleSlots
+          : [],
         isLoading: false,
       });
     } catch (err) {
@@ -139,6 +160,8 @@ export function useTvConfig({ token, onAuthError }: UseTvConfigOptions) {
           catalogue: catalogue ?? [],
           macros: macros ?? DEFAULT_MACROS,
           partnerBannerUrl: null,
+          partnerName: null,
+          screenCity: null,
           isLoading: false,
         });
       } catch (fallbackErr) {

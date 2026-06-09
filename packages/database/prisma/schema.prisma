@@ -1856,6 +1856,14 @@ model PartnerProfile {
   // Preferences
   timezone String @default("Europe/Paris")
 
+  // Bottom-of-TV banner customisation: up to 3 pills with an icon + a label,
+  // rendered on the right of the LocationFooter. Stored as JSON so we can
+  // grow the schema (extra metadata per slot, link URL, etc.) without a
+  // migration.
+  // Shape: [{ icon: string, label: string }, ...] — max 3 entries; empty
+  // slots are simply omitted by the partner UI before saving.
+  banderoleSlots Json?
+
   // Compliance documents (uploaded by partner, viewable by admin)
   kbisUrl           String? // KBIS extract URL (S3)
   directorFullName  String? // Full name of legal director

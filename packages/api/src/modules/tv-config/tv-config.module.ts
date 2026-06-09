@@ -8,9 +8,10 @@ import { TvConfigController } from './tv-config.controller';
 import { TvConfigPartnerController } from './tv-config-partner.controller';
 import { DeviceGatewayModule } from '../device-gateway/device-gateway.module';
 import { CatalogueModule } from '../catalogue/catalogue.module';
+import { PrismaModule } from '../../prisma/prisma.module';
 
 @Module({
-  imports: [DeviceGatewayModule, CatalogueModule],
+  imports: [DeviceGatewayModule, CatalogueModule, PrismaModule],
   controllers: [TvConfigController, TvConfigPartnerController],
   providers: [
     TvConfigService,

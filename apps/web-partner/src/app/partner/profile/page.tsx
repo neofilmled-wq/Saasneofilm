@@ -15,6 +15,10 @@ import { PageHeader } from '@/components/ui/page-header';
 import { LoadingState } from '@/components/ui/loading-state';
 import { usePartnerProfile, useUpsertPartnerProfile } from '@/hooks/use-partner-profile';
 import { BannerUpload } from '@/components/profile/banner-upload';
+import {
+  BanderoleSlotsEditor,
+  type BanderoleSlot,
+} from '@/components/profile/banderole-slots-editor';
 
 export default function ProfilePage() {
   const { data: profile, isLoading } = usePartnerProfile();
@@ -34,6 +38,7 @@ export default function ProfilePage() {
     latitude: '',
     longitude: '',
   });
+  const [banderoleSlots, setBanderoleSlots] = useState<BanderoleSlot[]>([]);
 
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +60,14 @@ export default function ProfilePage() {
         latitude: profile.latitude != null ? String(profile.latitude) : '',
         longitude: profile.longitude != null ? String(profile.longitude) : '',
       });
+      const raw = (profile as any).banderoleSlots;
+      setBanderoleSlots(
+        Array.isArray(raw)
+          ? raw
+              .filter((s: any) => s && typeof s.icon === 'string' && typeof s.label === 'string')
+              .slice(0, 3)
+          : [],
+      );
     }
   }, [profile]);
 
@@ -67,6 +80,10 @@ export default function ProfilePage() {
         ...form,
         latitude: form.latitude ? parseFloat(form.latitude) : undefined,
         longitude: form.longitude ? parseFloat(form.longitude) : undefined,
+        // Strip empty rows before persisting so the DB never holds blanks.
+        banderoleSlots: banderoleSlots
+          .filter((s) => s.icon.trim() !== '' && s.label.trim() !== '')
+          .slice(0, 3),
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -134,6 +151,10 @@ export default function ProfilePage() {
                 value={form.bannerUrl}
                 onChange={(url) => setForm((f) => ({ ...f, bannerUrl: url ?? '' }))}
               />
+            </div>
+            <div className="grid gap-2 pt-2 border-t">
+              <Label>Pastilles d&apos;informations (bandeau TV)</Label>
+              <BanderoleSlotsEditor value={banderoleSlots} onChange={setBanderoleSlots} />
             </div>
           </CardContent>
         </Card>

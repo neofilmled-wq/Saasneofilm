@@ -17,7 +17,11 @@ object AdCacheManager {
 
     private const val TAG = "AdCacheManager"
     private const val CACHE_DIR = "ad_cache"
-    private const val MAX_CACHE_SIZE_MB = 500L
+    // 100 MB instead of 500 — Fire Stick HD only ships with 8 GB of total
+    // storage and we don't need a half-gig pool of cached creatives. The
+    // smaller cap also keeps the LRU sweeper running on a tighter set, so
+    // file-system overhead and disk I/O during ad rotation drop.
+    private const val MAX_CACHE_SIZE_MB = 100L
 
     /** Get the cache directory, creating it if needed. */
     private fun cacheDir(context: Context): File {

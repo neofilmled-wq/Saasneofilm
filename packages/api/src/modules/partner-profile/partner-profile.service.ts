@@ -51,8 +51,11 @@ export class PartnerProfileService {
     latitude?: number;
     longitude?: number;
     timezone?: string;
+    /** Up to 3 customizable pill slots displayed at the bottom-right of the
+     *  TV banner. Stored as JSON. Each entry: { icon: <lucide-id>, label }. */
+    banderoleSlots?: { icon: string; label: string }[] | null;
   }) {
-    const allowed = ['companyName', 'logoUrl', 'bannerUrl', 'contactEmail', 'contactPhone', 'address', 'city', 'postCode', 'country', 'latitude', 'longitude', 'timezone'];
+    const allowed = ['companyName', 'logoUrl', 'bannerUrl', 'contactEmail', 'contactPhone', 'address', 'city', 'postCode', 'country', 'latitude', 'longitude', 'timezone', 'banderoleSlots'];
     const clean: any = {};
     for (const key of allowed) {
       if ((data as any)[key] !== undefined) clean[key] = (data as any)[key];

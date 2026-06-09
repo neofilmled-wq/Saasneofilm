@@ -7,8 +7,10 @@ import { useAdQueue } from '@/hooks/use-ad-queue';
 import { TopBar } from '@/components/layout/top-bar';
 import { TabNavigation, type TabKey } from '@/components/layout/tab-navigation';
 import { Sidebar, PromoList, AnnoncePanel } from '@/components/layout/sidebar';
+import { LocationFooter } from '@/components/layout/location-footer';
 // PartnerBanner removed from the WebView per product call — the partner
-// banner uploaded in the portal is no longer rendered on the TV.
+// banner uploaded in the portal is no longer rendered on the TV. Replaced
+// by the minimal LocationFooter (partner name in red + city) bottom-left.
 import { HomeTileCard, buildHomeTiles, type HomeDestination } from '@/components/pages/home-page';
 // Lazy-load each tab page so the Fire Stick HD doesn't pay parse + eval
 // cost on JS it won't run until the user actually opens that tab. Boot
@@ -54,7 +56,7 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
     // Auth errors are handled by DeviceProvider
   }, []);
 
-  const { config, channels, streamingServices, activities, catalogue, macros, isLoading, refetch, updateMacros } = useTvConfig({
+  const { config, channels, streamingServices, activities, catalogue, macros, partnerName, screenCity, screenCountry, banderoleSlots, isLoading, refetch, updateMacros } = useTvConfig({
     token,
     onAuthError: handleAuthError,
   });
@@ -331,6 +333,12 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
           </div>
         )}
 
+        <LocationFooter
+          partnerName={partnerName}
+          city={screenCity}
+          country={screenCountry}
+          slots={banderoleSlots}
+        />
       </div>
     </div>
   );

@@ -13,7 +13,7 @@ const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_VIDEO_SIZE = 1024 * 1024 * 1024; // 1 GB
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;   // 10 MB
 const MIN_DURATION_S = 12;
-const MAX_DURATION_S = 30;
+const MAX_DURATION_S = 35;
 
 interface UploadState {
   file: File | null;

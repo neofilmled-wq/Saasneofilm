@@ -184,12 +184,16 @@ export default function MapPage() {
           />
         </div>
 
-        {/* Detail drawer */}
-        <div className="space-y-3 max-h-[600px] overflow-y-auto">
-          {selected && selectedGroup.length > 0 ? (
-            <>
+        {/* Right column: full screen list + detail of selected on top.
+             Users asked to keep the list visible at all times (previous
+             behaviour hid it behind an empty-state card). */}
+        <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+          {selected && selectedGroup.length > 0 && (
+            <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold">{selectedGroup.length} écran{selectedGroup.length > 1 ? 's' : ''} à cette adresse</span>
+                <span className="text-sm font-semibold">
+                  {selectedGroup.length} écran{selectedGroup.length > 1 ? 's' : ''} à cette adresse
+                </span>
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelected(null)}>
                   <X className="h-4 w-4" />
                 </Button>
@@ -211,7 +215,7 @@ export default function MapPage() {
                       <dl className="space-y-1 text-xs">
                         <div className="flex justify-between">
                           <dt className="text-muted-foreground">Site</dt>
-                          <dd>{screen.siteName}</dd>
+                          <dd>{screen.siteName ?? '—'}</dd>
                         </div>
                         <div className="flex justify-between">
                           <dt className="text-muted-foreground">Ville</dt>
@@ -254,17 +258,68 @@ export default function MapPage() {
                   </Card>
                 );
               })}
-            </>
-          ) : (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <Monitor className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  Sélectionnez un écran pour voir ses détails
-                </p>
-              </CardContent>
-            </Card>
+            </div>
           )}
+
+          {/* Full screen list — respects the same active status filter as
+               the map so what the user sees on the right matches the pins. */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Écrans ({filteredScreens.length})
+              </span>
+            </div>
+            {filteredScreens.length === 0 ? (
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <Monitor className="h-6 w-6 text-muted-foreground mx-auto mb-1.5" />
+                  <p className="text-xs text-muted-foreground">Aucun écran avec ce filtre.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="divide-y rounded-lg border bg-card">
+                {filteredScreens.map((screen) => {
+                  const mapStatus = getMapScreenStatus(screen);
+                  const isSelected = selected?.id === screen.id;
+                  const dotClass =
+                    mapStatus === 'active'
+                      ? 'bg-green-500'
+                      : mapStatus === 'inactive'
+                        ? 'bg-orange-500'
+                        : 'bg-gray-400';
+                  return (
+                    <button
+                      key={screen.id}
+                      type="button"
+                      onClick={() => {
+                        setSelected(screen);
+                        if (screen.latitude != null && screen.longitude != null) {
+                          setFlyTo({ lat: screen.latitude, lng: screen.longitude });
+                        }
+                      }}
+                      className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-muted/60 transition-colors ${
+                        isSelected ? 'bg-primary/8' : ''
+                      }`}
+                    >
+                      <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${dotClass}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{screen.name}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {screen.city ?? '—'}
+                          {screen.siteName ? ` · ${screen.siteName}` : ''}
+                        </div>
+                      </div>
+                      {screen.activeDeviceId ? (
+                        <Wifi className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                      ) : (
+                        <WifiOff className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

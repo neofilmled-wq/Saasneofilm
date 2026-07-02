@@ -1,15 +1,14 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Settings, Columns, Link2, RotateCcw, PlayCircle, Power } from 'lucide-react';
-import { Button, Tabs, TabsList, TabsTrigger, TabsContent, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@neofilm/ui';
-import { toast } from 'sonner';
+import { ArrowLeft, Settings, Columns, Link2, RotateCcw, PlayCircle } from 'lucide-react';
+import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@neofilm/ui';
 import { LoadingState } from '@/components/ui/loading-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { ScreenDetailOverview } from '@/components/screens/screen-detail-overview';
-import { useScreen, useScreenDevice, usePublishScreen, useDisableScreen } from '@/hooks/use-screens';
+import { useScreen, useScreenDevice, usePublishScreen } from '@/hooks/use-screens';
 import { useOrgPermissions } from '@/hooks/use-org-permissions';
 import type { ScreenStatusColor } from '@/lib/utils';
 import type { ScreenWithStatus } from '@/types/screen.types';
@@ -32,8 +31,6 @@ export default function ScreenDetailPage({
   const { data: device } = useScreenDevice(screen?.activeDeviceId);
   const permissions = useOrgPermissions();
   const publishScreen = usePublishScreen();
-  const disableScreen = useDisableScreen();
-  const [showDisableDialog, setShowDisableDialog] = useState(false);
 
   if (isLoading) return <LoadingState />;
   if (isError || !screen) return <ErrorState onRetry={() => refetch()} />;
@@ -68,16 +65,15 @@ export default function ScreenDetailPage({
               {publishScreen.isPending ? 'Activation...' : 'Activer l\'écran'}
             </Button>
           )}
-          {screen.status === 'ACTIVE' && permissions.canEditUxSettings && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => setShowDisableDialog(true)}
-            >
-              <Power className="mr-2 h-4 w-4" />
-              Désactiver l'écran
-            </Button>
-          )}
+          {/* Bouton "Désactiver l'écran" retiré côté partenaire.
+                Le service actuel (screens.service.ts:setDisabled) se contente
+                de faire status=INACTIVE — pas de transfert de campagnes, pas
+                de remboursement, pas de notification aux annonceurs. La
+                boîte de dialogue promettait un transfert automatique qui
+                n'existait pas. Tant qu'on n'a pas la logique de rollover
+                bookings + refund, la désactivation passe par l'admin (ou par
+                une action manuelle en BDD) pour éviter de casser des
+                campagnes en cours en silence. */}
           {!screen.activeDeviceId && permissions.canPairDevices && (
             <Button variant="outline" size="sm" asChild>
               <Link href={`/partner/screens/${screenId}/pairing`}>
@@ -131,39 +127,8 @@ export default function ScreenDetailPage({
         </TabsContent>
       </Tabs>
 
-      {/* Dialog de confirmation désactivation */}
-      <Dialog open={showDisableDialog} onOpenChange={setShowDisableDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Désactiver l'écran ?</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            En désactivant cet écran, aucun annonceur ne pourra y diffuser de publicité.
-            Les campagnes actuellement diffusées sur cet écran seront automatiquement transférées sur d'autres écrans disponibles.
-          </p>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowDisableDialog(false)}>
-              Annuler
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={disableScreen.isPending}
-              onClick={async () => {
-                try {
-                  await disableScreen.mutateAsync(screenId);
-                  toast.success('Écran désactivé');
-                  setShowDisableDialog(false);
-                  refetch();
-                } catch {
-                  toast.error('Erreur lors de la désactivation');
-                }
-              }}
-            >
-              {disableScreen.isPending ? 'Désactivation...' : 'Confirmer la désactivation'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Dialog de désactivation retiré — voir commentaire au niveau du
+           bouton "Désactiver". */}
     </div>
   );
 }

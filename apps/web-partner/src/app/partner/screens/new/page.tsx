@@ -30,11 +30,16 @@ import type { ScreenFormValues } from '@/types/screen.types';
 
 const screenSchema = z.object({
   name: z.string().min(1, 'Le nom est requis').max(200),
-  siteId: z.string().min(1, 'Le site est requis'),
+  // Site now optional — a partner may want to register an isolated screen
+  // that isn't part of a site group yet.
+  siteId: z.string().optional(),
   address: z.string().min(1, 'L\'adresse est requise').max(500),
   city: z.string().min(1, 'La ville est requise').max(100),
   latitude: z.coerce.number().optional(),
   longitude: z.coerce.number().optional(),
+  // Hardware / commercial fields are set to sensible defaults on submit —
+  // partners edit them later from the screen detail page. Keeps this form
+  // to the two useful decisions: "which site?" + "where is it?".
   type: z.enum(['smartTV', 'nonSmartTV']),
   brand: z.string().max(100).optional(),
   model: z.string().max(100).optional(),
@@ -65,7 +70,13 @@ export default function NewScreenPage() {
 
   const onSubmit = async (values: ScreenFormValues) => {
     if (!orgId) return;
-    const screen = await createScreen.mutateAsync({ ...values, partnerOrgId: orgId });
+    const screen = await createScreen.mutateAsync({
+      ...values,
+      // Empty siteId → send undefined so the API doesn't try to resolve a
+      // non-existent relation (screens can be orphaned by design).
+      siteId: values.siteId?.trim() ? values.siteId : undefined,
+      partnerOrgId: orgId,
+    });
     router.push(`/partner/screens/${screen.id}`);
   };
 
@@ -95,22 +106,42 @@ export default function NewScreenPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="siteId">Site</Label>
+              <Label htmlFor="siteId">Site (optionnel)</Label>
               <Select
-                value={form.watch('siteId')}
+                value={form.watch('siteId') || '__none__'}
                 onValueChange={(v) => {
+                  if (v === '__none__') {
+                    form.setValue('siteId', '');
+                    // Wipe the location too — the fields the user sees below
+                    // came from the previously-selected site, keeping them
+                    // would carry over a wrong address.
+                    form.setValue('address', '', { shouldValidate: true });
+                    form.setValue('city', '', { shouldValidate: true });
+                    form.setValue('latitude', undefined);
+                    form.setValue('longitude', undefined);
+                    return;
+                  }
                   form.setValue('siteId', v);
                   const site = sites?.find((s) => s.id === v);
                   if (site) {
-                    form.setValue('address', `${site.address}, ${site.postCode} ${site.city}`);
-                    form.setValue('city', site.city);
+                    form.setValue(
+                      'address',
+                      [site.address, site.postCode, site.city].filter(Boolean).join(', '),
+                      { shouldValidate: true },
+                    );
+                    form.setValue('city', site.city ?? '', { shouldValidate: true });
+                    // Sites don't carry lat/lng — clear the geo coords so we
+                    // don't leave a stale pin from a previous manual entry.
+                    form.setValue('latitude', undefined);
+                    form.setValue('longitude', undefined);
                   }
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choisir un site" />
+                  <SelectValue placeholder="Aucun site — écran isolé" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__">Aucun site — écran isolé</SelectItem>
                   {sites?.map((site) => (
                     <SelectItem key={site.id} value={site.id}>
                       {site.name} — {site.city}
@@ -118,8 +149,11 @@ export default function NewScreenPage() {
                   ))}
                 </SelectContent>
               </Select>
-              {form.formState.errors.siteId && (
-                <p className="text-sm text-destructive">{form.formState.errors.siteId.message}</p>
+              {form.watch('siteId') && (
+                <p className="text-xs text-muted-foreground">
+                  L&apos;emplacement est repris du site sélectionné et non modifiable ici. Pour
+                  changer l&apos;adresse, éditez la fiche du site.
+                </p>
               )}
             </div>
 
@@ -131,73 +165,64 @@ export default function NewScreenPage() {
             <CardTitle>Emplacement</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="address">Adresse complète</Label>
-              <AddressAutocomplete
-                value={form.watch('address')}
-                onChange={(v) => form.setValue('address', v, { shouldValidate: true })}
-                onSelect={(sel: AddressSelection) => {
-                  form.setValue('address', sel.label, { shouldValidate: true });
-                  if (sel.city) form.setValue('city', sel.city, { shouldValidate: true });
-                  form.setValue('latitude', sel.lat);
-                  form.setValue('longitude', sel.lng);
-                }}
-                placeholder="15 Rue des Archives, 75004 Paris"
-              />
-              {form.formState.errors.address && (
-                <p className="text-sm text-destructive">{form.formState.errors.address.message}</p>
-              )}
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="city">Ville</Label>
-                <Input id="city" {...form.register('city')} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="latitude">Latitude</Label>
-                <Input id="latitude" type="number" step="any" {...form.register('latitude')} readOnly className="bg-muted/50" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="longitude">Longitude</Label>
-                <Input id="longitude" type="number" step="any" {...form.register('longitude')} readOnly className="bg-muted/50" />
-              </div>
-            </div>
+            {(() => {
+              const hasSite = !!form.watch('siteId');
+              return (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Adresse complète</Label>
+                    {hasSite ? (
+                      <Input
+                        id="address"
+                        value={form.watch('address') ?? ''}
+                        readOnly
+                        className="bg-muted/50 cursor-not-allowed"
+                      />
+                    ) : (
+                      <AddressAutocomplete
+                        value={form.watch('address')}
+                        onChange={(v) => form.setValue('address', v, { shouldValidate: true })}
+                        onSelect={(sel: AddressSelection) => {
+                          form.setValue('address', sel.label, { shouldValidate: true });
+                          if (sel.city) form.setValue('city', sel.city, { shouldValidate: true });
+                          form.setValue('latitude', sel.lat);
+                          form.setValue('longitude', sel.lng);
+                        }}
+                        placeholder="15 Rue des Archives, 75004 Paris"
+                      />
+                    )}
+                    {form.formState.errors.address && (
+                      <p className="text-sm text-destructive">{form.formState.errors.address.message}</p>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="city">Ville</Label>
+                      <Input
+                        id="city"
+                        {...form.register('city')}
+                        readOnly={hasSite}
+                        className={hasSite ? 'bg-muted/50 cursor-not-allowed' : undefined}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="latitude">Latitude</Label>
+                      <Input id="latitude" type="number" step="any" {...form.register('latitude')} readOnly className="bg-muted/50" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="longitude">Longitude</Label>
+                      <Input id="longitude" type="number" step="any" {...form.register('longitude')} readOnly className="bg-muted/50" />
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Matériel (optionnel)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="brand">Marque</Label>
-                <Input id="brand" placeholder="Samsung, LG, Sony..." {...form.register('brand')} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="model">Modèle</Label>
-                <Input id="model" placeholder="QE55Q80B" {...form.register('model')} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="resolution">Résolution</Label>
-              <Select
-                value={form.watch('resolution')}
-                onValueChange={(v) => form.setValue('resolution', v)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1920x1080">Full HD (1920x1080)</SelectItem>
-                  <SelectItem value="3840x2160">4K UHD (3840x2160)</SelectItem>
-                  <SelectItem value="1280x720">HD (1280x720)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Section Matériel retirée — les champs (marque/modèle/résolution
+             /orientation/prix mensuel) partent avec des valeurs par défaut à
+             la création et se règlent depuis la fiche écran ensuite. */}
 
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline" asChild>

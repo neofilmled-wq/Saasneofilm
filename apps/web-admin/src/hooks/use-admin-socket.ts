@@ -74,6 +74,12 @@ export function useAdminSocket() {
       queryClient.invalidateQueries({ queryKey: ['admin', 'moderation'] });
     });
 
+    // Retrocession / commission statements changed (calcul, approbation,
+    // paiement, changement de taux) → refresh the retrocessions cockpit live.
+    socket.on('admin:retrocession:update', () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'retrocessions'] });
+    });
+
     socket.on('admin:activity:new', () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'activity'] });
     });

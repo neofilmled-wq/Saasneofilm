@@ -3,7 +3,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PartnerCommissionsService } from './partner-commissions.service';
-import { Roles } from '../../common/decorators';
+import { PayoutBatchService } from '../payouts/payout-batch.service';
+import { Roles, CurrentUser } from '../../common/decorators';
 
 // ─── Partner-facing (/partner/commissions) ────────────────────────────────
 @ApiTags('Partner Commissions')
@@ -45,7 +46,10 @@ export class PartnerCommissionsController {
 @ApiBearerAuth()
 @Controller('admin/commissions')
 export class AdminCommissionsController {
-  constructor(private readonly service: PartnerCommissionsService) {}
+  constructor(
+    private readonly service: PartnerCommissionsService,
+    private readonly payoutBatch: PayoutBatchService,
+  ) {}
 
   @Patch('rate')
   @Roles('ADMIN', 'SUPER_ADMIN')
@@ -56,9 +60,47 @@ export class AdminCommissionsController {
     return this.service.updateCommissionRate(body.partnerOrgId, body.ratePercent);
   }
 
+  @Post(':statementId/approve')
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Approve a CALCULATED statement (gate before Stripe payout)' })
+  async approve(
+    @Param('statementId') statementId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.service.approveStatement(statementId, userId);
+  }
+
+  @Post('approve-month')
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Bulk-approve all CALCULATED statements for a month (YYYY-MM)' })
+  async approveMonth(
+    @Body() body: { month: string },
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.service.approveMonth(body.month, userId);
+  }
+
+  @Post('pay-month')
+  @Roles('SUPER_ADMIN')
+  @ApiOperation({
+    summary: 'Run the Stripe payout batch for a month (YYYY-MM)',
+    description:
+      'Transfers every APPROVED revenue share of the month to its partner ' +
+      'via Stripe Connect. Only SUPER_ADMIN — this moves real money.',
+  })
+  async payMonth(
+    @Body() body: { month: string },
+    @CurrentUser('id') userId: string,
+  ) {
+    const [year, m] = body.month.split('-').map(Number);
+    const periodStart = new Date(year, m - 1, 1);
+    const periodEnd = new Date(year, m, 1);
+    return this.payoutBatch.processMonthlyPayouts(periodStart, periodEnd, userId);
+  }
+
   @Post(':statementId/mark-paid')
   @Roles('ADMIN', 'SUPER_ADMIN')
-  @ApiOperation({ summary: 'Mark a revenue share statement as PAID' })
+  @ApiOperation({ summary: 'Mark a revenue share statement as PAID (manual, no Stripe)' })
   async markPaid(@Param('statementId') statementId: string) {
     return this.service.markPaid(statementId);
   }

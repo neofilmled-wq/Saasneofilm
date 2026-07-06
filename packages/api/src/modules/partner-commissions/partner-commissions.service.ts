@@ -1,13 +1,27 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PartnerGateway } from '../partner-gateway/partner.gateway';
+import { AdminGateway } from '../admin/admin.gateway';
 
 @Injectable()
 export class PartnerCommissionsService {
+  private readonly logger = new Logger(PartnerCommissionsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly partnerGateway: PartnerGateway,
+    private readonly adminGateway: AdminGateway,
   ) {}
+
+  /**
+   * Notify BOTH sides after any change to a partner's statement:
+   * - the partner room (so the concerned partner sees his own figure move)
+   * - the admin room (so the retrocessions cockpit refreshes live)
+   */
+  private notifyStatementChange(partnerOrgId: string, statementId: string) {
+    this.partnerGateway.emitStatementUpdated(partnerOrgId, statementId);
+    this.adminGateway.emitRetrocessionUpdate();
+  }
 
   // ─── Partner-facing ─────────────────────────────────────────────────────
 
@@ -214,7 +228,7 @@ export class PartnerCommissionsService {
           platformRate: 1 - rate,
         },
       });
-      this.partnerGateway.emitStatementUpdated(partnerOrgId, share.id);
+      this.notifyStatementChange(partnerOrgId, share.id);
     }
 
     this.partnerGateway.emitCommissionRateChanged(partnerOrgId, rate);
@@ -222,7 +236,65 @@ export class PartnerCommissionsService {
     return { partnerOrgId, commissionRate: rate, commissionRatePercent: ratePercent, updatedStatements: pendingShares.length };
   }
 
-  /** Admin marks a statement as PAID */
+  /**
+   * Admin approves a CALCULATED statement, moving it to APPROVED.
+   * Only APPROVED statements are picked up by the Stripe payout batch
+   * (`payout-batch.service.ts`), so this is the mandatory gate before any
+   * real transfer. Idempotent: re-approving an already-APPROVED share is a
+   * no-op; PAID shares are refused to avoid rewriting settled history.
+   */
+  async approveStatement(statementId: string, approvedByUserId?: string) {
+    const share = await this.prisma.revenueShare.findUnique({ where: { id: statementId } });
+    if (!share) throw new NotFoundException('Statement not found');
+
+    if (share.status === 'PAID') {
+      throw new BadRequestException('Statement already paid — cannot re-approve');
+    }
+    if (share.status === 'APPROVED') {
+      return share; // idempotent
+    }
+
+    const updated = await this.prisma.revenueShare.update({
+      where: { id: statementId },
+      data: { status: 'APPROVED', approvedBy: approvedByUserId ?? null },
+    });
+
+    this.logger.log(
+      `RevenueShare ${statementId} approved (partner=${share.partnerOrgId}, ` +
+        `share=${share.partnerShareCents}c) by ${approvedByUserId ?? 'unknown'}`,
+    );
+    this.notifyStatementChange(share.partnerOrgId, statementId);
+
+    return updated;
+  }
+
+  /**
+   * Bulk-approve every CALCULATED statement of a given month. Returns the
+   * count approved so the admin UI can report "N partenaires approuvés".
+   */
+  async approveMonth(month: string, approvedByUserId?: string) {
+    const [year, m] = month.split('-').map(Number);
+    const periodStart = new Date(year, m - 1, 1);
+    const periodEnd = new Date(year, m, 1);
+
+    const calculated = await this.prisma.revenueShare.findMany({
+      where: { status: 'CALCULATED', periodStart: { gte: periodStart, lt: periodEnd } },
+      select: { id: true, partnerOrgId: true },
+    });
+
+    for (const share of calculated) {
+      await this.prisma.revenueShare.update({
+        where: { id: share.id },
+        data: { status: 'APPROVED', approvedBy: approvedByUserId ?? null },
+      });
+      this.notifyStatementChange(share.partnerOrgId, share.id);
+    }
+
+    this.logger.log(`approveMonth ${month}: ${calculated.length} statements approved`);
+    return { month, approvedCount: calculated.length };
+  }
+
+  /** Admin marks a statement as PAID (manual settlement, no Stripe transfer). */
   async markPaid(statementId: string) {
     const share = await this.prisma.revenueShare.findUnique({ where: { id: statementId } });
     if (!share) throw new NotFoundException('Statement not found');
@@ -232,7 +304,7 @@ export class PartnerCommissionsService {
       data: { status: 'PAID' },
     });
 
-    this.partnerGateway.emitStatementUpdated(share.partnerOrgId, statementId);
+    this.notifyStatementChange(share.partnerOrgId, statementId);
 
     return updated;
   }
@@ -331,7 +403,7 @@ export class PartnerCommissionsService {
         },
       });
 
-      this.partnerGateway.emitStatementUpdated(partnerOrgId, statement.id);
+      this.notifyStatementChange(partnerOrgId, statement.id);
       results.push(statement);
     }
 

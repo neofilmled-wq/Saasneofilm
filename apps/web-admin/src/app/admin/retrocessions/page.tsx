@@ -23,13 +23,24 @@ import {
   SelectValue,
   Input,
 } from '@neofilm/ui';
-import { Download, CheckCircle, Calculator, Percent } from 'lucide-react';
+import { Download, CheckCircle, Calculator, Percent, BadgeCheck, Banknote, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/common/page-header';
 import { apiFetch } from '@/lib/api';
+import { useAdminSocket } from '@/hooks/use-admin-socket';
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(cents / 100);
+}
+
+/** Format a period start ISO date into "juin 2026". The retrocession API
+ *  returns periodStart/periodEnd, not a pre-formatted month string. */
+function formatPeriod(periodStart?: string): string {
+  if (!periodStart) return '—';
+  const d = new Date(periodStart);
+  if (Number.isNaN(d.getTime())) return '—';
+  const label = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 function generateMonthOptions(): { value: string; label: string }[] {
@@ -53,6 +64,9 @@ const STATUS_BADGES: Record<string, { label: string; variant: 'default' | 'secon
 
 export default function RetrocessionsPage() {
   const queryClient = useQueryClient();
+  // Mount the admin socket so `admin:retrocession:update` events refresh the
+  // table live (another admin approving/paying, or a rate change).
+  useAdminSocket();
   const monthOptions = generateMonthOptions();
   const [month, setMonth] = useState(monthOptions[0].value);
   const [ratePartnerOrgId, setRatePartnerOrgId] = useState('');
@@ -77,14 +91,67 @@ export default function RetrocessionsPage() {
     onError: () => toast.error('Erreur lors du calcul'),
   });
 
-  // Mark paid
+  // Approve a single statement (CALCULATED → APPROVED)
+  const approveMutation = useMutation({
+    mutationFn: (statementId: string) => apiFetch(`/admin/commissions/${statementId}/approve`, {
+      method: 'POST',
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'retrocessions', month] });
+      toast.success('Rétrocession approuvée');
+    },
+    onError: () => toast.error("Erreur lors de l'approbation"),
+  });
+
+  // Bulk-approve all CALCULATED statements of the month
+  const approveMonthMutation = useMutation({
+    mutationFn: () => apiFetch('/admin/commissions/approve-month', {
+      method: 'POST',
+      body: JSON.stringify({ month }),
+    }),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'retrocessions', month] });
+      const n = res?.data?.approvedCount ?? res?.approvedCount ?? 0;
+      toast.success(`${n} rétrocession(s) approuvée(s)`);
+    },
+    onError: () => toast.error("Erreur lors de l'approbation groupée"),
+  });
+
+  // Pay the month via the real Stripe Connect batch (APPROVED → PAID + transfers)
+  const payMonthMutation = useMutation({
+    mutationFn: () => apiFetch('/admin/commissions/pay-month', {
+      method: 'POST',
+      body: JSON.stringify({ month }),
+    }),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'retrocessions', month] });
+      const d = res?.data ?? res ?? {};
+      const processed = Array.isArray(d.processed) ? d.processed.length : 0;
+      const held = Array.isArray(d.held) ? d.held.length : 0;
+      const failed = Array.isArray(d.failed) ? d.failed.length : 0;
+      if (processed > 0) {
+        toast.success(
+          `Virement lancé : ${processed} partenaire(s) — ${formatCurrency(d.totalTransferredCents ?? 0)}` +
+            (held > 0 ? ` · ${held} en attente (Connect incomplet)` : '') +
+            (failed > 0 ? ` · ${failed} échec(s)` : ''),
+        );
+      } else if (held > 0) {
+        toast.error(`${held} partenaire(s) sans compte Stripe Connect prêt — aucun virement.`);
+      } else {
+        toast.error("Aucune rétrocession éligible (approuve d'abord, ou déjà payées).");
+      }
+    },
+    onError: (err: any) => toast.error(`Erreur de paiement : ${err?.message ?? 'inconnue'}`),
+  });
+
+  // Manual settlement fallback (no Stripe) — kept for edge cases
   const markPaidMutation = useMutation({
     mutationFn: (statementId: string) => apiFetch(`/admin/commissions/${statementId}/mark-paid`, {
       method: 'POST',
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'retrocessions', month] });
-      toast.success('Statement marqué comme payé');
+      toast.success('Marqué comme payé (manuel)');
     },
     onError: () => toast.error('Erreur'),
   });
@@ -122,6 +189,13 @@ export default function RetrocessionsPage() {
 
   const retrocessions = (data as any)?.data ?? data ?? [];
 
+  // Status counters drive which batch actions are enabled.
+  const calculatedCount = retrocessions.filter((r: any) => r.status === 'CALCULATED').length;
+  const approvedCount = retrocessions.filter((r: any) => r.status === 'APPROVED').length;
+  const approvedTotalCents = retrocessions
+    .filter((r: any) => r.status === 'APPROVED')
+    .reduce((sum: number, r: any) => sum + (r.partnerShareCents ?? 0), 0);
+
   return (
     <div className="space-y-6">
       <PageHeader title="Rétrocessions partenaires" description="Gestion des commissions et versements partenaires" />
@@ -148,11 +222,51 @@ export default function RetrocessionsPage() {
           {computeMutation.isPending ? 'Calcul en cours…' : 'Calculer le mois'}
         </Button>
 
+        {/* Step 2 — approve all CALCULATED statements for the month */}
+        <Button
+          variant="outline"
+          onClick={() => approveMonthMutation.mutate()}
+          disabled={calculatedCount === 0 || approveMonthMutation.isPending}
+        >
+          {approveMonthMutation.isPending
+            ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            : <BadgeCheck className="mr-2 h-4 w-4" />}
+          Approuver tout{calculatedCount > 0 ? ` (${calculatedCount})` : ''}
+        </Button>
+
+        {/* Step 3 — real Stripe Connect batch for APPROVED statements */}
+        <Button
+          onClick={() => {
+            if (
+              window.confirm(
+                `Lancer le virement Stripe de ${formatCurrency(approvedTotalCents)} ` +
+                  `à ${approvedCount} partenaire(s) pour ${monthOptions.find((m) => m.value === month)?.label} ?`,
+              )
+            ) {
+              payMonthMutation.mutate();
+            }
+          }}
+          disabled={approvedCount === 0 || payMonthMutation.isPending}
+        >
+          {payMonthMutation.isPending
+            ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            : <Banknote className="mr-2 h-4 w-4" />}
+          {payMonthMutation.isPending
+            ? 'Virement en cours…'
+            : `Payer le mois${approvedCount > 0 ? ` (${formatCurrency(approvedTotalCents)})` : ''}`}
+        </Button>
+
         <Button variant="outline" onClick={handleExport}>
           <Download className="mr-2 h-4 w-4" />
           Export CSV
         </Button>
       </div>
+
+      {/* Workflow hint */}
+      <p className="text-xs text-muted-foreground -mt-3">
+        Flux : <strong>Calculer</strong> le mois → <strong>Approuver</strong> les rétrocessions →
+        {' '}<strong>Payer</strong> (virement Stripe Connect réel vers les partenaires).
+      </p>
 
       {/* Rate update */}
       <Card>
@@ -232,27 +346,41 @@ export default function RetrocessionsPage() {
                   return (
                     <TableRow key={row.id}>
                       <TableCell className="font-medium">
-                        {row.partnerOrg?.name ?? row.partnerOrgId}
+                        {row.partnerName ?? row.partnerOrgId}
                       </TableCell>
-                      <TableCell>{row.month}</TableCell>
+                      <TableCell>{formatPeriod(row.periodStart)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(row.totalRevenueCents ?? 0)}</TableCell>
                       <TableCell className="text-right">{((row.commissionRate ?? 0) * 100).toFixed(0)}%</TableCell>
-                      <TableCell className="text-right font-semibold">{formatCurrency(row.amountCents ?? 0)}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatCurrency(row.partnerShareCents ?? 0)}</TableCell>
                       <TableCell>
                         <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
                       </TableCell>
                       <TableCell>
-                        {row.status !== 'PAID' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => markPaidMutation.mutate(row.id)}
-                            disabled={markPaidMutation.isPending}
-                          >
-                            <CheckCircle className="mr-1 h-3 w-3" />
-                            Marquer payé
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {row.status === 'CALCULATED' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => approveMutation.mutate(row.id)}
+                              disabled={approveMutation.isPending}
+                            >
+                              <BadgeCheck className="mr-1 h-3 w-3" />
+                              Approuver
+                            </Button>
+                          )}
+                          {row.status !== 'PAID' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => markPaidMutation.mutate(row.id)}
+                              disabled={markPaidMutation.isPending}
+                              title="Régularisation manuelle sans virement Stripe"
+                            >
+                              <CheckCircle className="mr-1 h-3 w-3" />
+                              Marquer payé
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );

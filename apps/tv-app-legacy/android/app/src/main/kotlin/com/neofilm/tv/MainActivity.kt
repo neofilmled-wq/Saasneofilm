@@ -432,6 +432,11 @@ class MainActivity : AppCompatActivity() {
         setContentView(rootLayout)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+        // Boot version toast — visible confirmation of the running APK build.
+        // Handy for validating an OTA update landed (the versionName changes
+        // after the new APK installs and the app relaunches).
+        showToast("NeoFilm v${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
+
         // Enable kiosk mode AFTER setContentView (insetsController needs DecorView)
         enableKioskMode()
 

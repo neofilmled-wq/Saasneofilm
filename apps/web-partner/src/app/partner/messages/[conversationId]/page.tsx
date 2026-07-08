@@ -93,7 +93,12 @@ export default function PartnerConversationDetailPage() {
   const statusLabel = conversation.status === 'OPEN' ? 'Ouvert' : conversation.status === 'CLOSED' ? 'Fermé' : 'Archivé';
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-3xl flex-col">
+    // Height fits INSIDE the partner layout's scrollable panel (which already
+    // subtracts its own margin + Header + main padding). Using 100vh-4rem here
+    // overshot by ~6rem and pushed the message composer below the visible
+    // panel, so the input box looked missing. ~10rem accounts for the panel
+    // margin (2rem) + Header (~4rem) + main padding (3.5rem).
+    <div className="mx-auto flex h-[calc(100vh-10rem)] max-w-3xl flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 border-b px-4 py-3">
         <Button variant="ghost" size="icon" onClick={() => router.push('/partner/messages')}>

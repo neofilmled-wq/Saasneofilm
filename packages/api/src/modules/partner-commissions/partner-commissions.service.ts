@@ -310,11 +310,65 @@ export class PartnerCommissionsService {
   }
 
   /**
+   * Add `months` to a date, clamping the day to the last day of the target
+   * month (standard subscription-billing behaviour: a Jan-31 anchor renews
+   * Feb-28, not Mar-3 as naive Date arithmetic would give).
+   */
+  private addMonthsClamped(date: Date, months: number): Date {
+    const targetDay = date.getDate();
+    const d = new Date(date.getFullYear(), date.getMonth() + months, 1);
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    d.setDate(Math.min(targetDay, lastDay));
+    d.setHours(date.getHours(), date.getMinutes(), date.getSeconds(), 0);
+    return d;
+  }
+
+  /**
+   * Billing renewal dates (anchors) of a booking that fall within the calendar
+   * month [periodStart, periodEnd). Anchors are startDate + k months. A
+   * fixed-term booking has exactly `durationMonths` anchors; an ongoing one
+   * (no endDate/duration) renews forever, but we only ever collect anchors
+   * inside this month so the loop stops as soon as it passes periodEnd.
+   */
+  private getBillingAnchorsInMonth(
+    startDate: Date,
+    endDate: Date | null,
+    durationMonths: number | null,
+    periodStart: Date,
+    periodEnd: Date,
+  ): Date[] {
+    const maxK = durationMonths && durationMonths > 0 ? durationMonths : 1200; // ongoing → 100y cap
+    const anchors: Date[] = [];
+    for (let k = 0; k < maxK; k++) {
+      const anchor = this.addMonthsClamped(startDate, k);
+      // Anchors are monotonically increasing — once past this month, stop.
+      if (anchor.getTime() >= periodEnd.getTime()) break;
+      // Respect an explicit end (cancelled/finished subscription).
+      if (endDate && anchor.getTime() >= endDate.getTime()) break;
+      if (anchor.getTime() >= periodStart.getTime()) anchors.push(anchor);
+    }
+    return anchors;
+  }
+
+  /**
    * Compute commission statements from booking data for a given month.
    * Implements the pro-rata multi-partner rule:
    *   prix_par_tv = montant_mensuel / nb_total_tv
    *   revenu_partner = prix_par_tv * nb_tv_du_partner
    *   commission = revenu_partner * ratePercent
+   *
+   * EXACT BILLING-PERIOD ATTRIBUTION (fixes the mid-month over-payment):
+   * A statement runs per calendar month. Without care, a 6-month subscription
+   * starting on the 25th of August straddles 7 calendar months (Aug…Feb) and
+   * would be paid a FULL month 7 times — the partner is over-paid by a whole
+   * month while the advertiser is only billed 6 times.
+   *
+   * A monthly subscription renews on the SAME day each month (its "anchor":
+   * the 25th here). Each renewal that lands inside a calendar month is worth
+   * exactly one monthly charge. So we pay the partner `monthlyPriceCents ×
+   * (nombre de renouvellements tombant dans ce mois)`. Summed over all
+   * months this equals durationMonths × monthly to the cent — no day-based
+   * rounding drift, February (no renewal) = 0.
    */
   async computeStatements(month: string) {
     const [year, m] = month.split('-').map(Number);
@@ -341,6 +395,40 @@ export class PartnerCommissionsService {
       },
     });
 
+    // ── Payment gate ──────────────────────────────────────────────────────
+    // Only credit a renewal to the partner if the advertiser's invoice for
+    // that billing period was actually PAID. Without this, a declined card
+    // (booking still ACTIVE / PAST_DUE) would still credit the partner — we'd
+    // be paying out money we never collected. We pre-load the PAID invoices of
+    // every advertiser involved whose billing period overlaps this month, then
+    // match each renewal anchor against them.
+    const advertiserOrgIds = [...new Set(bookings.map((b) => b.advertiserOrgId))];
+    const paidInvoices = advertiserOrgIds.length
+      ? await this.prisma.stripeInvoice.findMany({
+          where: {
+            organizationId: { in: advertiserOrgIds },
+            status: 'PAID',
+            periodStart: { lt: periodEnd },
+            periodEnd: { gt: periodStart },
+          },
+          select: { organizationId: true, periodStart: true, periodEnd: true },
+        })
+      : [];
+    const paidByOrg = new Map<string, { start: number; end: number }[]>();
+    for (const inv of paidInvoices) {
+      const arr = paidByOrg.get(inv.organizationId) ?? [];
+      arr.push({ start: inv.periodStart.getTime(), end: inv.periodEnd.getTime() });
+      paidByOrg.set(inv.organizationId, arr);
+    }
+    const renewalIsPaid = (advertiserOrgId: string, anchor: Date): boolean => {
+      const periods = paidByOrg.get(advertiserOrgId);
+      if (!periods) return false;
+      const t = anchor.getTime();
+      // The renewal date is the start of a billing period → it falls inside
+      // the paid invoice's [periodStart, periodEnd).
+      return periods.some((p) => p.start <= t && t < p.end);
+    };
+
     // Group by partner org
     const partnerData = new Map<string, { totalRevenueCents: number; screenCount: number }>();
 
@@ -348,7 +436,22 @@ export class PartnerCommissionsService {
       const totalScreens = booking.bookingScreens.length;
       if (totalScreens === 0) continue;
 
-      const pricePerTv = booking.monthlyPriceCents / totalScreens;
+      // Renewal dates in this calendar month, then keep only those whose
+      // advertiser invoice was actually paid.
+      const anchors = this.getBillingAnchorsInMonth(
+        booking.startDate,
+        booking.endDate ?? null,
+        booking.durationMonths ?? null,
+        periodStart,
+        periodEnd,
+      );
+      const paidRenewals = anchors.filter((a) =>
+        renewalIsPaid(booking.advertiserOrgId, a),
+      ).length;
+      if (paidRenewals <= 0) continue; // no *paid* renewal this month → nothing to pay
+
+      const monthlyForPeriod = booking.monthlyPriceCents * paidRenewals;
+      const pricePerTv = monthlyForPeriod / totalScreens;
 
       // Group screens by partner
       const byPartner = new Map<string, number>();

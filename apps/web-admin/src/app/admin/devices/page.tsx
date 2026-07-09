@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Monitor, Wifi, WifiOff, MoreHorizontal, Eye, Power, PowerOff, CheckCircle, XCircle, Search, Clock, Link2 } from 'lucide-react';
+import { Monitor, Wifi, WifiOff, MoreHorizontal, Eye, Power, PowerOff, CheckCircle, XCircle, Search, Clock, Link2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Card, CardContent,
@@ -36,6 +36,8 @@ export default function DevicesPage() {
 
   const { connected, screenStatuses } = useAdminSocket();
   const [statusFilter, setStatusFilter] = useState(initialStatus);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -47,15 +49,24 @@ export default function DevicesPage() {
   const pinRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const { data: screensData, isLoading } = useQuery({
-    queryKey: ['admin', 'screens', statusFilter],
+    queryKey: ['admin', 'screens', statusFilter, page],
     queryFn: () => adminApi.getAdminScreens({
       status: statusFilter !== '__all__' ? statusFilter : undefined,
-      limit: 200,
+      page,
+      limit: PAGE_SIZE,
     }),
     refetchInterval: connected ? false : 15_000,
   });
 
-  const screens = (screensData as any)?.data?.data ?? [];
+  // Reset to page 1 whenever the status tab changes.
+  useEffect(() => { setPage(1); }, [statusFilter]);
+
+  const screensResp = (screensData as any)?.data ?? {};
+  const screens = screensResp.data ?? [];
+  // Real network-wide aggregates from the backend (not the paginated page).
+  // Fall back to the loaded page length only if the API didn't return them.
+  const totalCount = screensResp.total ?? screens.length;
+  const totalPages = screensResp.totalPages ?? Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   // Merge live statuses from socket
   const liveMap: Record<string, any> = {};
@@ -159,10 +170,10 @@ export default function DevicesPage() {
 
       {/* Stats */}
       <div className="grid gap-3 grid-cols-4">
-        <StatCard title="En ligne" value={isLoading ? '...' : onlineCount} icon={Wifi} />
-        <StatCard title="Hors ligne" value={isLoading ? '...' : screens.length - onlineCount} icon={WifiOff} />
-        <StatCard title="En attente" value={isLoading ? '...' : pendingCount} icon={Clock} />
-        <StatCard title="Total" value={isLoading ? '...' : screens.length} icon={Monitor} />
+        <StatCard title="En ligne" value={isLoading ? '...' : (screensResp.onlineTotal ?? onlineCount)} icon={Wifi} />
+        <StatCard title="Hors ligne" value={isLoading ? '...' : (screensResp.offlineTotal ?? (totalCount - onlineCount))} icon={WifiOff} />
+        <StatCard title="En attente" value={isLoading ? '...' : (screensResp.pendingTotal ?? pendingCount)} icon={Clock} />
+        <StatCard title="Total" value={isLoading ? '...' : totalCount} icon={Monitor} />
       </div>
 
       {/* Status tabs + Search */}
@@ -351,6 +362,36 @@ export default function DevicesPage() {
                 )}
               </TableBody>
             </Table>
+          )}
+
+          {/* Pagination */}
+          {!isLoading && totalCount > PAGE_SIZE && (
+            <div className="flex items-center justify-between border-t px-4 py-3 text-sm">
+              <span className="text-muted-foreground">
+                {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalCount)} sur {totalCount}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                >
+                  <ChevronLeft className="h-4 w-4" /> Précédent
+                </Button>
+                <span className="px-2 text-muted-foreground">
+                  Page {page} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                >
+                  Suivant <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

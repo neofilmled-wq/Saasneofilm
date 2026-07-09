@@ -405,7 +405,11 @@ export class AdminService {
     if (partnerOrgId) where.partnerOrgId = partnerOrgId;
     if (city) where.city = city;
 
-    const [screens, total] = await Promise.all([
+    // Aggregate counts computed over the WHOLE matching set (not the paginated
+    // page) so the dashboard stat cards reflect the real network — the admin
+    // devices page previously showed `data.length` (capped at the limit) as
+    // the "Total", which read 200 instead of the real 2005.
+    const [screens, total, onlineTotal, pendingTotal] = await Promise.all([
       this.prisma.screen.findMany({
         where,
         skip: (page - 1) * limit,
@@ -417,6 +421,13 @@ export class AdminService {
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.screen.count({ where }),
+      this.prisma.screen.count({ where: { ...where, screenLiveStatus: { isOnline: true } } }),
+      // "En attente" = screen awaiting approval (matches the frontend tab badge
+      // which filters on status PENDING_APPROVAL). Ignores the status filter so
+      // the card is stable across tabs.
+      this.prisma.screen.count({
+        where: { ...where, status: 'PENDING_APPROVAL' as any },
+      }),
     ]);
 
     let filtered = screens;
@@ -426,7 +437,16 @@ export class AdminService {
       filtered = screens.filter((s: any) => !s.screenLiveStatus?.isOnline);
     }
 
-    return { data: filtered, total, page, limit, totalPages: Math.ceil(total / limit) };
+    return {
+      data: filtered,
+      total,
+      onlineTotal,
+      offlineTotal: total - onlineTotal,
+      pendingTotal,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async updateScreen(id: string, data: any) {

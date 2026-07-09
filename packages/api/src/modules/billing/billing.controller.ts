@@ -7,6 +7,7 @@ import {
   Body,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { BillingService } from './billing.service';
@@ -58,6 +59,24 @@ export class BillingController {
       body.bookingId,
       user.orgId,
       body,
+    );
+  }
+
+  @Post('checkout/resume')
+  @Permissions('billing:write')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resume payment for a campaign with an abandoned checkout' })
+  async resumeCheckout(
+    @CurrentUser() user: any,
+    @Body() body: { campaignId: string; successUrl: string; cancelUrl: string },
+  ) {
+    if (!body?.campaignId || !body?.successUrl || !body?.cancelUrl) {
+      throw new BadRequestException('campaignId, successUrl et cancelUrl requis');
+    }
+    return this.billingService.resumeCheckoutForCampaign(
+      body.campaignId,
+      user.orgId,
+      body as any,
     );
   }
 

@@ -532,6 +532,33 @@ export class CampaignsService {
     // APPROVED → ACTIVE (advertiser pays/confirms diffusion)
     const newStatus = campaign.status === 'APPROVED' ? 'ACTIVE' : 'APPROVED';
 
+    // Payment gate: a campaign only goes live (ACTIVE = diffused on TVs) once
+    // its booking has been PAID. The booking is flipped to ACTIVE by the Stripe
+    // checkout webhook (billing.service.handleCheckoutCompleted). Without this
+    // check, an advertiser who backs out of the Stripe page could click
+    // "Activer" and diffuse for free. Grouped campaigns (AD_SPOT + CATALOG)
+    // share one checkout, so we accept a paid booking for any campaign of the
+    // group.
+    if (newStatus === 'ACTIVE') {
+      const groupCampaignIds = campaign.groupId
+        ? (
+            await this.prisma.campaign.findMany({
+              where: { groupId: campaign.groupId },
+              select: { id: true },
+            })
+          ).map((c) => c.id)
+        : [id];
+      const paidBooking = await this.prisma.booking.findFirst({
+        where: { status: 'ACTIVE', campaignId: { in: groupCampaignIds } },
+        select: { id: true },
+      });
+      if (!paidBooking) {
+        throw new BadRequestException(
+          'Paiement requis : réglez la campagne via Stripe avant de la diffuser.',
+        );
+      }
+    }
+
     const updated = await this.prisma.campaign.update({
       where: { id },
       data: {

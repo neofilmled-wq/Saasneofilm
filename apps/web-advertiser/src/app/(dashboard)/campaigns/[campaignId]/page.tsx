@@ -1,21 +1,26 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Play, ExternalLink, Monitor, BarChart3, Clock, Tv, BookOpen, Pencil } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { ArrowLeft, Play, ExternalLink, Monitor, BarChart3, Clock, Tv, BookOpen, Pencil, CreditCard, AlertTriangle } from 'lucide-react';
 import { Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger } from '@neofilm/ui';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/common/page-header';
 import { LoadingPage } from '@/components/common/loading-state';
 import { ErrorState } from '@/components/common/error-state';
 import { CampaignStatusBadge } from '@/components/common/status-badge';
-import { useCampaign, useCampaignGroup, usePublishCampaign } from '@/lib/api/hooks/use-campaigns';
+import { useCampaign, useCampaignGroup } from '@/lib/api/hooks/use-campaigns';
 import { useAdvertiserAnalytics } from '@/lib/api/hooks/use-analytics';
+import { apiFetch } from '@/lib/api';
 
 import { formatCurrency, formatDate, formatNumber } from '@/lib/utils';
 
 export default function CampaignDetailPage({ params }: { params: Promise<{ campaignId: string }> }) {
   const { campaignId } = use(params);
+  const searchParams = useSearchParams();
+  const paymentParam = searchParams.get('payment'); // 'success' | 'cancelled' | null
+  const [isPaying, setIsPaying] = useState(false);
   const { data: campaign, isLoading, isError, refetch } = useCampaign(campaignId);
 
   // If this campaign has a groupId, fetch sibling campaigns
@@ -25,7 +30,6 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   // Real views per creative (from DiffusionLog) — same source as Analytics page
   const { data: analytics } = useAdvertiserAnalytics();
 
-  const publishCampaign = usePublishCampaign();
 
   if (isLoading) return <LoadingPage />;
   if (isError || !campaign) return <ErrorState onRetry={() => refetch()} />;
@@ -55,20 +59,36 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   const displayStatus = allCampaigns.some((c: any) => c.status === 'ACTIVE') ? 'ACTIVE'
     : campaign.status;
 
-  async function handlePublishAll() {
+  const canDiffuse = allCampaigns.some((c: any) => c.status === 'APPROVED');
+
+  // A campaign only reaches ACTIVE via the paid Stripe webhook, so anything
+  // not ACTIVE is unpaid → show the "Payer" banner and hide the free-activate
+  // path. (Backend also blocks activation without payment.)
+  const isPaid = displayStatus === 'ACTIVE';
+
+  async function handlePay() {
+    setIsPaying(true);
     try {
-      for (const c of allCampaigns.filter((c: any) => c.status === 'PENDING_REVIEW')) {
-        await publishCampaign.mutateAsync(c.id);
+      const origin = window.location.origin;
+      const res = await apiFetch<{ url?: string }>('/billing/checkout/resume', {
+        method: 'POST',
+        body: JSON.stringify({
+          campaignId,
+          successUrl: `${origin}/campaigns/${campaignId}?payment=success`,
+          cancelUrl: `${origin}/campaigns/${campaignId}?payment=cancelled`,
+        }),
+      });
+      if (res?.url) {
+        window.location.href = res.url;
+        return;
       }
-      toast.success(isGroup ? 'Campagnes activées !' : 'Campagne activée ! Diffusion en cours sur les écrans TV.');
-      refetch();
+      toast.error('Impossible de générer le lien de paiement.');
     } catch (e: any) {
-      toast.error(e?.message ?? 'Erreur lors de la publication');
+      toast.error(e?.message ?? 'Erreur lors de la reprise du paiement.');
+    } finally {
+      setIsPaying(false);
     }
   }
-
-  const canPublish = allCampaigns.some((c: any) => c.status === 'PENDING_REVIEW');
-  const canDiffuse = allCampaigns.some((c: any) => c.status === 'APPROVED');
 
   return (
     <>
@@ -112,6 +132,39 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
           </span>
         )}
       </div>
+
+      {/* Payment banner — unpaid campaigns can't be diffused until settled. */}
+      {!isPaid && (
+        <div className="mb-6 flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <div>
+              <p className="font-semibold text-amber-900">
+                {paymentParam === 'cancelled' ? 'Paiement annulé' : 'Paiement en attente'}
+              </p>
+              <p className="text-sm text-amber-800">
+                Cette campagne ne sera diffusée sur les écrans TV qu&apos;une fois le
+                règlement effectué. {paymentParam === 'cancelled' && 'Vous avez quitté la page de paiement.'}
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={handlePay}
+            disabled={isPaying}
+            className="gap-1.5 bg-amber-600 hover:bg-amber-700 shrink-0"
+          >
+            <CreditCard className="h-4 w-4" />
+            {isPaying ? 'Redirection…' : 'Payer maintenant'}
+          </Button>
+        </div>
+      )}
+
+      {/* Success banner right after returning from Stripe. */}
+      {isPaid && paymentParam === 'success' && (
+        <div className="mb-6 rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-800">
+          ✅ Paiement confirmé — votre campagne est en diffusion sur les écrans TV.
+        </div>
+      )}
 
       {/* KPI cards — adapted to campaign composition:
            - Spot TV présent → card "Diffusions"

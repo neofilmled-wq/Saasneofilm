@@ -231,9 +231,12 @@ export class BillingService {
       throw new NotFoundException('Booking not found');
     }
 
-    if (booking.status !== 'DRAFT') {
+    // DRAFT = fresh, PENDING = a previous checkout was abandoned (user backed
+    // out of Stripe). Both can (re)generate a checkout session. ACTIVE means
+    // already paid — refuse.
+    if (booking.status !== 'DRAFT' && booking.status !== 'PENDING') {
       throw new BadRequestException(
-        `Booking is in ${booking.status} status, expected DRAFT`,
+        `Booking is in ${booking.status} status, cannot create a checkout`,
       );
     }
 
@@ -357,6 +360,50 @@ export class BillingService {
     });
 
     return { sessionId: session.id, url: session.url };
+  }
+
+  /**
+   * Resume payment for a campaign whose checkout was abandoned. Finds the most
+   * recent unpaid booking (DRAFT or PENDING) linked to the campaign (or any
+   * campaign of its group) and regenerates a Stripe checkout session.
+   */
+  async resumeCheckoutForCampaign(
+    campaignId: string,
+    orgId: string,
+    dto: CreateCheckoutDto,
+  ) {
+    // Grouped campaigns (AD_SPOT + CATALOG) share one booking/checkout.
+    const campaign = await this.prisma.campaign.findFirst({
+      where: { id: campaignId, advertiserOrgId: orgId },
+      select: { id: true, groupId: true },
+    });
+    if (!campaign) throw new NotFoundException('Campaign not found');
+
+    const groupCampaignIds = campaign.groupId
+      ? (
+          await this.prisma.campaign.findMany({
+            where: { groupId: campaign.groupId },
+            select: { id: true },
+          })
+        ).map((c) => c.id)
+      : [campaignId];
+
+    const booking = await this.prisma.booking.findFirst({
+      where: {
+        advertiserOrgId: orgId,
+        campaignId: { in: groupCampaignIds },
+        status: { in: ['DRAFT', 'PENDING'] },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, status: true },
+    });
+    if (!booking) {
+      throw new BadRequestException(
+        'Aucun paiement en attente pour cette campagne (déjà réglée ou annulée).',
+      );
+    }
+
+    return this.createCheckoutSession(booking.id, orgId, dto);
   }
 
   // ─── Webhook: Checkout Completed ─────────────────────────────────────

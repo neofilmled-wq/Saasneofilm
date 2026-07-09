@@ -793,6 +793,86 @@ export class AdminService {
     };
   }
 
+  // ─── Revenue forecast ────────────────────────────────────────────────────
+
+  /**
+   * Projected recurring revenue from subscriptions that are ACTUALLY PAID via
+   * Stripe. We only count active bookings whose advertiser has a PAID Stripe
+   * invoice in the last ~35 days (one billing cycle) — seed / never-paid
+   * bookings don't inflate the forecast. Base unit is the summed monthly price
+   * (MRR); other periods are multiples. Also returns a 6-month trend + counts.
+   *
+   * NOTE: this endpoint was called by the admin dashboard but never existed
+   * server-side, so the "Prévision CA" panel showed 0 / "en cours de calcul".
+   */
+  async getRevenueForecast() {
+    // Advertisers who actually paid via Stripe in the last billing cycle.
+    const paidSince = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000);
+    const paidInvoices = await this.prisma.stripeInvoice
+      .findMany({
+        where: { status: 'PAID', paidAt: { gte: paidSince } },
+        select: { organizationId: true },
+        distinct: ['organizationId'],
+      })
+      .catch(() => [] as { organizationId: string }[]);
+    const payingOrgIds = paidInvoices.map((i) => i.organizationId);
+
+    // MRR = sum of monthlyPriceCents over active bookings of PAYING advertisers.
+    const activeAgg = payingOrgIds.length
+      ? await this.prisma.booking
+          .aggregate({
+            where: { status: 'ACTIVE', advertiserOrgId: { in: payingOrgIds } },
+            _sum: { monthlyPriceCents: true },
+            _count: { id: true },
+          })
+          .catch(() => ({ _sum: { monthlyPriceCents: null }, _count: { id: 0 } }))
+      : { _sum: { monthlyPriceCents: 0 }, _count: { id: 0 } };
+
+    const mrrCents = activeAgg._sum?.monthlyPriceCents ?? 0;
+    const activeSubscriptions = activeAgg._count?.id ?? 0;
+
+    // Paying subscriptions that started this calendar month.
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+    const newSubscriptionsThisMonth = payingOrgIds.length
+      ? await this.prisma.booking
+          .count({
+            where: {
+              status: 'ACTIVE',
+              advertiserOrgId: { in: payingOrgIds },
+              startDate: { gte: monthStart },
+            },
+          })
+          .catch(() => 0)
+      : 0;
+
+    const mrrEur = mrrCents / 100;
+
+    // 6-month forward trend (flat projection from current MRR — we don't model
+    // churn/growth yet, so each future month = current MRR).
+    const monthlyTrend: Array<{ month: string; amount: number }> = [];
+    const base = new Date(monthStart);
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(base.getFullYear(), base.getMonth() + i, 1);
+      monthlyTrend.push({
+        month: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
+        amount: Math.round(mrrEur),
+      });
+    }
+
+    return {
+      daily: Math.round((mrrEur / 30) * 100) / 100,
+      monthly: Math.round(mrrEur * 100) / 100,
+      quarterly: Math.round(mrrEur * 3 * 100) / 100,
+      semiAnnual: Math.round(mrrEur * 6 * 100) / 100,
+      annual: Math.round(mrrEur * 12 * 100) / 100,
+      monthlyTrend,
+      activeSubscriptions,
+      newSubscriptionsThisMonth,
+    };
+  }
+
   // ─── Network KPIs ────────────────────────────────────────────────────────
 
   async getNetworkKPIs(range: string = 'month') {

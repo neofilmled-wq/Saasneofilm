@@ -336,6 +336,13 @@ export class AdminController {
     return this.adminService.getNetworkKPIs(range || 'month');
   }
 
+  @Get('dashboard/revenue-forecast')
+  @Roles('ADMIN', 'SUPER_ADMIN', 'SUPPORT')
+  @ApiOperation({ summary: 'Projected recurring revenue from active subscriptions' })
+  async getRevenueForecast() {
+    return this.adminService.getRevenueForecast();
+  }
+
   // ── Admin Partners ───────────────────
 
   @Get('partners')

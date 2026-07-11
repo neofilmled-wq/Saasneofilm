@@ -45,14 +45,23 @@ export function useDeviceSocket({
 
     let wasConnectedBefore = false;
     socket.on('connect', () => {
+      setIsConnected(true);
       if (wasConnectedBefore) {
-        // Reconnected after a disconnect → server likely restarted (new deploy)
-        console.log('[DeviceSocket] Reconnected — reloading page for updates');
-        window.location.reload();
+        // Reconnected after a drop (Wi-Fi blip, server restart). Previously we
+        // did window.location.reload() here — a full app re-download + WebView
+        // re-init that froze the screen for seconds on the Fire Stick. Instead
+        // we SOFT re-fetch: pull fresh config/ads/activities/catalogue via the
+        // existing callbacks. The server re-pushes `schedule` on connect
+        // automatically, and a genuinely new frontend build is still picked up
+        // by smart-tv-display's separate 10-min build-id check.
+        console.log('[DeviceSocket] Reconnected — soft re-fetch (no reload)');
+        onTvConfigUpdate?.();
+        onAdsUpdate?.();
+        onActivitiesUpdate?.();
+        onCatalogueUpdate?.();
         return;
       }
       wasConnectedBefore = true;
-      setIsConnected(true);
     });
     socket.on('disconnect', () => setIsConnected(false));
 

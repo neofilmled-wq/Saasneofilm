@@ -1,14 +1,18 @@
 import {
-  Controller, Get, Post, Patch, Query, Param, Body,
+  Controller, Get, Post, Patch, Query, Param, Body, UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PartnerCommissionsService } from './partner-commissions.service';
 import { PayoutBatchService } from '../payouts/payout-batch.service';
 import { Roles, CurrentUser } from '../../common/decorators';
+import { OrgGuard } from '../../common/guards';
 
 // ─── Partner-facing (/partner/commissions) ────────────────────────────────
+// OrgGuard: a partner may only read its OWN orgId (?orgId=). Admins bypass.
+// Closes the cross-tenant revenue leak flagged in the Phase 1 audit.
 @ApiTags('Partner Commissions')
 @ApiBearerAuth()
+@UseGuards(OrgGuard)
 @Controller('partner/commissions')
 export class PartnerCommissionsController {
   constructor(private readonly service: PartnerCommissionsService) {}

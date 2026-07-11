@@ -56,6 +56,9 @@ export class ProofIngestionService {
   private readonly processedProofs = new Map<string, number>();
   private readonly DEDUP_WINDOW_MS = 24 * 3600 * 1000; // 24 hours
 
+  /** Guards the "accepting unsigned proofs" warning to once per process. */
+  private warnedUnsigned = false;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
@@ -289,7 +292,27 @@ export class ProofIngestionService {
     deviceSecret: string,
   ): boolean {
     if (!deviceSecret) return true; // No secret configured, skip verification
-    if (signature === 'none') return true; // TV client placeholder — HMAC computed server-side in V2
+
+    // Unsigned-proof placeholder from the current TV fleet. Accepting it
+    // means any client can forge a DiffusionLog (the billing/anti-fraud
+    // source of truth). We keep accepting it by DEFAULT so the deployed
+    // fleet keeps working, but the operator can set ALLOW_UNSIGNED_PROOF=false
+    // once the APK signs proofs — then forged 'none' signatures are rejected.
+    if (signature === 'none' || !signature) {
+      const allowUnsigned = process.env.ALLOW_UNSIGNED_PROOF !== 'false';
+      if (allowUnsigned) {
+        if (!this.warnedUnsigned) {
+          this.warnedUnsigned = true;
+          // Log once, not per-proof, to avoid flooding.
+          console.warn(
+            '[ProofIngestion] Accepting UNSIGNED diffusion proofs (ALLOW_UNSIGNED_PROOF!=false). ' +
+              'Set ALLOW_UNSIGNED_PROOF=false once the APK signs proofs to close the anti-fraud gap.',
+          );
+        }
+        return true;
+      }
+      return false;
+    }
 
     const payload = `${deviceId}${creativeId}${startTime.toISOString()}${endTime.toISOString()}`;
     const expected = crypto

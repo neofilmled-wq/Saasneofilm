@@ -71,9 +71,11 @@ export class CampaignsController {
     try {
       return await this.campaignsService.createFull({ ...data, advertiserOrgId });
     } catch (error: any) {
+      // Log the full Prisma error server-side, but never leak error.code /
+      // error.meta (table + column names, constraint internals) to the client.
       console.error('createFull error:', error);
       throw new (require('@nestjs/common').BadRequestException)(
-        `createFull failed: ${error?.message ?? 'unknown'} | code: ${error?.code ?? 'none'} | meta: ${JSON.stringify(error?.meta ?? {})}`,
+        'La création de la campagne a échoué. Vérifiez les données et réessayez.',
       );
     }
   }

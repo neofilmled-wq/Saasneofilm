@@ -13,6 +13,7 @@ import { Server, Socket } from 'socket.io';
 import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
 import { PrismaService } from '../../prisma/prisma.service';
+import { resolveJwtSecret } from '../auth/jwt-secret.util';
 
 interface AuthenticatedSocket extends Socket {
   data: {
@@ -53,10 +54,7 @@ export class MessagingGateway
         return;
       }
 
-      const secret = this.configService.get<string>(
-        'JWT_SECRET',
-        'change-this-in-production-minimum-32-chars',
-      );
+      const secret = resolveJwtSecret(this.configService);
       const payload = jwt.verify(token, secret) as {
         sub: string;
         platformRole: string | null;

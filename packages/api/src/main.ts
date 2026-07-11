@@ -39,10 +39,28 @@ async function bootstrap() {
   app.use(helmet());
   app.use(compression());
   app.use(cookieParser());
-  app.enableCors({
-    origin: true,
-    credentials: true,
-  });
+
+  // CORS — restrict to the configured origins. `origin: true` (reflect any
+  // origin) with credentials:true is a CSRF/data-exfil risk in production.
+  // We read the allow-list from API_CORS_ORIGINS (comma-separated). In dev,
+  // if the var is unset we fall back to reflecting the origin so local work
+  // isn't blocked; in production an unset var means "deny cross-origin".
+  const isProd = process.env.NODE_ENV === 'production';
+  const corsOrigins = (process.env.API_CORS_ORIGINS ?? '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  if (corsOrigins.length > 0) {
+    app.enableCors({ origin: corsOrigins, credentials: true });
+    logger.log(`CORS restricted to: ${corsOrigins.join(', ')}`);
+  } else if (isProd) {
+    // No allow-list in prod → same-origin only (no cross-origin credentials).
+    app.enableCors({ origin: false, credentials: true });
+    logger.warn('API_CORS_ORIGINS is empty in production — cross-origin requests are blocked.');
+  } else {
+    app.enableCors({ origin: true, credentials: true });
+    logger.log('CORS in dev mode: reflecting request origin.');
+  }
 
   // Global prefix
   app.setGlobalPrefix('api/v1');

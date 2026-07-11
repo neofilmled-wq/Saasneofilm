@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { resolveJwtSecret } from './jwt-secret.util';
 import { LocalStrategy } from './strategies/local.strategy';
 import { DeviceAuthController } from './device-auth.controller';
 import { DeviceAuthService } from './device-auth.service';
@@ -31,7 +32,7 @@ import { EmailModule } from '../email/email.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET', 'change-this-in-production-minimum-32-chars'),
+        secret: resolveJwtSecret(config),
         signOptions: { expiresIn: config.get('JWT_ACCESS_EXPIRATION', '15m') as any },
       }),
     }),

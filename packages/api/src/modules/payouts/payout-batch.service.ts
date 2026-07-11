@@ -264,17 +264,32 @@ export class PayoutBatchService {
           },
         });
 
-        // Update Payout to PROCESSING with the Stripe transfer ID
-        await this.prisma.payout.update({
-          where: { id: payout.id },
-          data: {
-            status: 'PROCESSING',
-            stripeTransferId: transfer.id,
-          },
-        });
+        // A Stripe transfer to a connected account settles funds to the
+        // partner's Stripe balance immediately, so the transfer succeeding IS
+        // the completion of NeoFilm's payout obligation. We mark the Payout
+        // PAID and advance its linked RevenueShares to PAID in one
+        // transaction — this is what actually "empties" the wallet and was
+        // the missing step that left everything stuck in PROCESSING /
+        // APPROVED forever (Connect payout.paid webhooks never matched
+        // because stripePayoutId was never set). Idempotent: re-running is
+        // a no-op since these shares are already assigned to this payout.
+        await this.prisma.$transaction([
+          this.prisma.payout.update({
+            where: { id: payout.id },
+            data: {
+              status: 'PAID',
+              stripeTransferId: transfer.id,
+              paidAt: new Date(),
+            },
+          }),
+          this.prisma.revenueShare.updateMany({
+            where: { payoutId: payout.id },
+            data: { status: 'PAID' },
+          }),
+        ]);
 
         this.logger.log(
-          `Transfer ${transfer.id} created for partner ${partnerName}: ${totalPartnerShareCents} cents`,
+          `Transfer ${transfer.id} created + Payout ${payout.id} marked PAID for partner ${partnerName}: ${totalPartnerShareCents} cents`,
         );
 
         await this.audit.log({
@@ -626,14 +641,21 @@ export class PayoutBatchService {
         },
       });
 
-      await this.prisma.payout.update({
-        where: { id: payoutId },
-        data: {
-          status: 'PROCESSING',
-          stripeTransferId: transfer.id,
-          failureReason: null,
-        },
-      });
+      await this.prisma.$transaction([
+        this.prisma.payout.update({
+          where: { id: payoutId },
+          data: {
+            status: 'PAID',
+            stripeTransferId: transfer.id,
+            failureReason: null,
+            paidAt: new Date(),
+          },
+        }),
+        this.prisma.revenueShare.updateMany({
+          where: { payoutId },
+          data: { status: 'PAID' },
+        }),
+      ]);
 
       await this.audit.log({
         action: 'PAYOUT_RELEASED',

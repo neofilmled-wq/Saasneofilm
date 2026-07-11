@@ -23,7 +23,7 @@ import {
   SelectValue,
   Input,
 } from '@neofilm/ui';
-import { Download, CheckCircle, Calculator, Percent, BadgeCheck, Banknote, Loader2 } from 'lucide-react';
+import { Download, CheckCircle, Calculator, Percent, BadgeCheck, Banknote, Loader2, Link2, CreditCard, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/common/page-header';
 import { apiFetch } from '@/lib/api';
@@ -71,6 +71,11 @@ export default function RetrocessionsPage() {
   const [month, setMonth] = useState(monthOptions[0].value);
   const [ratePartnerOrgId, setRatePartnerOrgId] = useState('');
   const [newRate, setNewRate] = useState('');
+  // Stripe Connect onboarding (admin-driven): unblocks "Payer" which
+  // otherwise holds 100% of partners for lack of a ready Connect account.
+  const [connectOrgId, setConnectOrgId] = useState('');
+  const [connectStatus, setConnectStatus] = useState<any>(null);
+  const [onboardingUrl, setOnboardingUrl] = useState('');
 
   // Fetch retrocessions
   const { data, isLoading } = useQuery({
@@ -169,6 +174,47 @@ export default function RetrocessionsPage() {
       setNewRate('');
     },
     onError: () => toast.error('Erreur lors de la mise à jour du taux'),
+  });
+
+  // ── Stripe Connect onboarding mutations ──────────────────────────────────
+  const connectStatusMutation = useMutation({
+    mutationFn: (orgId: string) => apiFetch(`/payouts/connect/status/${orgId}`),
+    onSuccess: (res: any) => {
+      setConnectStatus(res?.data ?? res ?? null);
+      setOnboardingUrl('');
+    },
+    onError: () => {
+      setConnectStatus(null);
+      toast.error('Impossible de récupérer le statut Connect (compte inexistant ?)');
+    },
+  });
+
+  const connectCreateMutation = useMutation({
+    mutationFn: (orgId: string) => apiFetch(`/payouts/connect/create/${orgId}`, { method: 'POST' }),
+    onSuccess: () => {
+      toast.success('Compte Stripe Connect créé — générez le lien d\'onboarding');
+      if (connectOrgId) connectStatusMutation.mutate(connectOrgId);
+    },
+    onError: (err: any) => toast.error(`Erreur création compte : ${err?.message ?? 'inconnue'}`),
+  });
+
+  const onboardingLinkMutation = useMutation({
+    mutationFn: (orgId: string) => {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      return apiFetch(`/payouts/connect/onboarding-link/${orgId}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          refreshUrl: `${origin}/admin/retrocessions`,
+          returnUrl: `${origin}/admin/retrocessions`,
+        }),
+      });
+    },
+    onSuccess: (res: any) => {
+      const url = res?.data?.url ?? res?.url ?? '';
+      setOnboardingUrl(url);
+      if (url) toast.success('Lien d\'onboarding généré — à envoyer au partenaire');
+    },
+    onError: (err: any) => toast.error(`Erreur lien onboarding : ${err?.message ?? 'inconnue'}`),
   });
 
   // Export CSV
@@ -309,6 +355,106 @@ export default function RetrocessionsPage() {
           </div>
           <p className="text-xs text-muted-foreground mt-2">
             Le changement impacte instantanément les périodes non clôturées (PENDING, CALCULATED, APPROVED).
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Stripe Connect onboarding — the unblock for "Payer" (a partner without
+          a ready Connect account is always held → no transfer). */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <CreditCard className="h-4 w-4" />
+            Comptes de versement Stripe Connect
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground">ID organisation partenaire</label>
+              <Input
+                value={connectOrgId}
+                onChange={(e) => { setConnectOrgId(e.target.value); setConnectStatus(null); setOnboardingUrl(''); }}
+                placeholder="clu..."
+                className="w-64"
+              />
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => connectOrgId && connectStatusMutation.mutate(connectOrgId)}
+              disabled={!connectOrgId || connectStatusMutation.isPending}
+            >
+              {connectStatusMutation.isPending
+                ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                : <BadgeCheck className="mr-2 h-4 w-4" />}
+              Vérifier le statut
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => connectOrgId && connectCreateMutation.mutate(connectOrgId)}
+              disabled={!connectOrgId || connectCreateMutation.isPending}
+            >
+              {connectCreateMutation.isPending
+                ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                : <CreditCard className="mr-2 h-4 w-4" />}
+              Créer le compte
+            </Button>
+            <Button
+              onClick={() => connectOrgId && onboardingLinkMutation.mutate(connectOrgId)}
+              disabled={!connectOrgId || onboardingLinkMutation.isPending}
+            >
+              {onboardingLinkMutation.isPending
+                ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                : <Link2 className="mr-2 h-4 w-4" />}
+              Générer le lien d'onboarding
+            </Button>
+          </div>
+
+          {connectStatus && (
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+              <Badge variant={connectStatus.payoutsEnabled ? 'default' : 'outline'}>
+                Versements {connectStatus.payoutsEnabled ? 'activés' : 'désactivés'}
+              </Badge>
+              <Badge variant={connectStatus.chargesEnabled ? 'default' : 'outline'}>
+                Charges {connectStatus.chargesEnabled ? 'activées' : 'désactivées'}
+              </Badge>
+              <Badge variant={connectStatus.detailsSubmitted ? 'default' : 'outline'}>
+                Détails {connectStatus.detailsSubmitted ? 'soumis' : 'manquants'}
+              </Badge>
+              {connectStatus.ready || (connectStatus.payoutsEnabled && connectStatus.chargesEnabled && connectStatus.detailsSubmitted) ? (
+                <span className="text-green-600 flex items-center gap-1"><CheckCircle className="h-4 w-4" /> Prêt à recevoir des virements</span>
+              ) : (
+                <span className="text-amber-600">Onboarding incomplet — le partenaire ne recevra pas de virement</span>
+              )}
+            </div>
+          )}
+
+          {onboardingUrl && (
+            <div className="mt-4 rounded-md border bg-muted/40 p-3">
+              <p className="text-xs text-muted-foreground mb-2">
+                Envoyez ce lien au partenaire pour qu'il complète son onboarding Stripe :
+              </p>
+              <div className="flex items-center gap-2">
+                <Input readOnly value={onboardingUrl} className="flex-1 text-xs" onFocus={(e) => e.currentTarget.select()} />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { navigator.clipboard.writeText(onboardingUrl); toast.success('Lien copié'); }}
+                >
+                  Copier
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                  <a href={onboardingUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <p className="text-xs text-muted-foreground mt-3">
+            Flux : <strong>Créer le compte</strong> → <strong>Générer le lien</strong> → le partenaire complète
+            son onboarding Stripe → le statut passe « Prêt » → le bouton <strong>Payer</strong> peut alors le virer.
           </p>
         </CardContent>
       </Card>

@@ -89,13 +89,27 @@ export class ConnectHandler {
       return;
     }
 
-    await this.prisma.payout.update({
-      where: { id: payout.id },
-      data: { status: 'PROCESSING' },
-    });
+    // Idempotent belt-and-suspenders: the payout-batch already marks the
+    // Payout + its RevenueShares PAID synchronously right after the transfer
+    // is created. If that synchronous write failed but this webhook arrives,
+    // finish the job here. Never downgrade an already-PAID payout.
+    if (payout.status === 'PAID') {
+      return;
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.payout.update({
+        where: { id: payout.id },
+        data: { status: 'PAID', paidAt: payout.paidAt ?? new Date() },
+      }),
+      this.prisma.revenueShare.updateMany({
+        where: { payoutId: payout.id },
+        data: { status: 'PAID' },
+      }),
+    ]);
 
     this.logger.log(
-      `Payout ${payout.id} updated to PROCESSING for transfer ${transfer.id}`,
+      `Payout ${payout.id} confirmed PAID via transfer.created ${transfer.id}`,
     );
 
     await this.audit.log({

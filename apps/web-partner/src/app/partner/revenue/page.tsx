@@ -123,7 +123,6 @@ export default function RevenuePage() {
             label="Revenu total"
             value={formatCurrency(summary.totalRevenueCents)}
             icon={TrendingUp}
-            trend={{ value: '+18%', positive: true }}
             variant="primary"
           />
           <StatCard

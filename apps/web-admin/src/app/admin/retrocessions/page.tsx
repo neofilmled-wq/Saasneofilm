@@ -337,12 +337,12 @@ export default function RetrocessionsPage() {
               <label className="text-xs text-muted-foreground">Nouveau taux (%)</label>
               <Input
                 type="number"
-                min={10}
-                max={20}
+                min={1}
+                max={30}
                 step={0.5}
                 value={newRate}
                 onChange={(e) => setNewRate(e.target.value)}
-                placeholder="10-20"
+                placeholder="1-30"
                 className="w-28"
               />
             </div>

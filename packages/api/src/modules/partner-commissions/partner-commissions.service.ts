@@ -133,24 +133,39 @@ export class PartnerCommissionsService {
     };
   }
 
-  /** List revenue share statements for this partner (computed from campaigns). */
+  /**
+   * List revenue share statements for this partner.
+   *
+   * Projects the REAL RevenueShare rows (the same source the admin approves
+   * and pays via Stripe) instead of the previous synthetic `live-${month}`
+   * object recomputed from campaign budgets. This makes the partner-facing
+   * list coherent with getStatement(:id) and with what actually gets paid.
+   */
   async getStatements(partnerOrgId: string, month?: string) {
-    const result = await this.computeRevenueFromCampaigns(partnerOrgId, month);
+    const where: any = { partnerOrgId };
+    if (month) {
+      const [year, m] = month.split('-').map(Number);
+      where.periodStart = { gte: new Date(year, m - 1, 1), lt: new Date(year, m, 1) };
+    }
 
-    // Return as a single "statement" with lineItems matching the frontend shape
-    return [{
-      id: `live-${month ?? 'current'}`,
-      commissionRate: result.commissionRate,
-      totalRevenueCents: result.totalRevenueCents,
-      partnerShareCents: result.retrocessionCents,
-      lineItems: result.screens.map((s) => ({
-        screenId: s.screenId,
-        screenName: s.screenName,
-        finalAmountCents: s.revenueCents,
-        daysActive: 0,
-        bookingId: null,
-      })),
-    }];
+    const shares = await this.prisma.revenueShare.findMany({
+      where,
+      include: { lineItems: true, payout: { select: { id: true, status: true, paidAt: true } } },
+      orderBy: { periodStart: 'desc' },
+    });
+
+    return shares.map((s) => ({
+      id: s.id,
+      periodStart: s.periodStart,
+      periodEnd: s.periodEnd,
+      commissionRate: 1 - s.platformRate,
+      totalRevenueCents: s.totalRevenueCents,
+      partnerShareCents: s.partnerShareCents,
+      platformShareCents: s.platformShareCents,
+      status: s.status,
+      payout: s.payout,
+      lineItems: s.lineItems,
+    }));
   }
 
   async getStatement(id: string, partnerOrgId: string) {
@@ -168,40 +183,96 @@ export class PartnerCommissionsService {
     return statement;
   }
 
-  /** Wallet summary computed in real-time from active campaigns. */
+  /**
+   * Partner wallet summary — projected from the REAL RevenueShare ledger.
+   *
+   * Previously this recomputed from campaign budgets, so the figure the
+   * partner saw never matched what the admin actually approved and paid. Now
+   * the wallet is a faithful projection of RevenueShare buckets:
+   *   - pending    = PENDING + CALCULATED (earned, not yet approved)
+   *   - available  = APPROVED (owed, ready to be transferred)
+   *   - paid       = PAID (already transferred via Stripe Connect)
+   * balance (solde disponible) = available. total gagné = sum of all shares.
+   */
   async getWalletSummary(partnerOrgId: string, month?: string) {
-    const result = await this.computeRevenueFromCampaigns(partnerOrgId, month);
+    const where: any = { partnerOrgId };
+    if (month) {
+      const [year, m] = month.split('-').map(Number);
+      where.periodStart = { gte: new Date(year, m - 1, 1), lt: new Date(year, m, 1) };
+    }
 
-    // Count all screens owned by partner
-    const activeScreens = await this.prisma.screen.count({
-      where: { partnerOrgId },
-    });
+    const [shares, org, activeScreens] = await Promise.all([
+      this.prisma.revenueShare.findMany({
+        where,
+        select: { totalRevenueCents: true, partnerShareCents: true, status: true },
+      }),
+      this.prisma.organization.findUnique({
+        where: { id: partnerOrgId },
+        select: { commissionRate: true },
+      }),
+      this.prisma.screen.count({ where: { partnerOrgId } }),
+    ]);
+
+    let totalRevenueCents = 0;
+    let totalEarnedCents = 0;
+    let pendingCents = 0;
+    let calculatedCents = 0;
+    let availableCents = 0;
+    let paidCents = 0;
+
+    for (const s of shares) {
+      totalRevenueCents += s.totalRevenueCents;
+      totalEarnedCents += s.partnerShareCents;
+      switch (s.status) {
+        case 'PENDING':
+          pendingCents += s.partnerShareCents;
+          break;
+        case 'CALCULATED':
+          calculatedCents += s.partnerShareCents;
+          pendingCents += s.partnerShareCents;
+          break;
+        case 'APPROVED':
+          availableCents += s.partnerShareCents;
+          break;
+        case 'PAID':
+          paidCents += s.partnerShareCents;
+          break;
+      }
+    }
+
+    const commissionRate = org?.commissionRate ?? 0.15;
 
     return {
-      commissionRate: result.commissionRate,
-      commissionRatePercent: Math.round(result.commissionRate * 100),
-      // totalRevenueCents = sum of (partner_screens/total_screens × budgetCents) for all campaigns
-      totalRevenueCents: result.totalRevenueCents,
-      // retrocessionCents = totalRevenueCents × commissionRate (partner's actual share)
-      retrocessionCents: result.retrocessionCents,
+      commissionRate,
+      commissionRatePercent: Math.round(commissionRate * 100),
+      totalRevenueCents,
+      // retrocessionCents kept for backwards compat = total earned by partner
+      retrocessionCents: totalEarnedCents,
+      totalEarnedCents,
+      // Wallet buckets (real, from RevenueShare — coherent with admin payouts)
+      pendingCents,
+      calculatedCents,
+      availableCents,
+      paidCents,
+      // "solde disponible" = approved & not yet paid
+      balanceCents: availableCents,
       activeScreens,
-      campaignCount: result.campaignCount,
-      // Keep legacy fields for backwards compat with frontend
-      pendingCents: result.totalRevenueCents,
-      calculatedCents: 0,
-      paidCents: result.retrocessionCents,
+      statementCount: shares.length,
+      // legacy key some callers may still read
+      campaignCount: shares.length,
     };
   }
 
   // ─── Admin-facing ────────────────────────────────────────────────────────
 
   /**
-   * Admin updates the retrocession rate for a partner org (clamped 10–20%).
-   * Recalculates all PENDING statements immediately.
+   * Admin updates the retrocession rate for a partner org (clamped 1–30%).
+   * Rates are negotiated per-partner (spec: 1% to 30%). Recalculates all
+   * non-settled statements immediately; PAID history is frozen.
    */
   async updateCommissionRate(partnerOrgId: string, ratePercent: number) {
-    if (ratePercent < 10 || ratePercent > 20) {
-      throw new BadRequestException('Commission rate must be between 10% and 20%');
+    if (ratePercent < 1 || ratePercent > 30) {
+      throw new BadRequestException('Commission rate must be between 1% and 30%');
     }
     const rate = ratePercent / 100;
 

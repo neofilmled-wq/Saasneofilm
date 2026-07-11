@@ -4,6 +4,7 @@ import { BillingModule } from '../billing/billing.module';
 import { AdminModule } from '../admin/admin.module';
 import { PartnerGatewayModule } from '../partner-gateway/partner-gateway.module';
 import { AdvertiserGatewayModule } from '../advertiser-gateway/advertiser-gateway.module';
+import { PartnerCommissionsModule } from '../partner-commissions/partner-commissions.module';
 import { StripeWebhookController } from './stripe-webhook.controller';
 import { WebhookProcessorService } from './webhook-processor.service';
 import { CheckoutHandler } from './handlers/checkout.handler';
@@ -14,7 +15,7 @@ import { DisputeHandler } from './handlers/dispute.handler';
 import { ConnectHandler } from './handlers/connect.handler';
 
 @Module({
-  imports: [ConfigModule, BillingModule, AdminModule, PartnerGatewayModule, AdvertiserGatewayModule],
+  imports: [ConfigModule, BillingModule, AdminModule, PartnerGatewayModule, AdvertiserGatewayModule, PartnerCommissionsModule],
   controllers: [StripeWebhookController],
   providers: [
     WebhookProcessorService,

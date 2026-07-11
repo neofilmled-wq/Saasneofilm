@@ -5,6 +5,7 @@ import { AuditService } from '../../audit/audit.service';
 import { AdminGateway } from '../../admin/admin.gateway';
 import { PartnerGateway } from '../../partner-gateway/partner.gateway';
 import { AdvertiserGateway } from '../../advertiser-gateway/advertiser.gateway';
+import { PartnerCommissionsService } from '../../partner-commissions/partner-commissions.service';
 
 @Injectable()
 export class InvoiceHandler {
@@ -16,7 +17,35 @@ export class InvoiceHandler {
     @Optional() private readonly adminGateway?: AdminGateway,
     @Optional() private readonly partnerGateway?: PartnerGateway,
     @Optional() private readonly advertiserGateway?: AdvertiserGateway,
+    @Optional() private readonly partnerCommissions?: PartnerCommissionsService,
   ) {}
+
+  /**
+   * Recompute partner retrocession statements for the calendar month a paid
+   * invoice belongs to. This is the automatic trigger the spec asks for:
+   * "lorsque Stripe confirme le paiement, le moteur calcule chaque
+   * rétrocession". computeStatements is idempotent (upsert per
+   * partner+period), payment-gated, and cheap enough to run per paid invoice.
+   * Failures never bubble up — the webhook must still return 200 to Stripe.
+   */
+  private async recomputeRetrocessionsForInvoice(invoice: Stripe.Invoice): Promise<void> {
+    if (!this.partnerCommissions) return;
+    try {
+      const anchor =
+        (invoice as any).period_start != null
+          ? new Date((invoice as any).period_start * 1000)
+          : new Date();
+      const month = `${anchor.getFullYear()}-${String(anchor.getMonth() + 1).padStart(2, '0')}`;
+      const results = await this.partnerCommissions.computeStatements(month);
+      this.logger.log(
+        `Auto-computed ${results.length} retrocession statement(s) for ${month} after invoice ${invoice.id} paid`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `Auto-compute retrocessions failed for invoice ${invoice.id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
 
   /**
    * invoice.created — Upsert StripeInvoice with DRAFT status.
@@ -222,6 +251,11 @@ export class InvoiceHandler {
         }
       }
     }
+
+    // Automatic retrocession compute — the money is now collected, so credit
+    // the partners' statements for this billing month (idempotent, gated on
+    // this very PAID invoice inside computeStatements).
+    await this.recomputeRetrocessionsForInvoice(invoice);
 
     this.logger.log(`Invoice ${invoice.id} updated to PAID`);
   }

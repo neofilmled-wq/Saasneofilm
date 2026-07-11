@@ -57,7 +57,7 @@ export class AdminCommissionsController {
 
   @Patch('rate')
   @Roles('ADMIN', 'SUPER_ADMIN')
-  @ApiOperation({ summary: 'Update retrocession rate for a partner (10–20%)' })
+  @ApiOperation({ summary: 'Update retrocession rate for a partner (1–30%)' })
   async updateRate(
     @Body() body: { partnerOrgId: string; ratePercent: number },
   ) {

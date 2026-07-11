@@ -39,21 +39,108 @@ export class AnalyticsService {
     };
   }
 
+  /**
+   * Campaign analytics — REAL data from DiffusionLog (playback proofs), not
+   * the frozen AnalyticsEvent table. Returns the composite the advertiser
+   * campaign dashboard needs: summary, daily timeseries, breakdown by trigger,
+   * and per-screen performance. Replaces the previous mock-data path.
+   */
   async getCampaignAnalytics(campaignId: string) {
-    const events = await this.prisma.analyticsEvent.findMany({
-      where: { campaignId },
-      orderBy: { timestamp: 'desc' },
-      take: 1000,
-    });
+    const [campaign, logs] = await Promise.all([
+      this.prisma.campaign.findUnique({
+        where: { id: campaignId },
+        select: {
+          id: true,
+          status: true,
+          targeting: {
+            select: {
+              includedScreens: {
+                select: {
+                  id: true,
+                  name: true,
+                  city: true,
+                  screenLiveStatus: { select: { isOnline: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.diffusionLog.findMany({
+        where: { campaignId },
+        select: { screenId: true, startTime: true, triggerContext: true },
+        orderBy: { startTime: 'desc' },
+        take: 20000,
+      }),
+    ]);
 
-    const impressions = events.filter((e) => e.eventType === 'IMPRESSION').length;
-    const views = events.filter((e) => e.eventType === 'VIEW').length;
+    const totalImpressions = logs.length;
+
+    // Screen roster from targeting (with live online status)
+    const screens = campaign?.targeting?.includedScreens ?? [];
+    const screensTotal = screens.length;
+    const screensOnline = screens.filter((s) => s.screenLiveStatus?.isOnline).length;
+    const deliveryHealth = screensTotal > 0
+      ? Math.round((screensOnline / screensTotal) * 100)
+      : 0;
+
+    // Daily timeseries (last 30 days)
+    const byDay = new Map<string, number>();
+    for (const l of logs) {
+      const d = l.startTime.toISOString().slice(0, 10);
+      byDay.set(d, (byDay.get(d) ?? 0) + 1);
+    }
+    const timeseries = Array.from(byDay.entries())
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .slice(-30)
+      .map(([date, impressions]) => ({ date, impressions }));
+
+    // Breakdown by trigger context
+    const byTriggerMap = new Map<string, number>();
+    for (const l of logs) {
+      const t = String(l.triggerContext ?? 'UNKNOWN');
+      byTriggerMap.set(t, (byTriggerMap.get(t) ?? 0) + 1);
+    }
+    const byTrigger = Array.from(byTriggerMap.entries())
+      .map(([trigger, count]) => ({ trigger, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // Per-screen performance (top 10 by impressions)
+    const byScreenMap = new Map<string, number>();
+    for (const l of logs) {
+      byScreenMap.set(l.screenId, (byScreenMap.get(l.screenId) ?? 0) + 1);
+    }
+    const screenInfo = new Map(screens.map((s) => [s.id, s]));
+    const byScreen = Array.from(byScreenMap.entries())
+      .map(([screenId, impressions]) => {
+        const s = screenInfo.get(screenId);
+        return {
+          screenId,
+          screenName: s?.name ?? screenId,
+          city: s?.city ?? '—',
+          isOnline: s?.screenLiveStatus?.isOnline ?? false,
+          impressions,
+        };
+      })
+      .sort((a, b) => b.impressions - a.impressions)
+      .slice(0, 10);
 
     return {
       campaignId,
-      impressions,
-      views,
-      totalEvents: events.length,
+      summary: {
+        totalImpressions,
+        activeCampaigns: campaign?.status === 'ACTIVE' ? 1 : 0,
+        screensOnline,
+        screensTotal,
+        deliveryHealth,
+      },
+      timeseries,
+      byTrigger,
+      byScreen,
+      // Legacy flat keys kept for any older caller
+      impressions: totalImpressions,
+      views: totalImpressions,
+      totalEvents: totalImpressions,
     };
   }
 

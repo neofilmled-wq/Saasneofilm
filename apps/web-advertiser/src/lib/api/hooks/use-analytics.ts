@@ -51,57 +51,36 @@ export function useAdvertiserAnalytics() {
 }
 
 // ── Per-campaign hooks (used by /analytics/[campaignId]) ──
+//
+// All four hooks now read the SAME real endpoint GET /analytics/campaigns/:id
+// (DiffusionLog-backed) and select their slice. React Query dedupes the
+// request via the shared query key, so this is one network call. The previous
+// mock-data path (mockAnalyticsSummary / mockTimeseries / …) is gone.
 
-import {
-  mockAnalyticsSummary,
-  mockTimeseries,
-  mockTriggerBreakdown,
-  mockScreenPerformance,
-} from '@/lib/mock-data';
-
-const delay = (ms = 500) => new Promise((r) => setTimeout(r, ms));
-
-export function useCampaignAnalyticsSummary(campaignId: string) {
+function useCampaignAnalytics(campaignId: string) {
   return useQuery({
-    queryKey: queryKeys.analytics.summary(campaignId),
-    queryFn: async () => {
-      await delay();
-      const base = mockAnalyticsSummary();
-      return { ...base, totalImpressions: Math.floor(base.totalImpressions * 0.3) };
-    },
+    queryKey: ['analytics', 'campaign', campaignId],
+    queryFn: () => apiFetch(`/analytics/campaigns/${campaignId}`),
     enabled: !!campaignId,
   });
 }
 
-export function useCampaignTimeseries(campaignId: string, params?: { days?: number }) {
-  return useQuery({
-    queryKey: queryKeys.analytics.timeseries(campaignId, params),
-    queryFn: async () => {
-      await delay();
-      return mockTimeseries(params?.days ?? 30);
-    },
-    enabled: !!campaignId,
-  });
+export function useCampaignAnalyticsSummary(campaignId: string) {
+  const q = useCampaignAnalytics(campaignId);
+  return { ...q, data: (q.data as any)?.summary } as typeof q;
+}
+
+export function useCampaignTimeseries(campaignId: string, _params?: { days?: number }) {
+  const q = useCampaignAnalytics(campaignId);
+  return { ...q, data: (q.data as any)?.timeseries } as typeof q;
 }
 
 export function useCampaignByTrigger(campaignId: string) {
-  return useQuery({
-    queryKey: queryKeys.analytics.byTrigger(campaignId),
-    queryFn: async () => {
-      await delay();
-      return mockTriggerBreakdown();
-    },
-    enabled: !!campaignId,
-  });
+  const q = useCampaignAnalytics(campaignId);
+  return { ...q, data: (q.data as any)?.byTrigger } as typeof q;
 }
 
 export function useCampaignByScreen(campaignId: string) {
-  return useQuery({
-    queryKey: queryKeys.analytics.byScreen(campaignId),
-    queryFn: async () => {
-      await delay();
-      return mockScreenPerformance(10);
-    },
-    enabled: !!campaignId,
-  });
+  const q = useCampaignAnalytics(campaignId);
+  return { ...q, data: (q.data as any)?.byScreen } as typeof q;
 }

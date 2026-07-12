@@ -250,12 +250,19 @@ export class AnalyticsService {
       };
     });
 
-    // Fill remaining slots with 0-view screens if less than 5
+    // Fill remaining slots with 0-view screens if less than 5.
+    // SÉCURITÉ : on ne complète QU'AVEC des écrans réellement ciblés par les
+    // campagnes de cet annonceur (targetIncluded → campaign.advertiserOrgId).
+    // Sans ce filtre, la requête remontait les écrans de n'importe quel
+    // partenaire (fuite inter-tenant) affichés comme « top écrans » de l'annonceur.
     let topScreens = screensWithViews;
     if (screensWithViews.length < 5) {
       const usedIds = new Set(screensWithViews.map((s) => s.screenId));
       const remaining = await this.prisma.screen.findMany({
-        where: { id: { notIn: Array.from(usedIds) } },
+        where: {
+          id: { notIn: Array.from(usedIds) },
+          targetIncluded: { some: { campaign: { advertiserOrgId } } },
+        },
         select: { id: true, name: true, city: true },
         orderBy: { name: 'asc' },
         take: 5 - screensWithViews.length,

@@ -326,46 +326,50 @@ export class AdminService {
   // --- Analytics ---
 
   async getAnalytics(params: { startDate?: string; endDate?: string; partnerOrgId?: string; advertiserOrgId?: string }) {
-    const where: any = {};
-    if (params.startDate || params.endDate) {
-      where.timestamp = {};
-      if (params.startDate) where.timestamp.gte = new Date(params.startDate);
-      if (params.endDate) where.timestamp.lte = new Date(params.endDate);
-    }
-    if (params.partnerOrgId) {
-      where.orgId = params.partnerOrgId;
-    }
+    // Fenêtre temporelle : dates fournies, sinon 30 derniers jours (borne le volume).
+    const windowEnd = params.endDate ? new Date(params.endDate) : new Date();
+    const windowStart = params.startDate
+      ? new Date(params.startDate)
+      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    const [totalEvents, impressions, recentEvents] = await Promise.all([
-      this.prisma.analyticsEvent.count({ where }),
-      this.prisma.analyticsEvent.count({ where: { ...where, eventType: 'IMPRESSION' } }),
-      this.prisma.analyticsEvent.findMany({
-        where,
-        orderBy: { timestamp: 'desc' },
-        take: 500,
-        select: { eventType: true, timestamp: true, screenId: true, campaignId: true },
-      }),
+    // Source RÉELLE des impressions/plays = DiffusionLog (preuves de diffusion
+    // signées). L'ancienne version comptait AnalyticsEvent.eventType='IMPRESSION',
+    // qui n'est JAMAIS écrit à l'exécution → le chiffre valait toujours 0.
+    // Filtrage tenant : partenaire→ses écrans, annonceur→ses campagnes.
+    const where: any = { startTime: { gte: windowStart, lte: windowEnd } };
+    if (params.partnerOrgId) where.screen = { partnerOrgId: params.partnerOrgId };
+    if (params.advertiserOrgId) where.campaign = { advertiserOrgId: params.advertiserOrgId };
+
+    const [totalPlays, dayRows] = await Promise.all([
+      this.prisma.diffusionLog.count({ where }).catch(() => 0),
+      this.prisma.diffusionLog
+        .findMany({
+          where,
+          select: { startTime: true },
+          orderBy: { startTime: 'desc' },
+          take: 20000, // cap de sécurité pour le graphe (aligné sur analytics.service)
+        })
+        .catch(() => [] as { startTime: Date }[]),
     ]);
 
     // Group by day for chart
     const dailyMap = new Map<string, number>();
-    recentEvents.forEach((e) => {
-      const day = e.timestamp.toISOString().slice(0, 10);
+    for (const r of dayRows) {
+      const day = r.startTime.toISOString().slice(0, 10);
       dailyMap.set(day, (dailyMap.get(day) || 0) + 1);
-    });
+    }
     const dailyEvents = Array.from(dailyMap.entries())
       .map(([date, count]) => ({ date, count }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    // Revenue from active bookings
+    // Revenue from active bookings (inchangé — MRR des abonnements actifs)
     const bookingWhere: any = { status: 'ACTIVE' };
     if (params.advertiserOrgId) bookingWhere.advertiserOrgId = params.advertiserOrgId;
-    const revenueAgg = await this.prisma.booking.aggregate({
-      where: bookingWhere,
-      _sum: { monthlyPriceCents: true },
-    });
+    const revenueAgg = await this.prisma.booking
+      .aggregate({ where: bookingWhere, _sum: { monthlyPriceCents: true } })
+      .catch(() => ({ _sum: { monthlyPriceCents: null } }));
 
-    // Top campaigns
+    // Top campaigns (inchangé)
     const campaignWhere: any = {};
     if (params.advertiserOrgId) campaignWhere.advertiserOrgId = params.advertiserOrgId;
     const topCampaigns = await this.prisma.campaign.findMany({
@@ -375,11 +379,13 @@ export class AdminService {
       select: { id: true, name: true, budgetCents: true, spentCents: true, advertiserOrg: { select: { name: true } } },
     });
 
+    // totalEvents et impressions reflètent le volume RÉEL de diffusions (plays)
+    // sur la fenêtre. Clés conservées pour ne pas casser le front déjà branché.
     return {
-      totalEvents,
-      impressions,
+      totalEvents: totalPlays,
+      impressions: totalPlays,
       dailyEvents,
-      totalRevenueCents: revenueAgg._sum.monthlyPriceCents ?? 0,
+      totalRevenueCents: revenueAgg._sum?.monthlyPriceCents ?? 0,
       topCampaigns,
     };
   }
@@ -795,10 +801,16 @@ export class AdminService {
     const prevGross = prevInvoiceAgg._sum?.amountPaidCents ?? 0;
     const revenueDeltaPct = prevGross > 0 ? Math.round(((grossRevenueCents - prevGross) / prevGross) * 100) : 0;
 
+    // Marge nette (après rétrocession partenaire) en % de l'encaissé Stripe.
+    // Marge de contribution : hors frais Stripe / coûts opérationnels.
+    const netMarginPct =
+      grossRevenueCents > 0 ? Math.round((netRevenueCents / grossRevenueCents) * 100) : 0;
+
     return {
       range,
       grossRevenueCents: grossRevenueCents ?? 0,
       netRevenueCents: netRevenueCents ?? 0,
+      netMarginPct,
       monthlyActiveRevenueCents: monthlyActiveRevenueCents ?? 0,
       partnerPayoutsCents: partnerPayoutsCents ?? 0,
       pendingPartnerPayoutsCents: pendingPartnerPayoutsCents ?? 0,
@@ -848,24 +860,44 @@ export class AdminService {
           .catch(() => ({ _sum: { monthlyPriceCents: null }, _count: { id: 0 } }))
       : { _sum: { monthlyPriceCents: 0 }, _count: { id: 0 } };
 
-    const mrrCents = activeAgg._sum?.monthlyPriceCents ?? 0;
-    const activeSubscriptions = activeAgg._count?.id ?? 0;
+    const gatedMrrCents = activeAgg._sum?.monthlyPriceCents ?? 0;
+    const gatedActiveSubscriptions = activeAgg._count?.id ?? 0;
+
+    // MRR RÉEL (non filtré par facture) = somme des abonnements ACTIFS en cours.
+    // Un booking n'est ACTIVE qu'après paiement (cf. campaigns.publish), donc
+    // c'est un revenu récurrent réel. On l'utilise en repli quand la porte
+    // « facture Stripe payée < 35 j » ne renvoie rien (ex. facturation pas encore
+    // branchée), pour que « Prévision CA » ne tombe pas à 0 alors que du CA
+    // récurrent existe. On expose aussi mrrActiveCents/arrActiveCents (additifs).
+    const now = new Date();
+    const activeAllAgg = await this.prisma.booking
+      .aggregate({
+        where: {
+          status: 'ACTIVE',
+          OR: [{ endDate: null }, { endDate: { gt: now } }],
+        },
+        _sum: { monthlyPriceCents: true },
+        _count: { id: true },
+      })
+      .catch(() => ({ _sum: { monthlyPriceCents: null }, _count: { id: 0 } }));
+    const mrrActiveCents = activeAllAgg._sum?.monthlyPriceCents ?? 0;
+    const activeBookingCount = activeAllAgg._count?.id ?? 0;
+
+    // Base affichée : la valeur adossée aux factures si elle existe, sinon le MRR
+    // réel des abonnements actifs (jamais un chiffre inventé, toujours en cents).
+    const mrrCents = gatedMrrCents > 0 ? gatedMrrCents : mrrActiveCents;
+    const activeSubscriptions =
+      gatedActiveSubscriptions > 0 ? gatedActiveSubscriptions : activeBookingCount;
 
     // Paying subscriptions that started this calendar month.
     const monthStart = new Date();
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
-    const newSubscriptionsThisMonth = payingOrgIds.length
-      ? await this.prisma.booking
-          .count({
-            where: {
-              status: 'ACTIVE',
-              advertiserOrgId: { in: payingOrgIds },
-              startDate: { gte: monthStart },
-            },
-          })
-          .catch(() => 0)
-      : 0;
+    const newSubWhere: any = { status: 'ACTIVE', startDate: { gte: monthStart } };
+    if (payingOrgIds.length) newSubWhere.advertiserOrgId = { in: payingOrgIds };
+    const newSubscriptionsThisMonth = await this.prisma.booking
+      .count({ where: newSubWhere })
+      .catch(() => 0);
 
     // IMPORTANT : tous les montants renvoyés sont en CENTS (convention money
     // partout, cf. CLAUDE.md). Le front admin les formate via fmtEur/fmtEurPrecise
@@ -890,6 +922,9 @@ export class AdminService {
       quarterly: mrrCents * 3,
       semiAnnual: mrrCents * 6,
       annual: mrrCents * 12,
+      // MRR/ARR explicites (abonnements actifs, non filtrés facture) — additifs.
+      mrrActiveCents,
+      arrActiveCents: mrrActiveCents * 12,
       monthlyTrend,
       activeSubscriptions,
       newSubscriptionsThisMonth,
@@ -981,7 +1016,11 @@ export class AdminService {
 
       const gross = grossAgg._sum?.amountPaidCents ?? 0;
       const retrocessions = retroAgg._sum?.partnerShareCents ?? 0;
-      return { gross, retrocessions, net: gross - retrocessions, period };
+      const net = gross - retrocessions;
+      // Marge APRÈS RÉTROCESSION (marge de contribution), pas la marge nette
+      // réelle : n'inclut ni frais Stripe, ni coûts infra/matériel/taxes.
+      const marginPct = gross > 0 ? Math.round((net / gross) * 100) : 0;
+      return { gross, retrocessions, net, marginPct, period };
     };
 
     const monthly = await windowNet(monthStart, 'Mois en cours');
@@ -1043,8 +1082,9 @@ export class AdminService {
     const totalDiffusionMinutes = Math.round(totalDiffusionMs / 60000);
     const totalDiffusionCount = diffusionAgg._count?.id ?? 0;
 
-    // Screens offline (active screens that are not connected)
-    const screensOffline = screensTotal - screensConnected;
+    // Screens offline (active screens that are not connected). max(0, …) car
+    // un écran en ligne mais non-ACTIF peut faire dépasser screensConnected.
+    const screensOffline = Math.max(0, screensTotal - screensConnected);
 
     return {
       range,

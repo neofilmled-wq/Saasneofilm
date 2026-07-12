@@ -867,7 +867,10 @@ export class AdminService {
           .catch(() => 0)
       : 0;
 
-    const mrrEur = mrrCents / 100;
+    // IMPORTANT : tous les montants renvoyés sont en CENTS (convention money
+    // partout, cf. CLAUDE.md). Le front admin les formate via fmtEur/fmtEurPrecise
+    // qui divisent par 100 — renvoyer des euros ici affichait un CA 100× trop
+    // petit dans la tuile « Prévision CA ».
 
     // 6-month forward trend (flat projection from current MRR — we don't model
     // churn/growth yet, so each future month = current MRR).
@@ -877,16 +880,16 @@ export class AdminService {
       const d = new Date(base.getFullYear(), base.getMonth() + i, 1);
       monthlyTrend.push({
         month: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
-        amount: Math.round(mrrEur),
+        amount: mrrCents,
       });
     }
 
     return {
-      daily: Math.round((mrrEur / 30) * 100) / 100,
-      monthly: Math.round(mrrEur * 100) / 100,
-      quarterly: Math.round(mrrEur * 3 * 100) / 100,
-      semiAnnual: Math.round(mrrEur * 6 * 100) / 100,
-      annual: Math.round(mrrEur * 12 * 100) / 100,
+      daily: Math.round(mrrCents / 30),
+      monthly: mrrCents,
+      quarterly: mrrCents * 3,
+      semiAnnual: mrrCents * 6,
+      annual: mrrCents * 12,
       monthlyTrend,
       activeSubscriptions,
       newSubscriptionsThisMonth,

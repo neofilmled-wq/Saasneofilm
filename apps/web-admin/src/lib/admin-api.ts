@@ -298,6 +298,7 @@ export interface AdminPartnerUpdate {
 }
 
 export interface RevenueForecast {
+  // Montants en CENTS (formatés via fmtEur/fmtEurPrecise qui divisent par 100).
   daily: number;
   monthly: number;
   quarterly: number;

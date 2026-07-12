@@ -64,9 +64,12 @@ export class TvAuthController {
   @Public()
   @Get('status')
   @ApiOperation({ summary: 'Check device pairing status' })
-  async status(@Query('deviceId') deviceId: string) {
+  async status(
+    @Query('deviceId') deviceId: string,
+    @Query('provisioningToken') provisioningToken?: string,
+  ) {
     if (!deviceId) throw new BadRequestException('deviceId query param required');
-    return this.tvAuthService.getDeviceStatus(deviceId);
+    return this.tvAuthService.getDeviceStatus(deviceId, provisioningToken);
   }
 
   /**
@@ -77,9 +80,9 @@ export class TvAuthController {
   @Post('reset')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset device to PROVISIONING state so a new PIN is generated' })
-  async reset(@Body() body: { deviceId: string }) {
+  async reset(@Body() body: { deviceId: string; provisioningToken?: string }) {
     if (!body.deviceId) throw new BadRequestException('deviceId is required');
-    return this.tvAuthService.resetDevice(body.deviceId);
+    return this.tvAuthService.resetDevice(body.deviceId, body.provisioningToken);
   }
 
   /**

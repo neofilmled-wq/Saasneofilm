@@ -344,17 +344,17 @@ export class CampaignsService {
         firstId = campaign.id;
 
         if (payload.adSpot.selectedScreenIds.length > 0) {
-          const targeting = await tx.campaignTargeting.create({
-            data: { campaignId: campaign.id },
+          // SÉCURITÉ: connect Prisma (paramétré) au lieu de $executeRawUnsafe.
+          // L'ancienne version interpolait les IDs d'écran fournis par le
+          // client directement dans le SQL → injection SQL inter-tenant.
+          await tx.campaignTargeting.create({
+            data: {
+              campaignId: campaign.id,
+              includedScreens: {
+                connect: payload.adSpot.selectedScreenIds.map((id) => ({ id })),
+              },
+            },
           });
-          // Bulk insert M2M relations in one query instead of N individual connects
-          const screenIds = payload.adSpot.selectedScreenIds;
-          if (screenIds.length > 0) {
-            const values = screenIds.map((sid) => `('${targeting.id}', '${sid}')`).join(',');
-            await tx.$executeRawUnsafe(
-              `INSERT INTO "_IncludedScreens" ("A", "B") VALUES ${values} ON CONFLICT DO NOTHING`
-            );
-          }
         }
 
         // Create video creative
@@ -396,16 +396,15 @@ export class CampaignsService {
         if (!firstId) firstId = campaign.id;
 
         if (payload.catalog.selectedScreenIds.length > 0) {
-          const targeting = await tx.campaignTargeting.create({
-            data: { campaignId: campaign.id },
+          // SÉCURITÉ: connect Prisma (paramétré) au lieu de $executeRawUnsafe.
+          await tx.campaignTargeting.create({
+            data: {
+              campaignId: campaign.id,
+              includedScreens: {
+                connect: payload.catalog.selectedScreenIds.map((id) => ({ id })),
+              },
+            },
           });
-          const screenIds = payload.catalog.selectedScreenIds;
-          if (screenIds.length > 0) {
-            const values = screenIds.map((sid) => `('${targeting.id}', '${sid}')`).join(',');
-            await tx.$executeRawUnsafe(
-              `INSERT INTO "_IncludedScreens" ("A", "B") VALUES ${values} ON CONFLICT DO NOTHING`
-            );
-          }
         }
 
         // Create image creative

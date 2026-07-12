@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -305,7 +305,7 @@ export class TvAuthService {
   /**
    * Check if a device is paired (TV polls this after showing PIN).
    */
-  async getDeviceStatus(deviceId: string) {
+  async getDeviceStatus(deviceId: string, provisioningToken?: string) {
     const device = await this.prisma.device.findUnique({
       where: { id: deviceId },
       select: {
@@ -313,6 +313,7 @@ export class TvAuthService {
         status: true,
         pairedAt: true,
         screenId: true,
+        provisioningToken: true,
         screen: { select: { name: true, partnerOrgId: true } },
       },
     });
@@ -320,6 +321,20 @@ export class TvAuthService {
     if (!device) throw new NotFoundException('Device not found');
 
     const isPaired = device.status === 'ONLINE' && device.pairedAt !== null;
+
+    // SÉCURITÉ: ce endpoint est public et émet un JWT device 24h. Un deviceId
+    // n'est pas un secret → quiconque le connaît pouvait voler un jeton.
+    // En mode strict (TV_REQUIRE_DEVICE_SECRET=true), on exige le
+    // provisioningToken (secret unique de l'écran) avant d'émettre le JWT.
+    // Défaut = permissif pour ne pas casser la flotte actuelle ; à activer
+    // une fois que l'APK envoie son provisioningToken.
+    const requireSecret =
+      this.configService.get<string>('TV_REQUIRE_DEVICE_SECRET') === 'true';
+    if (requireSecret && isPaired) {
+      if (!provisioningToken || provisioningToken !== device.provisioningToken) {
+        throw new UnauthorizedException('Invalid or missing device secret');
+      }
+    }
 
     // If paired, generate a fresh JWT so the TV can start using it
     if (isPaired) {
@@ -379,9 +394,17 @@ export class TvAuthService {
    * Reset a device back to PROVISIONING so a new PIN is generated on the next register call.
    * Called when the TV user taps "Réinitialiser l'appairage" in settings.
    */
-  async resetDevice(deviceId: string) {
+  async resetDevice(deviceId: string, provisioningToken?: string) {
     const device = await this.prisma.device.findUnique({ where: { id: deviceId } });
     if (!device) throw new NotFoundException('Device not found');
+
+    // SÉCURITÉ: endpoint public destructif (dé-appairage). En mode strict on
+    // exige le provisioningToken de l'écran. Défaut permissif (flotte).
+    const requireSecret =
+      this.configService.get<string>('TV_REQUIRE_DEVICE_SECRET') === 'true';
+    if (requireSecret && (!provisioningToken || provisioningToken !== device.provisioningToken)) {
+      throw new UnauthorizedException('Invalid or missing device secret');
+    }
 
     // If the device was linked to a screen, clear screen.activeDeviceId too
     if (device.screenId) {

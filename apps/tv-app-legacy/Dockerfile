@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.6
 FROM node:20-alpine
 RUN corepack enable && corepack prepare pnpm@10.30.2 --activate
 WORKDIR /app
@@ -13,10 +12,9 @@ COPY packages/database/package.json packages/database/
 COPY packages/billing/package.json packages/billing/
 COPY packages/api/package.json packages/api/
 
-# Persist the pnpm content-addressable store across builds. Without this
-# every Docker build re-downloads ~800 MB of node_modules from npm.
-RUN --mount=type=cache,target=/root/.local/share/pnpm/store,id=pnpm-store \
-    pnpm install --frozen-lockfile --shamefully-hoist
+# NOTE: plain `pnpm install` (no BuildKit --mount=type=cache) so the build
+# works on the Synology legacy Docker builder. See packages/api/Dockerfile.
+RUN pnpm install --frozen-lockfile --shamefully-hoist
 
 COPY . .
 

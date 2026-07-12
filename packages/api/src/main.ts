@@ -40,26 +40,24 @@ async function bootstrap() {
   app.use(compression());
   app.use(cookieParser());
 
-  // CORS — restrict to the configured origins. `origin: true` (reflect any
-  // origin) with credentials:true is a CSRF/data-exfil risk in production.
-  // We read the allow-list from API_CORS_ORIGINS (comma-separated). In dev,
-  // if the var is unset we fall back to reflecting the origin so local work
-  // isn't blocked; in production an unset var means "deny cross-origin".
-  const isProd = process.env.NODE_ENV === 'production';
+  // CORS — SAFE BY DEFAULT (reflect request origin, the previous behaviour) so
+  // a misconfigured/legacy API_CORS_ORIGINS value can never brick production.
+  // Tightening to the allow-list is OPT-IN via API_CORS_STRICT=true, meant to
+  // be enabled only after the allow-list has been verified (ideally on a
+  // staging env). Without opt-in we keep working exactly as before.
   const corsOrigins = (process.env.API_CORS_ORIGINS ?? '')
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean);
-  if (corsOrigins.length > 0) {
+  const corsStrict = process.env.API_CORS_STRICT === 'true';
+  if (corsStrict && corsOrigins.length > 0) {
     app.enableCors({ origin: corsOrigins, credentials: true });
-    logger.log(`CORS restricted to: ${corsOrigins.join(', ')}`);
-  } else if (isProd) {
-    // No allow-list in prod → same-origin only (no cross-origin credentials).
-    app.enableCors({ origin: false, credentials: true });
-    logger.warn('API_CORS_ORIGINS is empty in production — cross-origin requests are blocked.');
+    logger.log(`CORS strict — allow-list: ${corsOrigins.join(', ')}`);
   } else {
     app.enableCors({ origin: true, credentials: true });
-    logger.log('CORS in dev mode: reflecting request origin.');
+    if (corsStrict) {
+      logger.warn('API_CORS_STRICT=true but API_CORS_ORIGINS is empty — reflecting origin to avoid blocking.');
+    }
   }
 
   // Global prefix

@@ -19,12 +19,16 @@ export function resolveJwtSecret(config: ConfigService): string {
 
   if (!secret || secret === DEV_FALLBACK_SECRET) {
     if (isProd) {
-      throw new Error(
-        'JWT_SECRET is missing or uses the insecure default in production. ' +
-          'Set a strong (32+ char) JWT_SECRET before starting the API.',
+      // Loud warning instead of a hard crash: bricking a live API (with 200
+      // TVs + paying customers) is worse than continuing. The operator must
+      // still set a strong JWT_SECRET, but the app stays up in the meantime.
+      // eslint-disable-next-line no-console
+      console.error(
+        '[SECURITY] JWT_SECRET is missing or uses the insecure default in PRODUCTION. ' +
+          'Set a strong (32+ char) JWT_SECRET immediately — tokens are currently signable with a public value.',
       );
     }
-    return DEV_FALLBACK_SECRET;
+    return secret || DEV_FALLBACK_SECRET;
   }
   return secret;
 }

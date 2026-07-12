@@ -10,6 +10,28 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   FINISHED: [],
 };
 
+/**
+ * Contexte org-scoped fourni par le controller depuis le JWT.
+ * - isAdmin=true → aucun filtrage tenant.
+ * - sinon → la campagne doit appartenir à orgId (advertiserOrgId), sinon 404.
+ */
+export type CampaignScopeCtx = { orgId?: string | null; isAdmin?: boolean };
+
+// Champs modifiables via PATCH /campaigns/:id (mass-assignment guard). Jamais
+// advertiserOrgId / status / reviewedAt : ceux-là passent par des flux dédiés.
+const CAMPAIGN_UPDATABLE_FIELDS = [
+  'name',
+  'description',
+  'type',
+  'objective',
+  'category',
+  'startDate',
+  'endDate',
+  'durationMonths',
+  'budgetCents',
+  'groupId',
+] as const;
+
 @Injectable()
 export class CampaignsService {
   constructor(
@@ -17,6 +39,17 @@ export class CampaignsService {
     private readonly deviceGateway: DeviceGateway,
     private readonly screenFillService: ScreenFillService,
   ) {}
+
+  /**
+   * Where-clause bornée au tenant. Non-admin sans orgId → sentinelle qui ne
+   * matche rien (jamais de repli sur `{ id }` seul).
+   */
+  private scopedWhere(id: string, ctx?: CampaignScopeCtx) {
+    if (ctx && !ctx.isAdmin) {
+      return { id, advertiserOrgId: ctx.orgId ?? '__no_org__' };
+    }
+    return { id };
+  }
 
   private addMonths(date: Date, months: number): Date {
     const d = new Date(date);
@@ -171,9 +204,9 @@ export class CampaignsService {
     };
   }
 
-  async findById(id: string) {
-    const campaign = await this.prisma.campaign.findUnique({
-      where: { id },
+  async findById(id: string, ctx?: CampaignScopeCtx) {
+    const campaign = await this.prisma.campaign.findFirst({
+      where: this.scopedWhere(id, ctx),
       include: {
         advertiserOrg: true,
         creatives: true,
@@ -464,9 +497,16 @@ export class CampaignsService {
     return result;
   }
 
-  async update(id: string, data: any) {
-    await this.findById(id);
-    const { selectedScreenIds, ...updateData } = data;
+  async update(id: string, data: any, ctx?: CampaignScopeCtx) {
+    await this.findById(id, ctx); // borne l'ownership (IDOR)
+    const { selectedScreenIds } = data;
+
+    // Mass-assignment guard : on ne persiste QUE les champs éditables. Empêche
+    // un client de forcer advertiserOrgId / status / budget hors des flux dédiés.
+    const updateData: Record<string, any> = {};
+    for (const key of CAMPAIGN_UPDATABLE_FIELDS) {
+      if (data[key] !== undefined) updateData[key] = data[key];
+    }
 
     // Server-side validation: reject full screens
     if (selectedScreenIds) {
@@ -629,8 +669,8 @@ export class CampaignsService {
     });
   }
 
-  async remove(id: string) {
-    const campaign = await this.findById(id);
+  async remove(id: string, ctx?: CampaignScopeCtx) {
+    const campaign = await this.findById(id, ctx); // borne l'ownership (IDOR)
     if (campaign.status === 'ACTIVE') {
       throw new BadRequestException('Cannot delete an active campaign');
     }

@@ -1,9 +1,23 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { DeviceGateway } from '../device-gateway/device.gateway';
 
 @Injectable()
 export class SchedulesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly deviceGateway: DeviceGateway,
+  ) {}
+
+  // Pousse un refetch temps réel vers le TV du screen concerné. Best-effort :
+  // une panne WS ne doit jamais faire échouer l'écriture DB. Le TV legacy
+  // écoute 'tv:ads:update' (use-device-socket.ts) → refetch de la playlist.
+  private notifyScreen(screenId?: string | null) {
+    if (!screenId) return;
+    Promise.resolve(
+      this.deviceGateway.pushToScreen(screenId, 'tv:ads:update', {}),
+    ).catch(() => undefined);
+  }
 
   async findAll(params: { page: number; limit: number; screenId?: string }) {
     const { page, limit, screenId } = params;
@@ -60,17 +74,23 @@ export class SchedulesService {
   }
 
   async create(data: any) {
-    return this.prisma.schedule.create({ data });
+    const schedule = await this.prisma.schedule.create({ data });
+    this.notifyScreen(schedule.screenId);
+    return schedule;
   }
 
   async update(id: string, data: any) {
     await this.findById(id);
-    return this.prisma.schedule.update({ where: { id }, data });
+    const schedule = await this.prisma.schedule.update({ where: { id }, data });
+    this.notifyScreen(schedule.screenId);
+    return schedule;
   }
 
   async remove(id: string) {
-    await this.findById(id);
+    // Capture le screenId AVANT suppression pour pouvoir notifier son TV.
+    const existing = await this.findById(id);
     await this.prisma.schedule.delete({ where: { id } });
+    this.notifyScreen(existing.screenId);
     return { message: 'Schedule deleted successfully' };
   }
 }

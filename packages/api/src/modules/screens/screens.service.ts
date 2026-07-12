@@ -3,6 +3,13 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AdminGateway } from '../admin/admin.gateway';
 import { PartnerGateway } from '../partner-gateway/partner.gateway';
 
+/**
+ * Contexte d'appel org-scoped. Fourni par le controller depuis le JWT.
+ * - isAdmin=true (staff plateforme) → aucun filtrage tenant.
+ * - sinon → l'écran doit appartenir à orgId, sinon 404 (ferme l'IDOR).
+ */
+export type ScreenScopeCtx = { orgId?: string | null; isAdmin?: boolean };
+
 @Injectable()
 export class ScreensService {
   constructor(
@@ -10,6 +17,18 @@ export class ScreensService {
     private readonly adminGateway: AdminGateway,
     private readonly partnerGateway: PartnerGateway,
   ) {}
+
+  /**
+   * Where-clause bornée au tenant. Non-admin sans orgId → sentinelle qui ne
+   * matche rien (on ne retombe JAMAIS sur `{ id }` seul, qui laisserait fuir
+   * n'importe quel écran).
+   */
+  private scopedWhere(id: string, ctx?: ScreenScopeCtx) {
+    if (ctx && !ctx.isAdmin) {
+      return { id, partnerOrgId: ctx.orgId ?? '__no_org__' };
+    }
+    return { id };
+  }
 
   async findAll(params: {
     page: number;
@@ -49,9 +68,9 @@ export class ScreensService {
     return { data: screens, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  async findById(id: string) {
-    const screen = await this.prisma.screen.findUnique({
-      where: { id },
+  async findById(id: string, ctx?: ScreenScopeCtx) {
+    const screen = await this.prisma.screen.findFirst({
+      where: this.scopedWhere(id, ctx),
       include: {
         partnerOrg: true,
         devices: true,
@@ -79,17 +98,24 @@ export class ScreensService {
     return clean;
   }
 
-  async create(data: any) {
-    const screen = await this.prisma.screen.create({ data: this.sanitize(data) });
+  async create(data: any, ctx?: ScreenScopeCtx) {
+    const clean = this.sanitize(data);
+    // Un non-admin crée TOUJOURS dans sa propre org (jamais celle d'un autre
+    // tenant passée dans le body). Admin/staff : la valeur du body fait foi.
+    if (ctx && !ctx.isAdmin && ctx.orgId) clean.partnerOrgId = ctx.orgId;
+    const screen = await this.prisma.screen.create({ data: clean });
     this.adminGateway.emitScreensChanged();
     this.adminGateway.emitDashboardUpdate();
-    if (data.partnerOrgId) this.partnerGateway.emitScreensChanged(data.partnerOrgId);
+    if (clean.partnerOrgId) this.partnerGateway.emitScreensChanged(clean.partnerOrgId);
     return screen;
   }
 
-  async update(id: string, data: any) {
-    const existing = await this.findById(id);
-    const screen = await this.prisma.screen.update({ where: { id }, data: this.sanitize(data) });
+  async update(id: string, data: any, ctx?: ScreenScopeCtx) {
+    const existing = await this.findById(id, ctx); // borne l'ownership (IDOR)
+    const clean = this.sanitize(data);
+    // Un non-admin ne peut jamais réassigner l'écran à une autre org.
+    if (ctx && !ctx.isAdmin) delete clean.partnerOrgId;
+    const screen = await this.prisma.screen.update({ where: { id }, data: clean });
     this.adminGateway.emitScreensChanged();
     this.adminGateway.emitDashboardUpdate();
     this.partnerGateway.emitScreensChanged(existing.partnerOrgId);

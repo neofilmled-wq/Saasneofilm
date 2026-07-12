@@ -2,8 +2,18 @@ import {
   Controller, Get, Post, Patch, Delete, Param, Body, Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { ScreensService } from './screens.service';
+import { ScreensService, type ScreenScopeCtx } from './screens.service';
 import { Roles, CurrentUser } from '../../common/decorators';
+
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT'];
+
+/** Dérive le contexte org-scoped depuis le JWT (staff plateforme = bypass). */
+function orgScope(user: any): ScreenScopeCtx {
+  return {
+    orgId: user?.orgId ?? null,
+    isAdmin: !!user?.platformRole && ADMIN_ROLES.includes(user.platformRole),
+  };
+}
 
 @ApiTags('Screens')
 @ApiBearerAuth()
@@ -76,20 +86,20 @@ export class ScreensController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get screen by ID' })
-  async findOne(@Param('id') id: string) {
-    return this.screensService.findById(id);
+  async findOne(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.screensService.findById(id, orgScope(user));
   }
 
   @Post()
   @ApiOperation({ summary: 'Create a screen' })
-  async create(@Body() data: any) {
-    return this.screensService.create(data);
+  async create(@Body() data: any, @CurrentUser() user: any) {
+    return this.screensService.create(data, orgScope(user));
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a screen' })
-  async update(@Param('id') id: string, @Body() data: any) {
-    return this.screensService.update(id, data);
+  async update(@Param('id') id: string, @Body() data: any, @CurrentUser() user: any) {
+    return this.screensService.update(id, data, orgScope(user));
   }
 
   @Delete(':id')

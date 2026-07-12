@@ -893,6 +893,106 @@ export class AdminService {
     };
   }
 
+  // ─── Pack sales breakdown (tuile « Meilleures ventes ») ──────────────────
+  async getPackSalesBreakdown() {
+    // Ventilation des abonnements actifs par « pack » acheté. Un pack =
+    // combinaison (périmètre produit × nombre de TV). Données réelles depuis
+    // Booking, aucune valeur inventée : si aucun booking, packs = [].
+    const groups = await this.prisma.booking
+      .groupBy({
+        by: ['productScope', 'diffusionTvCount', 'catalogueTvCount'],
+        where: { status: { in: ['ACTIVE', 'PAUSED'] } },
+        _count: { id: true },
+        _sum: { monthlyPriceCents: true },
+      })
+      .catch(() => [] as Array<{
+        productScope: 'DIFFUSION' | 'CATALOGUE' | 'BOTH' | null;
+        diffusionTvCount: number | null;
+        catalogueTvCount: number | null;
+        _count: { id: number };
+        _sum: { monthlyPriceCents: number | null };
+      }>);
+
+    const SCOPE_LABEL: Record<string, string> = {
+      DIFFUSION: 'Diffusion',
+      CATALOGUE: 'Catalogue',
+      BOTH: 'Diffusion + Catalogue',
+    };
+
+    const packs = groups
+      .map((g) => {
+        const scope = (g.productScope ?? 'DIFFUSION') as
+          | 'DIFFUSION'
+          | 'CATALOGUE'
+          | 'BOTH';
+        const tvCount = g.diffusionTvCount ?? g.catalogueTvCount ?? 0;
+        const count = g._count?.id ?? 0;
+        const revenueCents = g._sum?.monthlyPriceCents ?? 0;
+        return {
+          label: `${SCOPE_LABEL[scope] ?? scope} — ${tvCount} TV`,
+          productScope: scope,
+          tvCount,
+          count,
+          revenueCents,
+          percentage: 0,
+        };
+      })
+      .sort((a, b) => b.count - a.count);
+
+    const totalBookings = packs.reduce((sum, p) => sum + p.count, 0);
+    for (const p of packs) {
+      p.percentage =
+        totalBookings > 0 ? Math.round((p.count / totalBookings) * 100) : 0;
+    }
+
+    return { packs, totalBookings };
+  }
+
+  // ─── Net profit (tuile « Bénéfices nets ») ───────────────────────────────
+  async getNetProfitSummary() {
+    // Bénéfice net = encaissé Stripe (factures PAID) − rétrocessions partenaires
+    // (RevenueShare.partnerShareCents), sur des fenêtres CALENDAIRES (mois /
+    // trimestre / année en cours). Montants en cents.
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const quarterStart = new Date(
+      now.getFullYear(),
+      Math.floor(now.getMonth() / 3) * 3,
+      1,
+    );
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+
+    const windowNet = async (start: Date, period: string) => {
+      const grossAgg = await this.prisma.stripeInvoice
+        .aggregate({
+          where: { status: 'PAID', paidAt: { gte: start } },
+          _sum: { amountPaidCents: true },
+        })
+        .catch(() => ({ _sum: { amountPaidCents: null } }));
+      const retroAgg = await this.prisma.revenueShare
+        .aggregate({
+          where: { periodStart: { gte: start } },
+          _sum: { partnerShareCents: true },
+        })
+        .catch(() => ({ _sum: { partnerShareCents: null } }));
+
+      const gross = grossAgg._sum?.amountPaidCents ?? 0;
+      const retrocessions = retroAgg._sum?.partnerShareCents ?? 0;
+      return { gross, retrocessions, net: gross - retrocessions, period };
+    };
+
+    const monthly = await windowNet(monthStart, 'Mois en cours');
+    const quarterly = await windowNet(quarterStart, 'Trimestre en cours');
+    const annual = await windowNet(yearStart, 'Année en cours');
+
+    const retrocessionRate =
+      annual.gross > 0
+        ? Math.round((annual.retrocessions / annual.gross) * 100)
+        : 0;
+
+    return { monthly, quarterly, annual, retrocessionRate };
+  }
+
   // ─── Network KPIs ────────────────────────────────────────────────────────
 
   async getNetworkKPIs(range: string = 'month') {
@@ -1279,7 +1379,10 @@ export class AdminService {
     });
     if (!screen) throw new NotFoundException('Screen not found');
 
-    this.deviceGateway.pushToScreen(screenId, 'command', { type: 'refresh' });
+    // Le TV lit payload.command et ne branche que sur FORCE_RELOAD/REBOOT/
+    // PULL_SCHEDULE/REFRESH_ADS (device-provider.tsx). L'ancien { type:'refresh' }
+    // était donc un no-op silencieux → bouton mort. Payload corrigé.
+    this.deviceGateway.pushToScreen(screenId, 'command', { command: 'FORCE_RELOAD', params: {} });
 
     void this.eventBus.publish({
       eventId: randomUUID(),

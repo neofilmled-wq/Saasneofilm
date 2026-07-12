@@ -10,9 +10,19 @@ import {
   Req,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { CampaignsService } from './campaigns.service';
+import { CampaignsService, type CampaignScopeCtx } from './campaigns.service';
 import { Roles } from '../../common/decorators';
 import { SanitizePipe } from '../../common/pipes';
+
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT'];
+
+/** Dérive le contexte org-scoped depuis le JWT (staff plateforme = bypass). */
+function orgScope(user: any): CampaignScopeCtx {
+  return {
+    orgId: user?.orgId ?? null,
+    isAdmin: !!user?.platformRole && ADMIN_ROLES.includes(user.platformRole),
+  };
+}
 
 @ApiTags('Campaigns')
 @ApiBearerAuth()
@@ -53,8 +63,8 @@ export class CampaignsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get campaign by ID' })
-  async findOne(@Param('id') id: string) {
-    return this.campaignsService.findById(id);
+  async findOne(@Param('id') id: string, @Req() req?: any) {
+    return this.campaignsService.findById(id, orgScope(req?.user));
   }
 
   @Post()
@@ -94,8 +104,8 @@ export class CampaignsController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a campaign' })
-  async update(@Param('id') id: string, @Body(SanitizePipe) data: any) {
-    return this.campaignsService.update(id, data);
+  async update(@Param('id') id: string, @Body(SanitizePipe) data: any, @Req() req?: any) {
+    return this.campaignsService.update(id, data, orgScope(req?.user));
   }
 
   @Patch(':id/status')
@@ -107,7 +117,7 @@ export class CampaignsController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a campaign' })
-  async remove(@Param('id') id: string) {
-    return this.campaignsService.remove(id);
+  async remove(@Param('id') id: string, @Req() req?: any) {
+    return this.campaignsService.remove(id, orgScope(req?.user));
   }
 }

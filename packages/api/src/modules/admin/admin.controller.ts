@@ -343,6 +343,20 @@ export class AdminController {
     return this.adminService.getRevenueForecast();
   }
 
+  @Get('dashboard/pack-sales')
+  @Roles('ADMIN', 'SUPER_ADMIN', 'SUPPORT')
+  @ApiOperation({ summary: 'Ventilation des ventes par pack (nombre de TV)' })
+  async getPackSalesBreakdown() {
+    return this.adminService.getPackSalesBreakdown();
+  }
+
+  @Get('dashboard/net-profit')
+  @Roles('ADMIN', 'SUPER_ADMIN', 'SUPPORT')
+  @ApiOperation({ summary: 'Bénéfices nets (encaissé - rétrocessions) par fenêtre' })
+  async getNetProfitSummary() {
+    return this.adminService.getNetProfitSummary();
+  }
+
   // ── Admin Partners ───────────────────
 
   @Get('partners')

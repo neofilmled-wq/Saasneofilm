@@ -37,9 +37,13 @@ export class TvReleasesController {
   ) {
     const release = await this.service.createRelease(body, user?.sub ?? user?.id ?? null);
     // Notify every matching device so they pull the update within seconds
-    // instead of waiting for the next ~6h periodic check.
+    // instead of waiting for the next ~6h periodic check. Awaited pour que
+    // l'erreur soit tracée, mais .catch pour ne jamais faire échouer la
+    // création si le push WS casse (la release EST déjà persistée).
     if (release.isActive) {
-      this.gateway.broadcastUpdateAvailable(release);
+      await this.gateway
+        .broadcastUpdateAvailable(release)
+        .catch(() => undefined);
     }
     return release;
   }
@@ -64,9 +68,28 @@ export class TvReleasesController {
   async updateRelease(@Param('id') id: string, @Body() body: UpdateReleaseDto) {
     const release = await this.service.updateRelease(id, body);
     if (release.isActive) {
-      this.gateway.broadcastUpdateAvailable(release);
+      await this.gateway
+        .broadcastUpdateAvailable(release)
+        .catch(() => undefined);
     }
     return release;
+  }
+
+  @Post(':id/rebroadcast')
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({
+    summary:
+      'Re-pousser la notification OTA d\'une release active à tous les TV éligibles',
+  })
+  async rebroadcastRelease(@Param('id') id: string) {
+    const release = await this.service.getRelease(id);
+    if (!release.isActive) {
+      return { rebroadcast: false, reason: 'Release inactive' };
+    }
+    await this.gateway
+      .broadcastUpdateAvailable(release)
+      .catch(() => undefined);
+    return { rebroadcast: true, releaseId: release.id };
   }
 
   @Delete(':id')

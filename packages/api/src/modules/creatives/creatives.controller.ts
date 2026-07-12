@@ -1,16 +1,20 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Req, BadRequestException, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Req, BadRequestException, UseInterceptors, UploadedFile, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { CreativesService } from './creatives.service';
 import { StorageService } from '../storage/storage.service';
+import { OrgGuard } from '../../common/guards';
 
 const ALLOWED_CONTENT_TYPES = ['video/mp4', 'image/jpeg', 'image/png', 'image/webp'];
 const MAX_FILENAME_LENGTH = 200;
 const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1 GB
 
+// OrgGuard: un annonceur ne peut lister/filtrer que ses propres créatifs
+// (?advertiserOrgId=). Admin bypass. Réduit la fuite inter-annonceur (IDOR H3).
 @ApiTags('Creatives')
 @ApiBearerAuth()
+@UseGuards(OrgGuard)
 @Controller('creatives')
 export class CreativesController {
   constructor(

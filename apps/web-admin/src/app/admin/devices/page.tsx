@@ -302,7 +302,15 @@ export default function DevicesPage() {
                         {mem != null ? `${mem}%` : '—'}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
-                        {live.lastHeartbeatAt ? new Date(live.lastHeartbeatAt).toLocaleTimeString('fr-FR') : '—'}
+                        {live.lastHeartbeatAt
+                          ? new Date(live.lastHeartbeatAt).toLocaleString('fr-FR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : '—'}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>

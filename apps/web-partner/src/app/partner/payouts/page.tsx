@@ -3,6 +3,7 @@
 import {
   Card,
   Badge,
+  Button,
   Table,
   TableBody,
   TableCell,
@@ -11,11 +12,15 @@ import {
   TableRow,
 } from '@neofilm/ui';
 import { cn } from '@neofilm/ui';
-import { Wallet, CheckCircle2, Clock, AlertCircle, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { Wallet, CheckCircle2, Clock, AlertCircle, Loader2, Landmark, ExternalLink } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { usePayouts } from '@/hooks/use-revenue';
+import { apiFetch } from '@/lib/api';
 
 interface Payout {
   id: string;
@@ -38,12 +43,91 @@ const STATUS_CONFIG: Record<string, { icon: React.ElementType; label: string; va
 
 export default function PayoutsPage() {
   const { data: payouts, isLoading } = usePayouts();
+  const [isSettingUp, setIsSettingUp] = useState(false);
+
+  // Stripe Connect status of this partner (where their retrocessions get sent).
+  const { data: connect, refetch: refetchConnect } = useQuery({
+    queryKey: ['partner', 'connect', 'status'],
+    queryFn: () => apiFetch<any>('/partner/payouts/connect/status'),
+  });
+  const connectData = (connect as any)?.data ?? connect ?? {};
+  const payoutsReady = !!connectData.payoutsEnabled;
+  const detailsSubmitted = !!connectData.detailsSubmitted;
+
+  const setupMutation = useMutation({
+    mutationFn: () =>
+      apiFetch<{ url?: string }>('/partner/payouts/connect/setup', {
+        method: 'POST',
+        body: JSON.stringify({
+          refreshUrl: `${window.location.origin}/partner/payouts`,
+          returnUrl: `${window.location.origin}/partner/payouts`,
+        }),
+      }),
+    onSuccess: (res: any) => {
+      const url = res?.data?.url ?? res?.url;
+      if (url) {
+        window.location.href = url; // Stripe-hosted IBAN / KYC onboarding
+        return;
+      }
+      toast.error('Impossible de générer le lien de configuration.');
+      setIsSettingUp(false);
+    },
+    onError: (e: any) => {
+      toast.error(e?.message ?? 'Erreur lors de la configuration des versements.');
+      setIsSettingUp(false);
+    },
+  });
 
   if (isLoading) return <LoadingState />;
 
   return (
     <div className="space-y-6">
       <PageHeader title="Paiements" description="Historique de vos versements" />
+
+      {/* Payout method setup — where the partner's retrocessions are sent. */}
+      <Card className="p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <Landmark className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-semibold">Coordonnées de versement</p>
+              {payoutsReady ? (
+                <p className="text-sm text-emerald-600 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4" /> Compte configuré — vos rétrocessions vous seront versées.
+                </p>
+              ) : detailsSubmitted ? (
+                <p className="text-sm text-amber-600 flex items-center gap-1.5">
+                  <Clock className="h-4 w-4" /> Vérification en cours par Stripe…
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Renseignez votre IBAN via Stripe pour recevoir vos rétrocessions. Sans cela, vos
+                  versements restent en attente.
+                </p>
+              )}
+            </div>
+          </div>
+          {!payoutsReady && (
+            <Button
+              onClick={() => { setIsSettingUp(true); setupMutation.mutate(); }}
+              disabled={isSettingUp || setupMutation.isPending}
+              className="gap-1.5 shrink-0"
+            >
+              {isSettingUp || setupMutation.isPending
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <ExternalLink className="h-4 w-4" />}
+              {detailsSubmitted ? 'Reprendre la configuration' : 'Configurer mes versements'}
+            </Button>
+          )}
+          {payoutsReady && (
+            <Button variant="outline" onClick={() => refetchConnect()} className="shrink-0">
+              Actualiser le statut
+            </Button>
+          )}
+        </div>
+      </Card>
 
       {payouts && payouts.length > 0 ? (
         <Card className="rounded-2xl card-elevated overflow-hidden">

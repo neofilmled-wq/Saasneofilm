@@ -132,6 +132,27 @@ export class PartnerConnectService {
    * Generate a Stripe Account Link for the partner to complete onboarding.
    * Returns the URL the partner should be redirected to.
    */
+  /**
+   * One-shot setup for the partner "Configurer mes versements" button:
+   * creates the Stripe Connect Express account if it doesn't exist yet, then
+   * returns a fresh onboarding link where the partner enters their IBAN on
+   * Stripe's hosted page. Idempotent — safe to call whether or not the
+   * account already exists.
+   */
+  async setupPartnerConnect(
+    partnerOrgId: string,
+    userId: string | undefined,
+    dto: OnboardingLinkDto,
+  ): Promise<{ url: string }> {
+    const existing = await this.prisma.partnerPayoutProfile.findUnique({
+      where: { partnerOrgId },
+    });
+    if (!existing) {
+      await this.createConnectAccount(partnerOrgId, userId);
+    }
+    return this.createOnboardingLink(partnerOrgId, dto);
+  }
+
   async createOnboardingLink(
     partnerOrgId: string,
     dto: OnboardingLinkDto,

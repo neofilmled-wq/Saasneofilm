@@ -56,7 +56,7 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
     // Auth errors are handled by DeviceProvider
   }, []);
 
-  const { config, channels, streamingServices, activities, catalogue, macros, partnerName, screenCity, screenCountry, banderoleSlots, isLoading, refetch, updateMacros } = useTvConfig({
+  const { config, channels, streamingServices, activities, catalogue, macros, partnerName, screenCity, screenCountry, banderoleSlots, bottomMessage, isLoading, refetch, updateMacros } = useTvConfig({
     token,
     onAuthError: handleAuthError,
   });
@@ -338,6 +338,7 @@ export function SmartTvDisplay({ layout: _layout, onHlsChannelOpen, onChannelLis
           city={screenCity}
           country={screenCountry}
           slots={banderoleSlots}
+          bottomMessage={bottomMessage}
         />
       </div>
     </div>

@@ -1840,6 +1840,7 @@ model PartnerProfile {
   companyName String?
   logoUrl     String?
   bannerUrl   String? // full-width banner displayed at the bottom of partner screens
+  bottomMessage String? // free-text custom message shown at the bottom of partner TV screens
 
   // Contact
   contactEmail String?

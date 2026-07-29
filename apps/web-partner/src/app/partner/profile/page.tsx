@@ -30,6 +30,7 @@ export default function ProfilePage() {
     contactPhone: '',
     logoUrl: '',
     bannerUrl: '',
+    bottomMessage: '',
     address: '',
     city: '',
     postCode: '',
@@ -52,6 +53,7 @@ export default function ProfilePage() {
         contactPhone: profile.contactPhone ?? '',
         logoUrl: profile.logoUrl ?? '',
         bannerUrl: (profile as any).bannerUrl ?? '',
+        bottomMessage: (profile as any).bottomMessage ?? '',
         address: profile.address ?? '',
         city: profile.city ?? '',
         postCode: profile.postCode ?? '',
@@ -155,6 +157,20 @@ export default function ProfilePage() {
             <div className="grid gap-2 pt-2 border-t">
               <Label>Pastilles d&apos;informations (bandeau TV)</Label>
               <BanderoleSlotsEditor value={banderoleSlots} onChange={setBanderoleSlots} />
+            </div>
+            <div className="grid gap-2 pt-2 border-t">
+              <Label htmlFor="bottomMessage">Message personnalisé (bas d&apos;écran)</Label>
+              <textarea
+                id="bottomMessage"
+                className="flex min-h-18 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                value={form.bottomMessage}
+                maxLength={160}
+                onChange={(e) => setForm((f) => ({ ...f, bottomMessage: e.target.value }))}
+                placeholder="Ex. Nous vous souhaitons un agréable séjour — la Conciergerie"
+              />
+              <p className="text-xs text-muted-foreground">
+                Affiché en bas des écrans TV de vos logements. Laissez vide pour ne rien afficher.
+              </p>
             </div>
           </CardContent>
         </Card>

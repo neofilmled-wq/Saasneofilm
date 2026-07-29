@@ -198,7 +198,7 @@ export class TvConfigController {
                 partnerOrg: {
                   select: {
                     name: true,
-                    partnerProfile: { select: { companyName: true, banderoleSlots: true } },
+                    partnerProfile: { select: { companyName: true, banderoleSlots: true, bottomMessage: true } },
                   },
                 },
               },
@@ -232,6 +232,11 @@ export class TvConfigController {
           .slice(0, 3)
       : [];
 
+    // Free-text custom message the partner sets in their profile; rendered as a
+    // dedicated line in the TV LocationFooter. Trimmed → null when blank.
+    const bottomMessage =
+      screenInfo?.partnerOrg?.partnerProfile?.bottomMessage?.trim() || null;
+
     this.logger.log(
       `Bootstrap for screen=${screenId}: ${ads.ads.length} ads, ${(activities as any[]).length} activities, ${(catalogue as any[]).length} catalogue`,
     );
@@ -249,6 +254,7 @@ export class TvConfigController {
       screenCity,
       screenCountry,
       banderoleSlots,
+      bottomMessage,
     };
   }
 }

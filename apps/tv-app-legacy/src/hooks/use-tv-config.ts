@@ -36,6 +36,8 @@ interface TvConfigState {
   /** Up to 3 customizable pill slots configured by the partner in the web
    *  portal. Rendered on the right of the LocationFooter. */
   banderoleSlots: { icon: string; label: string }[];
+  /** Free-text custom message set by the partner, shown at the bottom of the TV. */
+  bottomMessage: string | null;
   isLoading: boolean;
 }
 
@@ -69,6 +71,7 @@ export function useTvConfig({ token, onAuthError }: UseTvConfigOptions) {
     screenCity: null,
     screenCountry: null,
     banderoleSlots: [],
+    bottomMessage: null,
     isLoading: false,
   });
 
@@ -108,6 +111,7 @@ export function useTvConfig({ token, onAuthError }: UseTvConfigOptions) {
         banderoleSlots: Array.isArray((bootstrap as any).banderoleSlots)
           ? (bootstrap as any).banderoleSlots
           : [],
+        bottomMessage: (bootstrap as any).bottomMessage ?? null,
         isLoading: false,
       });
     } catch (err) {
@@ -162,6 +166,9 @@ export function useTvConfig({ token, onAuthError }: UseTvConfigOptions) {
           partnerBannerUrl: null,
           partnerName: null,
           screenCity: null,
+          screenCountry: null,
+          banderoleSlots: [],
+          bottomMessage: null,
           isLoading: false,
         });
       } catch (fallbackErr) {

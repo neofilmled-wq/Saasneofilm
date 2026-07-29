@@ -84,6 +84,9 @@ interface LocationFooterProps {
    *  has a Lucide icon (resolved via ICON_MAP) and a free-text label set
    *  by the partner in the web portal. */
   slots?: { icon: string; label: string }[];
+  /** Free-text custom message set by the partner in the web portal, shown as a
+   *  dedicated line under the partner name. Hidden when empty. */
+  bottomMessage?: string | null;
 }
 
 /**
@@ -95,11 +98,12 @@ interface LocationFooterProps {
  * Hidden entirely when no data is available, so screens that haven't filled
  * in the partner profile don't render an empty bar.
  */
-export function LocationFooter({ partnerName, city, country, slots }: LocationFooterProps) {
+export function LocationFooter({ partnerName, city, country, slots, bottomMessage }: LocationFooterProps) {
   const validSlots = (slots ?? [])
     .filter((s) => s && typeof s.icon === 'string' && typeof s.label === 'string' && s.label.length > 0)
     .slice(0, 3);
-  if (!partnerName && !city && validSlots.length === 0) return null;
+  const message = bottomMessage?.trim() || null;
+  if (!partnerName && !city && validSlots.length === 0 && !message) return null;
 
   const initial = (partnerName ?? 'N').charAt(0).toUpperCase();
   const countryLabel = formatCountry(country);
@@ -110,17 +114,19 @@ export function LocationFooter({ partnerName, city, country, slots }: LocationFo
     <div
       style={{
         // 4th row of the .neo-fit-stage grid (the `auto` row that used to
-        // host the PartnerBanner). Stays in the normal flow so it sits at
-        // the very bottom of the shell instead of overlapping the tile grid.
-        margin: '0 3rem 0.875rem',
+        // host the PartnerBanner). Full-bleed strip: spans the whole width of
+        // the shell ("sur toute la longueur") instead of a boxed bottom-left
+        // card. Horizontal padding uses the TV safe-area so text never touches
+        // the physical bezel.
+        margin: 0,
         display: 'flex',
         alignItems: 'center',
         gap: '1.125rem',
-        padding: '0.75rem 1.25rem',
+        padding: '0.75rem var(--tv-safe-x, 3rem)',
         background:
-          'linear-gradient(90deg, rgba(20, 12, 25, 0.78) 0%, rgba(40, 18, 30, 0.62) 60%, rgba(20, 12, 25, 0.45) 100%)',
-        border: '1px solid rgba(230, 57, 70, 0.25)',
-        borderRadius: '0.875rem',
+          'linear-gradient(90deg, rgba(20, 12, 25, 0.9) 0%, rgba(40, 18, 30, 0.72) 60%, rgba(20, 12, 25, 0.6) 100%)',
+        borderTop: '1px solid rgba(230, 57, 70, 0.3)',
+        borderRadius: 0,
         pointerEvents: 'none',
       }}
     >
@@ -182,6 +188,21 @@ export function LocationFooter({ partnerName, city, country, slots }: LocationFo
           )}
           {locationLabel && <span>{locationLabel}</span>}
         </div>
+        {message && (
+          <div
+            style={{
+              fontSize: '0.9375rem',
+              fontWeight: 500,
+              color: 'rgba(255, 255, 255, 0.72)',
+              marginTop: '0.1875rem',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {message}
+          </div>
+        )}
       </div>
 
       {validSlots.length > 0 && (

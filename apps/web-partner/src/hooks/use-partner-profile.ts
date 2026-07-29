@@ -25,6 +25,7 @@ export function useUpsertPartnerProfile() {
       companyName?: string;
       logoUrl?: string;
       bannerUrl?: string | null;
+      bottomMessage?: string | null;
       contactEmail?: string;
       contactPhone?: string;
       address?: string;

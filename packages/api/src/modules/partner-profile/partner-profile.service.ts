@@ -42,6 +42,7 @@ export class PartnerProfileService {
     companyName?: string;
     logoUrl?: string;
     bannerUrl?: string | null;
+    bottomMessage?: string | null;
     contactEmail?: string;
     contactPhone?: string;
     address?: string;
@@ -55,7 +56,7 @@ export class PartnerProfileService {
      *  TV banner. Stored as JSON. Each entry: { icon: <lucide-id>, label }. */
     banderoleSlots?: { icon: string; label: string }[] | null;
   }) {
-    const allowed = ['companyName', 'logoUrl', 'bannerUrl', 'contactEmail', 'contactPhone', 'address', 'city', 'postCode', 'country', 'latitude', 'longitude', 'timezone', 'banderoleSlots'];
+    const allowed = ['companyName', 'logoUrl', 'bannerUrl', 'bottomMessage', 'contactEmail', 'contactPhone', 'address', 'city', 'postCode', 'country', 'latitude', 'longitude', 'timezone', 'banderoleSlots'];
     const clean: any = {};
     for (const key of allowed) {
       if ((data as any)[key] !== undefined) clean[key] = (data as any)[key];

@@ -10,7 +10,10 @@ interface LogoUploadProps {
   onChange: (url: string | null) => void;
 }
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/svg+xml'];
+// Must match the API's server-side allow-list (creatives.controller.ts) exactly,
+// otherwise a file the client accepts gets rejected by the server with a
+// confusing generic error. SVG is intentionally excluded (server refuses it).
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SIZE_MB = 5;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
@@ -28,7 +31,7 @@ export function LogoUpload({ value, onChange }: LogoUploadProps) {
 
   async function handleFile(file: File) {
     if (!ALLOWED_TYPES.includes(file.type)) {
-      toast.error('Format non supporté. Utilisez PNG, JPEG, WebP ou SVG.');
+      toast.error(`Format non supporté (${file.type || 'inconnu'}). Utilisez PNG, JPEG ou WebP.`);
       return;
     }
     if (file.size > MAX_SIZE_BYTES) {
@@ -48,14 +51,25 @@ export function LogoUpload({ value, onChange }: LogoUploadProps) {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
-      if (!res.ok) throw new Error('Upload failed');
+      if (!res.ok) {
+        // Surface the real reason (400 type refusé / 413 trop gros / 401-403 auth)
+        // instead of a generic message, so failures are diagnosable.
+        let reason = `HTTP ${res.status}`;
+        try {
+          const errJson = await res.json();
+          reason = errJson?.message ?? errJson?.error ?? reason;
+        } catch {
+          reason = res.status === 413 ? 'Fichier refusé par le serveur (trop volumineux)' : reason;
+        }
+        throw new Error(Array.isArray(reason) ? reason.join(', ') : String(reason));
+      }
 
       const json = await res.json();
       const data = json && 'data' in json && 'statusCode' in json ? json.data : json;
       onChange(data.fileUrl);
       toast.success('Logo uploadé');
-    } catch {
-      toast.error("Erreur lors de l'upload du logo");
+    } catch (e: any) {
+      toast.error(`Échec de l'upload : ${e?.message ?? 'erreur inconnue'}`);
     } finally {
       setUploading(false);
     }

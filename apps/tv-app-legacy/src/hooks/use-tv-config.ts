@@ -38,6 +38,9 @@ interface TvConfigState {
   banderoleSlots: { icon: string; label: string }[];
   /** Free-text custom message set by the partner, shown at the bottom of the TV. */
   bottomMessage: string | null;
+  /** Partner logo (org-wide, from PartnerProfile.logoUrl). Replaces the red
+   *  initial badge in the bottom LocationFooter when set. */
+  bottomLogoUrl: string | null;
   isLoading: boolean;
 }
 
@@ -72,6 +75,7 @@ export function useTvConfig({ token, onAuthError }: UseTvConfigOptions) {
     screenCountry: null,
     banderoleSlots: [],
     bottomMessage: null,
+    bottomLogoUrl: null,
     isLoading: false,
   });
 
@@ -112,6 +116,7 @@ export function useTvConfig({ token, onAuthError }: UseTvConfigOptions) {
           ? (bootstrap as any).banderoleSlots
           : [],
         bottomMessage: (bootstrap as any).bottomMessage ?? null,
+        bottomLogoUrl: (bootstrap as any).bottomLogoUrl ?? null,
         isLoading: false,
       });
     } catch (err) {
@@ -169,6 +174,7 @@ export function useTvConfig({ token, onAuthError }: UseTvConfigOptions) {
           screenCountry: null,
           banderoleSlots: [],
           bottomMessage: null,
+          bottomLogoUrl: null,
           isLoading: false,
         });
       } catch (fallbackErr) {

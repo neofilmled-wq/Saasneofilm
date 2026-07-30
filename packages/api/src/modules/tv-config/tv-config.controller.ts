@@ -198,7 +198,7 @@ export class TvConfigController {
                 partnerOrg: {
                   select: {
                     name: true,
-                    partnerProfile: { select: { companyName: true, banderoleSlots: true, bottomMessage: true } },
+                    partnerProfile: { select: { companyName: true, banderoleSlots: true, bottomMessage: true, logoUrl: true } },
                   },
                 },
               },
@@ -237,6 +237,12 @@ export class TvConfigController {
     const bottomMessage =
       screenInfo?.partnerOrg?.partnerProfile?.bottomMessage?.trim() || null;
 
+    // Partner logo (org-wide, set in the partner profile). Displayed in place of
+    // the red initial badge in the TV LocationFooter. Distinct from
+    // TvConfig.partnerLogoUrl which drives the top-bar logo per screen.
+    const bottomLogoUrl =
+      screenInfo?.partnerOrg?.partnerProfile?.logoUrl?.trim() || null;
+
     this.logger.log(
       `Bootstrap for screen=${screenId}: ${ads.ads.length} ads, ${(activities as any[]).length} activities, ${(catalogue as any[]).length} catalogue`,
     );
@@ -255,6 +261,7 @@ export class TvConfigController {
       screenCountry,
       banderoleSlots,
       bottomMessage,
+      bottomLogoUrl,
     };
   }
 }

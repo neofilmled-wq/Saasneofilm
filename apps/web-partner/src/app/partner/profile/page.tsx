@@ -15,6 +15,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { LoadingState } from '@/components/ui/loading-state';
 import { usePartnerProfile, useUpsertPartnerProfile } from '@/hooks/use-partner-profile';
 import { BannerUpload } from '@/components/profile/banner-upload';
+import { LogoUpload } from '@/components/profile/logo-upload';
 import {
   BanderoleSlotsEditor,
   type BanderoleSlot,
@@ -131,21 +132,11 @@ export default function ProfilePage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="logoUrl">URL du logo</Label>
-              <Input
-                id="logoUrl"
+              <Label>Logo (affiché en bas des écrans TV, à gauche)</Label>
+              <LogoUpload
                 value={form.logoUrl}
-                onChange={(e) => setForm((f) => ({ ...f, logoUrl: e.target.value }))}
-                placeholder="https://..."
+                onChange={(url) => setForm((f) => ({ ...f, logoUrl: url ?? '' }))}
               />
-              {form.logoUrl && (
-                <img
-                  src={form.logoUrl}
-                  alt="Logo"
-                  className="h-16 w-auto rounded border object-contain"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-              )}
             </div>
             <div className="grid gap-2">
               <Label>Bannière (affichée en bas des écrans TV)</Label>

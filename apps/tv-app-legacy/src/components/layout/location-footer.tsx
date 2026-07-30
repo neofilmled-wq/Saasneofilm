@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Wifi,
   Utensils,
@@ -87,6 +88,9 @@ interface LocationFooterProps {
   /** Free-text custom message set by the partner in the web portal, shown as a
    *  dedicated line under the partner name. Hidden when empty. */
   bottomMessage?: string | null;
+  /** Partner logo (PartnerProfile.logoUrl). When set (and it loads), it replaces
+   *  the red initial badge on the left. Falls back to the initial on load error. */
+  logoUrl?: string | null;
 }
 
 /**
@@ -98,13 +102,16 @@ interface LocationFooterProps {
  * Hidden entirely when no data is available, so screens that haven't filled
  * in the partner profile don't render an empty bar.
  */
-export function LocationFooter({ partnerName, city, country, slots, bottomMessage }: LocationFooterProps) {
+export function LocationFooter({ partnerName, city, country, slots, bottomMessage, logoUrl }: LocationFooterProps) {
+  const [logoFailed, setLogoFailed] = useState(false);
   const validSlots = (slots ?? [])
     .filter((s) => s && typeof s.icon === 'string' && typeof s.label === 'string' && s.label.length > 0)
     .slice(0, 3);
   const message = bottomMessage?.trim() || null;
-  if (!partnerName && !city && validSlots.length === 0 && !message) return null;
+  const logo = logoUrl?.trim() || null;
+  if (!partnerName && !city && validSlots.length === 0 && !message && !logo) return null;
 
+  const showLogo = !!logo && !logoFailed;
   const initial = (partnerName ?? 'N').charAt(0).toUpperCase();
   const countryLabel = formatCountry(country);
   // "Paris, France" / "Paris" / "France" depending on what we have.
@@ -118,6 +125,7 @@ export function LocationFooter({ partnerName, city, country, slots, bottomMessag
         // the shell ("sur toute la longueur") instead of a boxed bottom-left
         // card. Horizontal padding uses the TV safe-area so text never touches
         // the physical bezel.
+        position: 'relative',
         margin: 0,
         display: 'flex',
         alignItems: 'center',
@@ -130,25 +138,41 @@ export function LocationFooter({ partnerName, city, country, slots, bottomMessag
         pointerEvents: 'none',
       }}
     >
-      {/* Red badge with the partner's first initial */}
-      <div
-        style={{
-          width: '2.5rem',
-          height: '2.5rem',
-          flexShrink: 0,
-          borderRadius: '0.625rem',
-          background: 'linear-gradient(135deg, #E63946 0%, #b71c2c 100%)',
-          color: '#fff',
-          display: 'grid',
-          placeItems: 'center',
-          fontWeight: 700,
-          fontSize: '1.125rem',
-          letterSpacing: '0.04em',
-          boxShadow: '0 4px 12px rgba(230, 57, 70, 0.35)',
-        }}
-      >
-        {initial}
-      </div>
+      {/* Partner logo (if set) — otherwise a red badge with the first initial */}
+      {showLogo ? (
+        <img
+          src={logo!}
+          alt={partnerName ?? 'Logo'}
+          onError={() => setLogoFailed(true)}
+          style={{
+            height: '2.75rem',
+            width: 'auto',
+            maxWidth: '9rem',
+            flexShrink: 0,
+            objectFit: 'contain',
+            borderRadius: '0.5rem',
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            width: '2.5rem',
+            height: '2.5rem',
+            flexShrink: 0,
+            borderRadius: '0.625rem',
+            background: 'linear-gradient(135deg, #E63946 0%, #b71c2c 100%)',
+            color: '#fff',
+            display: 'grid',
+            placeItems: 'center',
+            fontWeight: 700,
+            fontSize: '1.125rem',
+            letterSpacing: '0.04em',
+            boxShadow: '0 4px 12px rgba(230, 57, 70, 0.35)',
+          }}
+        >
+          {initial}
+        </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, lineHeight: 1.2 }}>
         <div
@@ -188,22 +212,34 @@ export function LocationFooter({ partnerName, city, country, slots, bottomMessag
           )}
           {locationLabel && <span>{locationLabel}</span>}
         </div>
-        {message && (
-          <div
-            style={{
-              fontSize: '0.9375rem',
-              fontWeight: 500,
-              color: 'rgba(255, 255, 255, 0.72)',
-              marginTop: '0.1875rem',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {message}
-          </div>
-        )}
       </div>
+
+      {/* Custom partner message — dead-centered on the whole strip (not stacked
+       *  under the partner name) and larger, per partner request ("vraiment au
+       *  milieu et assez grand"). Absolutely positioned so it stays centered on
+       *  the bandeau regardless of the left/right block widths. pointerEvents
+       *  stays off (inherited) and it never wraps. */}
+      {message && (
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            maxWidth: '52%',
+            textAlign: 'center',
+            fontSize: '1.5rem',
+            fontWeight: 600,
+            color: 'rgba(255, 255, 255, 0.95)',
+            letterSpacing: '0.01em',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {message}
+        </div>
+      )}
 
       {validSlots.length > 0 && (
         <div

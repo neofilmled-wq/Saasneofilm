@@ -21,8 +21,8 @@ android {
         applicationId = "com.neofilm.tv.legacy"
         minSdk = 26
         targetSdk = 35
-        versionCode = 13
-        versionName = "0.4.5"
+        versionCode = 18
+        versionName = "0.4.10"
 
         // Default URL (overridden per build type below)
         buildConfigField("String", "TV_APP_URL", "\"http://10.0.2.2:3004\"")

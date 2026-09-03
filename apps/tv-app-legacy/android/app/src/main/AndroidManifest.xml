@@ -96,6 +96,10 @@
             <intent-filter android:priority="999">
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.SCREEN_ON" />
+                <!-- Fired to NeoFilm right after an OTA self-update installs, once
+                     the system has killed and re-created the app process. This is
+                     what relaunches the app (and its kiosk watchdog) after a MAJ. -->
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 

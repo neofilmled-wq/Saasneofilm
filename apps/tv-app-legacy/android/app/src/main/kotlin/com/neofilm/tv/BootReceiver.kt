@@ -9,7 +9,7 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         Log.i("BootReceiver", "Received: ${intent.action}")
         when (intent.action) {
-            Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_SCREEN_ON -> {
+            Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_SCREEN_ON, Intent.ACTION_MY_PACKAGE_REPLACED -> {
                 // Launch MainActivity (which starts AdOverlayService)
                 val launchIntent = Intent(context, MainActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

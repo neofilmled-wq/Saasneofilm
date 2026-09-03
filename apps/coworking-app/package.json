@@ -1,0 +1,33 @@
+{
+  "name": "@neofilm/coworking-app",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3006 --hostname 0.0.0.0",
+    "build": "next build",
+    "start": "next start --port 3006",
+    "lint": "next lint",
+    "clean": "rm -rf .next dist"
+  },
+  "dependencies": {
+    "@neofilm/shared": "workspace:*",
+    "lucide-react": "^0.400.0",
+    "next": "^15.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.7.0"
+  },
+  "browserslist": [
+    "Chrome >= 70",
+    "Android >= 10"
+  ]
+}

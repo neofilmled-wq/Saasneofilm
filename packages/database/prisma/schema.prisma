@@ -309,6 +309,13 @@ enum ScreenType {
   OTHER
 }
 
+// Which NeoFilm product/experience a screen runs. Distinguishes Airbnb TVs
+// (legacy app) from Coworking TVs (upcoming app). Set at screen creation.
+enum ScreenUsage {
+  AIRBNB
+  COWORKING
+}
+
 // ─── Venue (Site / Lieu d'installation) ─────────────────────
 model Venue {
   id       String        @id @default(cuid())
@@ -352,6 +359,11 @@ model Screen {
 
   // Hardware type
   screenType ScreenType @default(OTHER)
+
+  // Product / usage: which NeoFilm experience this screen runs.
+  // AIRBNB = the legacy TV app (conciergerie/short-stay). COWORKING = the
+  // upcoming coworking app. Chosen by the partner when creating the screen.
+  usage ScreenUsage @default(AIRBNB)
 
   // Location
   address     String?

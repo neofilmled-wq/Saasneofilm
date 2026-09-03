@@ -37,6 +37,8 @@ const screenSchema = z.object({
   city: z.string().min(1, 'La ville est requise').max(100),
   latitude: z.coerce.number().optional(),
   longitude: z.coerce.number().optional(),
+  // Which NeoFilm experience this TV runs — Airbnb (legacy app) vs Coworking.
+  usage: z.enum(['AIRBNB', 'COWORKING']),
   // Hardware / commercial fields are set to sensible defaults on submit —
   // partners edit them later from the screen detail page. Keeps this form
   // to the two useful decisions: "which site?" + "where is it?".
@@ -61,6 +63,7 @@ export default function NewScreenPage() {
       siteId: '',
       address: '',
       city: '',
+      usage: 'AIRBNB',
       type: 'smartTV',
       resolution: '1920x1080',
       orientation: 'LANDSCAPE',
@@ -103,6 +106,27 @@ export default function NewScreenPage() {
               {form.formState.errors.name && (
                 <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="usage">Type d&apos;écran</Label>
+              <Select
+                value={form.watch('usage')}
+                onValueChange={(v) =>
+                  form.setValue('usage', v as 'AIRBNB' | 'COWORKING', { shouldValidate: true })
+                }
+              >
+                <SelectTrigger id="usage">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="AIRBNB">Airbnb / Location courte durée</SelectItem>
+                  <SelectItem value="COWORKING">Coworking</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Détermine l&apos;expérience NeoFilm diffusée sur cette TV.
+              </p>
             </div>
 
             <div className="space-y-2">

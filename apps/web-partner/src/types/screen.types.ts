@@ -54,6 +54,8 @@ export type ScreenFormValues = {
   city: string;
   latitude?: number;
   longitude?: number;
+  /** Which NeoFilm experience this screen runs (Airbnb TV vs Coworking TV). */
+  usage: 'AIRBNB' | 'COWORKING';
   type: 'smartTV' | 'nonSmartTV';
   brand?: string;
   model?: string;

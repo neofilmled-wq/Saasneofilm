@@ -86,7 +86,7 @@ export class ScreensService {
   private sanitize(data: any) {
     const allowed = [
       'name', 'externalRef', 'address', 'city', 'postCode', 'country',
-      'latitude', 'longitude', 'environment', 'screenType', 'resolution',
+      'latitude', 'longitude', 'environment', 'screenType', 'usage', 'resolution',
       'orientation', 'timezone', 'status', 'monthlyPriceCents', 'currency',
       'maintenanceMode', 'maintenanceReason', 'partnerOrgId', 'activeDeviceId',
       'capacityMaxAdvertisers',

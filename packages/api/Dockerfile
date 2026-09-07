@@ -17,7 +17,11 @@ RUN pnpm install --frozen-lockfile --shamefully-hoist
 
 COPY . .
 
-RUN pnpm --filter @neofilm/shared build || true
+# NO `|| true` here: @neofilm/shared carries the Zod DTOs (e.g. billing.dto). If
+# its build fails silently, the API ships against a STALE dist and validation
+# rules (like the TV-count range) revert to old values. Fail the image build
+# loudly instead so a broken/stale shared can never be deployed.
+RUN pnpm --filter @neofilm/shared build
 RUN pnpm --filter @neofilm/config build || true
 RUN /app/node_modules/.bin/prisma generate --schema=/app/packages/database/prisma/schema.prisma
 RUN cd packages/api && /app/node_modules/.bin/nest build || \

@@ -87,21 +87,13 @@ export type PurchaseAiCreditsDto = z.infer<typeof purchaseAiCreditsSchema>;
 
 // ─── Subscription Draft (NeoFilm Business Model) ───
 
-const ALLOWED_TV_COUNTS = [50, 100, 150, 200, 300] as const;
+// Progressive per-TV pricing: any screen count from 1 to MAX_TV_COUNT is valid
+// (no fixed packs). Above MAX_TV_COUNT → contact sales.
+const MAX_TV_COUNT = 200;
 
 export const createSubscriptionDraftSchema = z.object({
-  diffusionTvCount: z
-    .number()
-    .refine((v) => ALLOWED_TV_COUNTS.includes(v as any), {
-      message: `Must be one of: ${ALLOWED_TV_COUNTS.join(', ')}`,
-    })
-    .optional(),
-  catalogueTvCount: z
-    .number()
-    .refine((v) => ALLOWED_TV_COUNTS.includes(v as any), {
-      message: `Must be one of: ${ALLOWED_TV_COUNTS.join(', ')}`,
-    })
-    .optional(),
+  diffusionTvCount: z.number().int().min(1).max(MAX_TV_COUNT).optional(),
+  catalogueTvCount: z.number().int().min(1).max(MAX_TV_COUNT).optional(),
   durationMonths: z.number().refine((v) => [6, 12].includes(v), {
     message: 'Duration must be 6 or 12 months',
   }),

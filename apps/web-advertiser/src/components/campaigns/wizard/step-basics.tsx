@@ -4,15 +4,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Input, Label, Textarea, Button } from '@neofilm/ui';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@neofilm/ui';
 import { useCampaignWizard } from '@/stores/campaign-wizard.store';
 import { safeString } from '@/lib/validation';
 import type { CampaignType } from '@/lib/mock-data';
 
 const CAMPAIGN_TYPES = [
-  { value: 'AD_SPOT' as CampaignType, label: 'Spot publicitaire', desc: 'Vidéo 15-30s diffusée sur les écrans TV' },
+  { value: 'AD_SPOT' as CampaignType, label: 'Spot publicitaire', desc: 'Vidéo jusqu\'à 30s diffusée sur les écrans TV' },
   { value: 'CATALOG_LISTING' as CampaignType, label: 'Fiche catalogue', desc: 'Présence dans le catalogue "Découvrir la ville"' },
 ];
 
@@ -35,8 +32,6 @@ function addMonths(dateStr: string, months: number): string {
 const basicsSchema = z.object({
   name: safeString(z.string().min(3, 'Le nom doit contenir au moins 3 caractères').max(200)),
   description: safeString(z.string().min(10, 'La description doit contenir au moins 10 caractères').max(2000)),
-  objective: z.string().min(1, 'Sélectionnez un objectif'),
-  category: z.string().min(1, 'Sélectionnez une catégorie'),
   types: z
     .array(z.enum(['AD_SPOT', 'CATALOG_LISTING']))
     .min(1, 'Sélectionnez au moins un type de campagne'),
@@ -45,24 +40,6 @@ const basicsSchema = z.object({
 });
 
 type BasicsForm = z.infer<typeof basicsSchema>;
-
-const OBJECTIVES = [
-  { value: 'awareness', label: 'Notoriété' },
-  { value: 'traffic', label: 'Trafic en magasin' },
-  { value: 'promo', label: 'Promotion / Offre' },
-  { value: 'launch', label: 'Lancement produit' },
-  { value: 'event', label: 'Événement' },
-];
-
-const CATEGORIES = [
-  { value: 'restaurant', label: 'Restaurant / Café' },
-  { value: 'retail', label: 'Commerce / Boutique' },
-  { value: 'beauty', label: 'Beauté / Bien-être' },
-  { value: 'hotel', label: 'Hôtellerie' },
-  { value: 'culture', label: 'Culture / Loisirs' },
-  { value: 'services', label: 'Services' },
-  { value: 'other', label: 'Autre' },
-];
 
 export function StepBasics() {
   const { draft, updateDraft, nextStep, editingCampaignId } = useCampaignWizard();
@@ -79,8 +56,6 @@ export function StepBasics() {
     defaultValues: {
       name: draft.name,
       description: draft.description,
-      objective: draft.objective,
-      category: draft.category,
       types: draft.types as ('AD_SPOT' | 'CATALOG_LISTING')[],
       startDate: draft.startDate || getTodayString(),
       subscriptionMonths: String(draft.subscriptionMonths || 6) as '6' | '12',
@@ -125,39 +100,6 @@ export function StepBasics() {
         <Label htmlFor="description">Description *</Label>
         <Textarea id="description" placeholder="Décrivez votre campagne..." rows={3} disabled={isEditing} {...register('description')} />
         {errors.description && <p className="text-sm text-destructive">{errors.description.message}</p>}
-      </div>
-
-      {/* Objective + Category row */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label>Objectif *</Label>
-          <Select value={watch('objective')} onValueChange={(v) => setValue('objective', v, { shouldValidate: true })} disabled={isEditing}>
-            <SelectTrigger>
-              <SelectValue placeholder="Sélectionner..." />
-            </SelectTrigger>
-            <SelectContent>
-              {OBJECTIVES.map((o) => (
-                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.objective && <p className="text-sm text-destructive">{errors.objective.message}</p>}
-        </div>
-
-        <div className="space-y-2">
-          <Label>Catégorie *</Label>
-          <Select value={watch('category')} onValueChange={(v) => setValue('category', v, { shouldValidate: true })} disabled={isEditing}>
-            <SelectTrigger>
-              <SelectValue placeholder="Sélectionner..." />
-            </SelectTrigger>
-            <SelectContent>
-              {CATEGORIES.map((c) => (
-                <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.category && <p className="text-sm text-destructive">{errors.category.message}</p>}
-        </div>
       </div>
 
       {/* Campaign Types — multi-select toggle cards */}

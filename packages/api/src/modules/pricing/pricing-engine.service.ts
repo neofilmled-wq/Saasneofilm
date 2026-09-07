@@ -1,24 +1,39 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 
-// ─── Official Pricing Grids (monthly EUR) ────────────────────────────────────
-// Cumulative multiplier model — each tier builds on the previous.
+// ─── Progressive per-TV pricing (monthly EUR) ────────────────────────────────
+// No fixed packs: any screen count from 1 to MAX_TV_COUNT is allowed. Each 50-TV
+// bracket has its own per-TV rate and the total is the sum across the filled
+// brackets, exactly like income-tax brackets:
+//   total(N) = Σ (screens in bracket) × (bracket rate)
+// The rates below are derived from the historical pack grid so a full pack still
+// costs the same:
+//   Diffusion : 50→39.00, 100→66.30, 150→91.65, 200→115.05
+//   Catalogue : 50→18.90, 100→27.40, 150→34.96, 200→40.63
 
-const DIFFUSION_GRID: Record<number, number> = {
-  50: 39.0,            // prix de base
-  100: 66.3,           // 39 + 30% de 39 = 39 + 27.3
-  150: 91.65,          // 66.3 + 65% de 39 = 66.3 + 25.35
-  200: 115.05,         // 91.65 + 60% de 39 = 91.65 + 23.4
-};
+interface Tier {
+  /** Upper bound of the bracket (inclusive). */
+  upTo: number;
+  /** Monthly price per TV within this bracket, in EUR. */
+  rate: number;
+}
 
-const CATALOGUE_GRID: Record<number, number> = {
-  50: 18.9,            // prix de base
-  100: 27.4,           // 18.9 + 45% de 18.9 = 18.9 + 8.5
-  150: 34.96,          // 27.4 + 40% de 18.9 = 27.4 + 7.56
-  200: 40.63,          // 34.96 + 35% de 18.9 = 34.96 + 6.615 ≈ 40.63 (arrondi à 6.63 sur ta feuille: 34.36 + 6.63, mais cumul exact = 40.63)
-};
+const DIFFUSION_TIERS: Tier[] = [
+  { upTo: 50, rate: 0.78 }, //   1–50   → 39.00 € at 50
+  { upTo: 100, rate: 0.546 }, //  51–100  → 66.30 € at 100
+  { upTo: 150, rate: 0.507 }, // 101–150  → 91.65 € at 150
+  { upTo: 200, rate: 0.468 }, // 151–200  → 115.05 € at 200
+];
 
-const ALLOWED_TV_COUNTS = [50, 100, 150, 200] as const;
-type AllowedTvCount = (typeof ALLOWED_TV_COUNTS)[number];
+const CATALOGUE_TIERS: Tier[] = [
+  { upTo: 50, rate: 0.378 }, //   1–50   → 18.90 € at 50
+  { upTo: 100, rate: 0.17 }, //  51–100  → 27.40 € at 100
+  { upTo: 150, rate: 0.1512 }, // 101–150  → 34.96 € at 150
+  { upTo: 200, rate: 0.1134 }, // 151–200  → 40.63 € at 200
+];
+
+/** Optional presets shown in the UI as quick-select buttons. */
+const PACK_PRESETS = [50, 100, 150, 200] as const;
+const MAX_TV_COUNT = 200;
 
 /** Minimum engagement months (no special constraint now) */
 const MIN_DURATION_300_TV = 5; // kept for backward compat
@@ -48,25 +63,38 @@ export interface PricingQuote {
 
 @Injectable()
 export class PricingEngineService {
-  /** Validate that a TV count is in the allowed set. */
-  private validateTvCount(tvCount: number, product: string): asserts tvCount is AllowedTvCount {
-    if (!(ALLOWED_TV_COUNTS as readonly number[]).includes(tvCount)) {
+  /** Validate that a TV count is within the allowed range (1..MAX_TV_COUNT). */
+  private validateTvCount(tvCount: number, product: string): void {
+    if (!Number.isInteger(tvCount) || tvCount < 1 || tvCount > MAX_TV_COUNT) {
       throw new BadRequestException(
-        `${product}: tvCount must be one of ${ALLOWED_TV_COUNTS.join(', ')}. Got ${tvCount}. For >300 TV, contact sales.`,
+        `${product}: tvCount must be an integer between 1 and ${MAX_TV_COUNT}. Got ${tvCount}. For more than ${MAX_TV_COUNT} TV, contact sales.`,
       );
     }
+  }
+
+  /** Sum the progressive brackets up to `tvCount`. */
+  private computeTiered(tvCount: number, tiers: Tier[]): number {
+    let total = 0;
+    let prevUpTo = 0;
+    for (const tier of tiers) {
+      if (tvCount <= prevUpTo) break;
+      const countInBracket = Math.min(tvCount, tier.upTo) - prevUpTo;
+      total += countInBracket * tier.rate;
+      prevUpTo = tier.upTo;
+    }
+    return roundHalfUp(total, 2);
   }
 
   /** Compute monthly diffusion price for a given TV count. */
   computeDiffusionMonthly(tvCount: number): number {
     this.validateTvCount(tvCount, 'Diffusion');
-    return roundHalfUp(DIFFUSION_GRID[tvCount], 2);
+    return this.computeTiered(tvCount, DIFFUSION_TIERS);
   }
 
   /** Compute monthly catalogue price for a given TV count. */
   computeCatalogueMonthly(tvCount: number): number {
     this.validateTvCount(tvCount, 'Catalogue');
-    return roundHalfUp(CATALOGUE_GRID[tvCount], 2);
+    return this.computeTiered(tvCount, CATALOGUE_TIERS);
   }
 
   /**
@@ -92,7 +120,7 @@ export class PricingEngineService {
   }
 
   /**
-   * Validate duration constraint: 300 TV diffusion requires >= 5 months.
+   * Validate duration constraint (legacy — no active constraint now).
    * Returns true if valid.
    */
   validateDuration(diffusionTvCount: number | undefined, durationMonths: number): boolean {
@@ -102,7 +130,7 @@ export class PricingEngineService {
     return true;
   }
 
-  /** Price per TV for transparency display. */
+  /** Average price per TV for transparency display. */
   getPricePerTv(amount: number, tvCount: number): number {
     if (tvCount <= 0) return 0;
     return roundHalfUp(amount / tvCount, 2);
@@ -119,13 +147,6 @@ export class PricingEngineService {
     if (!diffusionTvCount && !catalogueTvCount) {
       throw new BadRequestException(
         'At least one of diffusionTvCount or catalogueTvCount is required',
-      );
-    }
-
-    // Validate duration constraint
-    if (diffusionTvCount && !this.validateDuration(diffusionTvCount, durationMonths)) {
-      throw new BadRequestException(
-        `Pack diffusion 300 TV requires a minimum engagement of ${MIN_DURATION_300_TV} months. Got ${durationMonths}.`,
       );
     }
 
@@ -153,18 +174,23 @@ export class PricingEngineService {
     return Math.round(eur * 100);
   }
 
-  /** Get the list of allowed TV counts. */
+  /** Preset TV counts shown as quick-select buttons in the UI. */
   getAllowedTvCounts(): readonly number[] {
-    return ALLOWED_TV_COUNTS;
+    return PACK_PRESETS;
   }
 
-  /** Get the full pricing grids (for admin display). */
+  /** Max selectable TV count (above this → contact sales). */
+  getMaxTvCount(): number {
+    return MAX_TV_COUNT;
+  }
+
+  /** Get the full pricing tiers (for admin / UI display). */
   getGrids() {
     return {
-      diffusion: { ...DIFFUSION_GRID },
-      catalogue: { ...CATALOGUE_GRID },
-      allowedTvCounts: [...ALLOWED_TV_COUNTS],
-      minDuration300Tv: MIN_DURATION_300_TV,
+      diffusionTiers: DIFFUSION_TIERS.map((t) => ({ ...t })),
+      catalogueTiers: CATALOGUE_TIERS.map((t) => ({ ...t })),
+      packPresets: [...PACK_PRESETS],
+      maxTvCount: MAX_TV_COUNT,
     };
   }
 }

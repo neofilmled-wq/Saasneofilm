@@ -52,6 +52,21 @@ export function ScreenDetailOverview({ screen, device }: ScreenDetailOverviewPro
           <CardContent>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
+                <dt className="text-muted-foreground">Type d&apos;écran</dt>
+                <dd>
+                  <span
+                    className={cn(
+                      'rounded-full border px-2 py-0.5 text-xs',
+                      screen.usage === 'COWORKING'
+                        ? 'border-indigo-400/40 text-indigo-500'
+                        : 'border-rose-400/40 text-rose-500',
+                    )}
+                  >
+                    {screen.usage === 'COWORKING' ? 'Coworking' : 'Airbnb'}
+                  </span>
+                </dd>
+              </div>
+              <div className="flex justify-between">
                 <dt className="text-muted-foreground">Type</dt>
                 <dd>{screen.type === 'smartTV' ? 'Smart TV' : 'TV + Android Stick'}</dd>
               </div>
@@ -73,7 +88,7 @@ export function ScreenDetailOverview({ screen, device }: ScreenDetailOverviewPro
                 <dt className="text-muted-foreground flex items-center gap-1">
                   <MapPin className="h-3.5 w-3.5" /> Site
                 </dt>
-                <dd>{screen.siteName}</dd>
+                <dd>{screen.siteName || 'Aucun site'}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Address</dt>

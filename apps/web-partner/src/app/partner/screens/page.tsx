@@ -115,6 +115,7 @@ export default function ScreensPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Écran</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Ville</TableHead>
                   <TableHead>Remplissage</TableHead>
                   <TableHead>Statut DB</TableHead>
@@ -131,6 +132,18 @@ export default function ScreensPage() {
                         <Link href={`/partner/screens/${screen.id}`} className="hover:text-primary">
                           {screen.name}
                         </Link>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`rounded-full ${
+                            screen.usage === 'COWORKING'
+                              ? 'border-indigo-400/40 text-indigo-500'
+                              : 'border-rose-400/40 text-rose-500'
+                          }`}
+                        >
+                          {screen.usage === 'COWORKING' ? 'Coworking' : 'Airbnb'}
+                        </Badge>
                       </TableCell>
                       <TableCell>{screen.city ?? '—'}</TableCell>
                       <TableCell>

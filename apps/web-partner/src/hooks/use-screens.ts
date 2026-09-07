@@ -39,7 +39,10 @@ function mapApiScreen(raw: any): ScreenWithStatus {
     id: raw.id,
     name: raw.name,
     siteId: raw.siteId ?? '',
-    siteName: raw.partnerOrg?.name ?? raw.siteName ?? '',
+    // Real site name (empty when the screen isn't attached to a site — the UI
+    // then shows "Aucun site"). No longer falls back to the org name.
+    siteName: raw.site?.name ?? '',
+    usage: raw.usage ?? 'AIRBNB',
     address: raw.address ?? '',
     city: raw.city ?? '',
     latitude: raw.latitude ?? null,

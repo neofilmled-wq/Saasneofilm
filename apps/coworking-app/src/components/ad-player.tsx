@@ -47,7 +47,9 @@ export function AdPlayer({ onBack }: { onBack?: () => void }) {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await deviceApi.getAds('POWER_ON', 20);
+        // COWORKING_LOOP = full rotating queue of every ad targeting this screen
+        // (not the legacy POWER_ON which caps at a single ad).
+        const res = await deviceApi.getAds('COWORKING_LOOP', 40);
         if (cancelled) return;
         setTargeted(Array.isArray(res.ads) ? res.ads : []);
         setHouse(Array.isArray(res.fallbackHouseAds) ? res.fallbackHouseAds : []);

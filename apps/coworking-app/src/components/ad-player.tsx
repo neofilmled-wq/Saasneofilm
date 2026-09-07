@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { deviceApi, resolveMediaUrl, type TvAdItem } from '@/lib/device-api';
 
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
@@ -34,7 +35,7 @@ type DisplayAd = {
  * Fetches targeted + house ads from /tv/ads and rotates them; falls back to the
  * bundled Dupplex video + a NeoFilm placeholder when nothing is scheduled.
  */
-export function AdPlayer() {
+export function AdPlayer({ onBack }: { onBack?: () => void }) {
   const [targeted, setTargeted] = useState<TvAdItem[]>([]);
   const [house, setHouse] = useState<TvAdItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -130,13 +131,12 @@ export function AdPlayer() {
     }
   }, [current, playNext, livePool.length]);
 
+  let media: React.ReactNode;
   if (!current || current.kind === 'placeholder') {
-    return <NeoFilmPlaceholder />;
-  }
-
-  if (current.kind === 'video') {
+    media = <NeoFilmPlaceholder />;
+  } else if (current.kind === 'video') {
     const onlyOne = livePool.length === 1;
-    return (
+    media = (
       <div style={fullscreen}>
         <video
           ref={videoRef}
@@ -158,21 +158,70 @@ export function AdPlayer() {
         />
       </div>
     );
+  } else {
+    media = (
+      <div style={fullscreen}>
+        <img
+          key={current.id}
+          src={current.fileUrl}
+          alt=""
+          style={{ position: 'absolute', inset: 0, height: '100%', width: '100%', objectFit: 'cover' }}
+          onError={() => {
+            markFailed(current.fileUrl);
+            playNext();
+          }}
+        />
+      </div>
+    );
   }
 
   return (
-    <div style={fullscreen}>
-      <img
-        key={current.id}
-        src={current.fileUrl}
-        alt=""
-        style={{ position: 'absolute', inset: 0, height: '100%', width: '100%', objectFit: 'cover' }}
-        onError={() => {
-          markFailed(current.fileUrl);
-          playNext();
-        }}
-      />
-    </div>
+    <>
+      {media}
+      {onBack && <BackButton onBack={onBack} />}
+    </>
+  );
+}
+
+/**
+ * Small "Retour" button pinned bottom-center, auto-focused so a single OK press
+ * on the remote returns to the launcher (app grid). Kept discreet so it barely
+ * covers the ad, but clearly highlighted when focused for TV navigation.
+ */
+function BackButton({ onBack }: { onBack: () => void }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <button
+      autoFocus
+      onClick={onBack}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        position: 'fixed',
+        bottom: '1.25rem',
+        left: '50%',
+        transform: focused ? 'translateX(-50%) scale(1.06)' : 'translateX(-50%)',
+        zIndex: 50,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.4rem',
+        padding: '0.4rem 0.85rem',
+        borderRadius: '999px',
+        fontFamily: 'inherit',
+        fontSize: '0.8rem',
+        fontWeight: 600,
+        color: '#fff',
+        cursor: 'pointer',
+        background: focused ? 'linear-gradient(135deg, #E63946 0%, #b71c2c 100%)' : 'rgba(0,0,0,0.55)',
+        border: focused ? '2px solid #fff' : '1px solid rgba(255,255,255,0.35)',
+        boxShadow: focused ? '0 0 0 3px rgba(230,57,70,0.5), 0 6px 20px rgba(0,0,0,0.5)' : '0 2px 8px rgba(0,0,0,0.4)',
+        outline: 'none',
+        transition: 'transform 0.1s, background 0.1s, box-shadow 0.1s',
+      }}
+    >
+      <ArrowLeft size={15} />
+      Retour
+    </button>
   );
 }
 

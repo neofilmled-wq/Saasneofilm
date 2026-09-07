@@ -7,6 +7,10 @@ declare global {
       isAndroidTv?: () => boolean;
       openSystemSettings?: () => void;
       setDeviceCredentials?: (token: string, apiUrl: string, deviceId: string, screenId: string) => void;
+      /** JSON array of launchable apps: [{ packageName, label, icon(base64 PNG) }]. */
+      getInstalledApps?: () => string;
+      /** Launch an installed app by package name. Returns true on success. */
+      launchApp?: (packageName: string) => boolean;
     };
   }
 }

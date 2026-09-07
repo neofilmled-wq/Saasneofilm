@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { PairingScreen, type PairedInfo } from '@/components/pairing-screen';
 import { AdPlayer } from '@/components/ad-player';
+import { AppGrid } from '@/components/app-grid';
 import { deviceApi, DeviceAuthError } from '@/lib/device-api';
 import { getDeviceToken, setDeviceToken, clearDeviceToken } from '@/lib/device-token';
 
@@ -60,8 +61,28 @@ export default function Home() {
     return <PairingScreen onPaired={handlePaired} />;
   }
 
-  // Paired → full-screen ad loop (targeted campaigns + house/Dupplex fallback).
-  return <AdPlayer />;
+  // Paired → ad loop, with Back toggling the launcher-style app grid.
+  return <PairedView />;
+}
+
+/**
+ * Post-pairing shell: shows the ad loop by default. Pressing Back on the box
+ * (forwarded by the native wrapper as a `neo-back` event) toggles the app grid,
+ * whose first tile brings the ads back.
+ */
+function PairedView() {
+  const [view, setView] = useState<'ads' | 'apps'>('ads');
+
+  useEffect(() => {
+    const onBack = () => setView((v) => (v === 'ads' ? 'apps' : 'ads'));
+    window.addEventListener('neo-back', onBack);
+    return () => window.removeEventListener('neo-back', onBack);
+  }, []);
+
+  if (view === 'apps') {
+    return <AppGrid onShowAds={() => setView('ads')} />;
+  }
+  return <AdPlayer onBack={() => setView('apps')} />;
 }
 
 const shell: React.CSSProperties = {

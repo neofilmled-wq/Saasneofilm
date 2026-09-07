@@ -74,6 +74,10 @@ export interface TvRegisterResponse {
   alreadyPaired?: boolean;
   screenId?: string;
   screenName?: string | null;
+  // Present when the backend reconnected the device by ANDROID_ID (already
+  // paired) — a fresh token is returned directly, no PIN needed.
+  accessToken?: string;
+  expiresIn?: number;
 }
 
 export interface TvStatusResponse {

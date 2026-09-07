@@ -25,6 +25,8 @@ export function PairingScreen({ onPaired }: { onPaired: (info: PairedInfo) => vo
   const [pin, setPin] = useState('');
   const [deviceId, setDeviceId] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState(0);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const registeringRef = useRef(false);
 
@@ -37,27 +39,40 @@ export function PairingScreen({ onPaired }: { onPaired: (info: PairedInfo) => vo
       const androidId = getAndroidId();
       const res = await deviceApi.register(fingerprint, undefined, androidId);
 
-      // Already paired on the backend → grab a fresh token via /tv/status.
+      // Already paired on the backend (reconnect by ANDROID_ID) → use the token
+      // it returns directly, or fetch one via /tv/status. NEVER show a PIN for a
+      // device that is already paired — that's what caused the empty-code screen.
       if (res.alreadyPaired) {
-        try {
-          const status = await deviceApi.checkStatus(res.deviceId);
-          if (status.status === 'PAIRED' && status.accessToken) {
-            onPaired({
-              accessToken: status.accessToken,
-              deviceId: status.deviceId,
-              screenId: status.screenId,
-              screenName: status.screenName,
-              expiresIn: status.expiresIn,
-            });
-            return;
+        let token = res.accessToken ?? null;
+        let screenId = res.screenId;
+        let screenName = res.screenName ?? null;
+        let expiresIn = res.expiresIn;
+        if (!token) {
+          try {
+            const status = await deviceApi.checkStatus(res.deviceId);
+            if (status.status === 'PAIRED' && status.accessToken) {
+              token = status.accessToken;
+              screenId = status.screenId;
+              screenName = status.screenName ?? null;
+              expiresIn = status.expiresIn;
+            }
+          } catch {
+            // ignore — handled below
           }
-        } catch {
-          // fall through and show the PIN
         }
+        if (token) {
+          onPaired({ accessToken: token, deviceId: res.deviceId, screenId, screenName, expiresIn });
+          return;
+        }
+        // Paired but token not available yet → retry shortly, stay on the
+        // loading screen (do NOT show an empty PIN).
+        setTimeout(() => doRegister(), 3000);
+        return;
       }
 
       setDeviceId(res.deviceId);
       setPin(res.pin);
+      setExpiresAt(new Date(res.expiresAt).getTime());
       setPhase('showing_pin');
     } catch (err) {
       setError((err as Error).message);
@@ -99,6 +114,20 @@ export function PairingScreen({ onPaired }: { onPaired: (info: PairedInfo) => vo
     };
   }, [phase, deviceId, onPaired]);
 
+  // Countdown + auto-refresh: the backend PIN is valid 10 min, so re-register
+  // when it expires to always show a valid code.
+  useEffect(() => {
+    if (phase !== 'showing_pin' || !expiresAt) return;
+    const tick = () => {
+      const left = Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
+      setSecondsLeft(left);
+      if (left <= 0) doRegister();
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [phase, expiresAt, doRegister]);
+
   return (
     <main style={shell}>
       <h1 style={{ margin: 0, fontSize: 'clamp(1.75rem, 5vw, 2.75rem)', fontWeight: 700 }}>
@@ -137,6 +166,15 @@ export function PairingScreen({ onPaired }: { onPaired: (info: PairedInfo) => vo
               </span>
             ))}
           </div>
+
+          {secondsLeft !== null && (
+            <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '1rem', margin: 0 }}>
+              Nouveau code dans{' '}
+              <strong style={{ color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
+                {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
+              </strong>
+            </p>
+          )}
 
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.95rem', margin: 0 }}>
             En attente de l&apos;appairage…

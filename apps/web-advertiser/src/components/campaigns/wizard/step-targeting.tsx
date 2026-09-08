@@ -266,6 +266,13 @@ export function StepTargeting() {
     environment: environment === 'ALL' ? undefined : environment,
   });
 
+  // Coworking screens run an app with no catalogue page, so a listing targeted
+  // at one would never be displayed. They stay available for ad diffusion.
+  const catalogScreens = useMemo(
+    () => screens.filter((s) => s.usage !== 'COWORKING'),
+    [screens],
+  );
+
   // Derived sets
   const diffusionIds = new Set(draft.selectedScreenIds);
   const catalogIds = new Set(draft.catalogSelectedScreenIds);
@@ -325,7 +332,7 @@ export function StepTargeting() {
   }
 
   function selectCatalogPack(size: number) {
-    const online = screens.filter((s) => !busyCatalogIds.has(s.id));
+    const online = catalogScreens.filter((s) => !busyCatalogIds.has(s.id));
     const selected = online.slice(0, size);
     updateDraft({
       catalogPackSize: size,
@@ -448,7 +455,7 @@ export function StepTargeting() {
           accentClass="border-blue-500"
           accentBg="bg-blue-50"
           packActiveClass="border-blue-500 bg-blue-500 text-white"
-          screens={screens}
+          screens={catalogScreens}
           isLoading={isLoading}
           selectedIds={catalogIds}
           selectedScreens={draft.catalogSelectedScreens}

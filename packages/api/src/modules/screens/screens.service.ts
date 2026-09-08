@@ -267,6 +267,10 @@ export class ScreensService {
         longitude: true,
         environment: true,
         screenType: true,
+        // Which NeoFilm experience the screen runs (AIRBNB | COWORKING).
+        // Advertiser targeting needs it: the Coworking app has no catalogue
+        // page, so those screens must not be offered for catalogue listings.
+        usage: true,
         status: true,
         monthlyPriceCents: true,
         currency: true,

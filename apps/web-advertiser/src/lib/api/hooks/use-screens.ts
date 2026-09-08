@@ -38,6 +38,7 @@ export function useAvailableScreens(filters: ScreenFilters = {}) {
           partnerOrgName: s.partnerOrg?.name ?? '',
           resolution: s.resolution ?? '1920x1080',
           isOnline: s.screenLiveStatus?.isOnline ?? false,
+          usage: (s.usage ?? 'AIRBNB') as MockScreen['usage'],
         }));
 
       if (filters.city) {

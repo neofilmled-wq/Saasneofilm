@@ -56,6 +56,9 @@ export interface MockScreen {
   partnerOrgName: string;
   resolution: string;
   isOnline: boolean;
+  /** Which NeoFilm experience the screen runs. Coworking screens have no
+   *  catalogue page, so they are excluded from catalogue targeting. */
+  usage: 'AIRBNB' | 'COWORKING';
 }
 
 export interface MockInvoice {
@@ -214,6 +217,7 @@ export function mockScreens(n = 200): MockScreen[] {
       partnerOrgName: PARTNER_NAMES[i % PARTNER_NAMES.length],
       resolution: '1920x1080',
       isOnline: Math.random() > 0.15,
+      usage: 'AIRBNB' as const, // same default as Screen.usage in the schema
     };
   });
 }

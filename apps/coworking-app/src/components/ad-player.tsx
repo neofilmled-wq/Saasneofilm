@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { deviceApi, resolveMediaUrl, type TvAdItem } from '@/lib/device-api';
+import { CW_CONFIG } from '@/lib/constants';
+import { flushImpressions, recordImpression } from '@/lib/diffusion-reporter';
 
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
@@ -28,6 +30,11 @@ type DisplayAd = {
   kind: 'video' | 'image' | 'placeholder';
   fileUrl: string;
   holdMs?: number;
+  /** Set only for real scheduled ads — the bundled local fallbacks have none,
+   *  and must not be counted as billable diffusions. */
+  campaignId?: string;
+  creativeId?: string;
+  mediaHash?: string;
 };
 
 /**
@@ -35,7 +42,17 @@ type DisplayAd = {
  * Fetches targeted + house ads from /tv/ads and rotates them; falls back to the
  * bundled Dupplex video + a NeoFilm placeholder when nothing is scheduled.
  */
-export function AdPlayer({ onBack }: { onBack?: () => void }) {
+export function AdPlayer({
+  onBack,
+  screenId,
+  deviceId,
+}: {
+  onBack?: () => void;
+  /** Needed to attribute plays. A wrong value is treated as fraud server-side
+   *  (SCREEN_MISMATCH), so reporting is skipped when either id is missing. */
+  screenId?: string | null;
+  deviceId?: string | null;
+}) {
   const [targeted, setTargeted] = useState<TvAdItem[]>([]);
   const [house, setHouse] = useState<TvAdItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -66,20 +83,19 @@ export function AdPlayer({ onBack }: { onBack?: () => void }) {
   }, []);
 
   const adPool: DisplayAd[] = useMemo(() => {
-    const t: DisplayAd[] = targeted
-      .filter((ad) => !isSentinel(ad.fileUrl))
-      .map((ad) => ({
-        id: `t_${ad.creativeId}`,
-        kind: ad.mimeType.startsWith('video/') ? 'video' : 'image',
-        fileUrl: resolveMediaUrl(ad.fileUrl),
-      }));
-    const h: DisplayAd[] = house
-      .filter((ad) => !isSentinel(ad.fileUrl))
-      .map((ad) => ({
-        id: `h_${ad.creativeId}`,
-        kind: ad.mimeType.startsWith('video/') ? 'video' : 'image',
-        fileUrl: resolveMediaUrl(ad.fileUrl),
-      }));
+    // Both lists come from /tv/ads and carry real campaign/creative ids, so
+    // both are reportable diffusions — only the bundled fallbacks below are not.
+    const toDisplayAd = (prefix: string) => (ad: TvAdItem): DisplayAd => ({
+      id: `${prefix}_${ad.creativeId}`,
+      kind: ad.mimeType.startsWith('video/') ? 'video' : 'image',
+      fileUrl: resolveMediaUrl(ad.fileUrl),
+      campaignId: ad.campaignId,
+      creativeId: ad.creativeId,
+      mediaHash: ad.fileHash,
+    });
+
+    const t: DisplayAd[] = targeted.filter((ad) => !isSentinel(ad.fileUrl)).map(toDisplayAd('t'));
+    const h: DisplayAd[] = house.filter((ad) => !isSentinel(ad.fileUrl)).map(toDisplayAd('h'));
 
     if (t.length === 0 && h.length === 0) {
       return HOUSE_AD_POOL.map((e) => ({
@@ -115,6 +131,53 @@ export function AdPlayer({ onBack }: { onBack?: () => void }) {
     setCurrentIndex(0);
     setFailedUrls(new Set());
   }, [targeted.length, house.length]);
+
+  // Count each finished play. The cleanup fires both when the ad rotates and
+  // on unmount (Back → app grid), so the ad on screen is never dropped.
+  // Declared before the flush effect so its proof is buffered first at unmount.
+  //
+  // Depends on primitives, not on `current`: the 3-minute refetch replaces the
+  // targeted/house arrays and rebuilds identical DisplayAd objects, which would
+  // otherwise re-run this effect mid-play and split one play into two proofs.
+  const playingId = current?.id;
+  const playingCampaignId = current?.campaignId;
+  const playingCreativeId = current?.creativeId;
+  const playingMediaHash = current?.mediaHash;
+  useEffect(() => {
+    // No campaign/creative → bundled local fallback, not a billable diffusion.
+    if (!screenId || !deviceId || !playingCampaignId || !playingCreativeId) return;
+    const startedAt = Date.now();
+    return () => {
+      recordImpression({
+        screenId,
+        campaignId: playingCampaignId,
+        creativeId: playingCreativeId,
+        startedAt,
+        endedAt: Date.now(),
+        mediaHash: playingMediaHash ?? 'none',
+      });
+    };
+  }, [
+    playingId,
+    playingCampaignId,
+    playingCreativeId,
+    playingMediaHash,
+    screenId,
+    deviceId,
+  ]);
+
+  // Send buffered proofs on a timer, and once more on unmount.
+  useEffect(() => {
+    const did = deviceId;
+    if (!did) return;
+    const id = setInterval(() => {
+      void flushImpressions(did);
+    }, CW_CONFIG.DIFFUSION_FLUSH_INTERVAL_MS);
+    return () => {
+      clearInterval(id);
+      void flushImpressions(did);
+    };
+  }, [deviceId]);
 
   // Advance timers for image / placeholder / stuck-video.
   useEffect(() => {

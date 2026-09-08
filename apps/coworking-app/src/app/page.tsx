@@ -10,7 +10,13 @@ import { getDeviceToken, setDeviceToken, clearDeviceToken } from '@/lib/device-t
 type State =
   | { phase: 'checking' }
   | { phase: 'unpaired' }
-  | { phase: 'paired'; screenName: string | null; screenId: string | null };
+  | {
+      phase: 'paired';
+      screenName: string | null;
+      // Both are needed to attribute ad plays in /diffusion/log.
+      screenId: string | null;
+      deviceId: string | null;
+    };
 
 export default function Home() {
   const [state, setState] = useState<State>({ phase: 'checking' });
@@ -28,7 +34,12 @@ export default function Home() {
         const me = await deviceApi.me();
         if (cancelled) return;
         if (me.paired) {
-          setState({ phase: 'paired', screenName: me.screenName, screenId: me.screenId });
+          setState({
+            phase: 'paired',
+            screenName: me.screenName,
+            screenId: me.screenId,
+            deviceId: me.deviceId,
+          });
         } else {
           clearDeviceToken();
           setState({ phase: 'unpaired' });
@@ -46,7 +57,12 @@ export default function Home() {
 
   const handlePaired = useCallback((info: PairedInfo) => {
     setDeviceToken(info.accessToken);
-    setState({ phase: 'paired', screenName: info.screenName ?? null, screenId: info.screenId ?? null });
+    setState({
+      phase: 'paired',
+      screenName: info.screenName ?? null,
+      screenId: info.screenId ?? null,
+      deviceId: info.deviceId,
+    });
   }, []);
 
   if (state.phase === 'checking') {
@@ -62,7 +78,7 @@ export default function Home() {
   }
 
   // Paired → ad loop, with Back toggling the launcher-style app grid.
-  return <PairedView />;
+  return <PairedView screenId={state.screenId} deviceId={state.deviceId} />;
 }
 
 /**
@@ -70,7 +86,13 @@ export default function Home() {
  * (forwarded by the native wrapper as a `neo-back` event) toggles the app grid,
  * whose first tile brings the ads back.
  */
-function PairedView() {
+function PairedView({
+  screenId,
+  deviceId,
+}: {
+  screenId: string | null;
+  deviceId: string | null;
+}) {
   const [view, setView] = useState<'ads' | 'apps'>('ads');
 
   useEffect(() => {
@@ -82,7 +104,7 @@ function PairedView() {
   if (view === 'apps') {
     return <AppGrid onShowAds={() => setView('ads')} />;
   }
-  return <AdPlayer onBack={() => setView('apps')} />;
+  return <AdPlayer onBack={() => setView('apps')} screenId={screenId} deviceId={deviceId} />;
 }
 
 const shell: React.CSSProperties = {

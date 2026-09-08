@@ -16,4 +16,8 @@ export const CW_CONFIG = {
   },
   PAIRING_POLL_INTERVAL_MS: 3_000 as const,
   HEARTBEAT_INTERVAL_MS: 30_000 as const,
+  /** Reported with every diffusion proof. Keep in sync with android versionName. */
+  APP_VERSION: '0.1.1' as const,
+  /** Batch window for diffusion proofs — well under the 10 req/min throttle. */
+  DIFFUSION_FLUSH_INTERVAL_MS: 60_000 as const,
 };

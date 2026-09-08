@@ -113,9 +113,29 @@ export function AdPlayer({
   );
   const current = livePool[currentIndex % Math.max(1, livePool.length)] ?? null;
 
+  // Counts finished plays. With a single ad in the pool `currentIndex` cannot
+  // change ((0+1)%1 === 0), so nothing observable would mark the end of a play
+  // and the diffusion would never be counted. This counter makes every
+  // completed play visible to the reporting effect and re-arms the timers.
+  const [playCount, setPlayCount] = useState(0);
+
   const playNext = useCallback(() => {
+    setPlayCount((c) => c + 1);
     setCurrentIndex((i) => (livePool.length > 0 ? (i + 1) % livePool.length : 0));
   }, [livePool.length]);
+
+  /** A video reached its end (or the safety timer fired). */
+  const handleEnded = useCallback(() => {
+    const v = videoRef.current;
+    playNext();
+    // Single ad: the index stays put and React keeps the same <video> element
+    // (stable `key`), so replay it ourselves instead of relying on `loop` —
+    // native looping never fires `ended`, which is what hid the play from us.
+    if (livePool.length === 1 && v) {
+      v.currentTime = 0;
+      void v.play().catch(() => {});
+    }
+  }, [playNext, livePool.length]);
 
   const markFailed = useCallback((url: string) => {
     setFailedUrls((prev) => {
@@ -162,6 +182,8 @@ export function AdPlayer({
     playingCampaignId,
     playingCreativeId,
     playingMediaHash,
+    // Closes out the play when the same ad repeats and the id cannot change.
+    playCount,
     screenId,
     deviceId,
   ]);
@@ -190,17 +212,19 @@ export function AdPlayer({
       const t = setTimeout(playNext, current.holdMs ?? PLACEHOLDER_HOLD_MS);
       return () => clearTimeout(t);
     }
-    if (current.kind === 'video' && livePool.length > 1) {
-      const t = setTimeout(playNext, VIDEO_MAX_DURATION_MS);
+    // Safety net, now also for a lone video: if `ended` never fires (stalled
+    // download, autoplay refused), force the play to close out and restart.
+    if (current.kind === 'video') {
+      const t = setTimeout(handleEnded, VIDEO_MAX_DURATION_MS);
       return () => clearTimeout(t);
     }
-  }, [current, playNext, livePool.length]);
+    // playCount re-arms these timers when the index cannot change.
+  }, [current, playNext, handleEnded, livePool.length, playCount]);
 
   let media: React.ReactNode;
   if (!current || current.kind === 'placeholder') {
     media = <NeoFilmPlaceholder />;
   } else if (current.kind === 'video') {
-    const onlyOne = livePool.length === 1;
     media = (
       <div style={fullscreen}>
         <video
@@ -214,8 +238,11 @@ export function AdPlayer({
           muted
           playsInline
           preload="auto"
-          loop={onlyOne}
-          onEnded={onlyOne ? undefined : playNext}
+          // Never native-loop: `loop` suppresses `ended`, which is the only
+          // signal that a play finished. handleEnded replays a lone ad itself,
+          // so the visible behaviour is unchanged but each pass is counted.
+          loop={false}
+          onEnded={handleEnded}
           onError={() => {
             markFailed(current.fileUrl);
             playNext();

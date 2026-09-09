@@ -24,6 +24,10 @@ const PLACEHOLDER_HOLD_MS = 7000;
 const IMAGE_HOLD_MS = 12000;
 const VIDEO_MAX_DURATION_MS = 45000;
 const REFETCH_INTERVAL_MS = 3 * 60_000;
+// When every scheduled ad has failed to load (a WiFi blip can hit them all at
+// once), retry the real videos this often instead of waiting for the 3-minute
+// refetch. Keeps the screen trying to show the ads it is supposed to play.
+const STUCK_RETRY_MS = 8000;
 
 type DisplayAd = {
   id: string;
@@ -226,6 +230,20 @@ export function AdPlayer({
     }
     // playCount re-arms these timers when the index cannot change.
   }, [current, playNext, handleEnded, livePool.length, playCount]);
+
+  // Stuck-recovery: when every scheduled ad has failed to load, `livePool` is
+  // empty and `current` is null — the timer effect above bails out, so nothing
+  // else would retry until the 3-minute refetch. Clear `failedUrls` on a short
+  // timer so the real videos are re-attempted quickly and playback resumes as
+  // soon as the network recovers. `adPool.length > 0` ensures there are real
+  // ads to retry (not the bundled house fallback, which never fails).
+  useEffect(() => {
+    if (current || adPool.length === 0) return;
+    const t = setTimeout(() => {
+      setFailedUrls((prev) => (prev.size ? new Set() : prev));
+    }, STUCK_RETRY_MS);
+    return () => clearTimeout(t);
+  }, [current, adPool.length, failedUrls]);
 
   let media: React.ReactNode;
   if (!current || current.kind === 'placeholder') {

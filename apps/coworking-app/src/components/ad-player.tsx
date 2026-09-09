@@ -231,6 +231,24 @@ export function AdPlayer({
     // playCount re-arms these timers when the index cannot change.
   }, [current, playNext, handleEnded, livePool.length, playCount]);
 
+  // The <video> element is reused across ads (constant key), so `autoPlay`
+  // only fires for the very first source. When the src changes on rotation we
+  // must (re)load and play it ourselves. Using the reused element means the
+  // previous decoder is released before the next source loads — one decoder at
+  // a time, no accumulation.
+  const currentVideoUrl = current?.kind === 'video' ? current.fileUrl : null;
+  useEffect(() => {
+    if (!currentVideoUrl) return;
+    const v = videoRef.current;
+    if (!v) return;
+    try {
+      v.load();
+    } catch {
+      /* element not ready — the next render's effect will retry */
+    }
+    void v.play().catch(() => {});
+  }, [currentVideoUrl]);
+
   // Stuck-recovery: when every scheduled ad has failed to load, `livePool` is
   // empty and `current` is null — the timer effect above bails out, so nothing
   // else would retry until the 3-minute refetch. Clear `failedUrls` on a short
@@ -253,7 +271,16 @@ export function AdPlayer({
       <div style={fullscreen}>
         <video
           ref={videoRef}
-          key={current.id}
+          // CONSTANT key on purpose: a per-ad key ({current.id}) remounted the
+          // element on every rotation, spawning a fresh hardware MediaCodec
+          // decoder each time. On the Amlogic box those accumulated and
+          // exhausted the graphic-buffer memory (ACodec "Out of memory" →
+          // "Cannot start the media codec" → playback fails → placeholder).
+          // That is why the freeze only appeared once a 2nd ad made the key
+          // change. A stable key reuses one element, hence one decoder, freed
+          // and re-acquired sequentially per source. Playback on src change is
+          // driven by the effect below (autoPlay only fires on mount).
+          key="ad-video"
           src={current.fileUrl}
           style={{ position: 'absolute', inset: 0, height: '100%', width: '100%', objectFit: 'cover' }}
           width={1280}

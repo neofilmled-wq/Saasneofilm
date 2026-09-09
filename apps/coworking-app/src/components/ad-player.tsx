@@ -70,6 +70,12 @@ export function AdPlayer({
         if (cancelled) return;
         setTargeted(Array.isArray(res.ads) ? res.ads : []);
         setHouse(Array.isArray(res.fallbackHouseAds) ? res.fallbackHouseAds : []);
+        // Give previously-failed URLs another chance on every refresh. Without
+        // this, a transient network blip that fails a video load poisons
+        // `failedUrls` permanently (the length-based reset below never fires
+        // when the API keeps returning the same ads), leaving the screen stuck
+        // on the placeholder until the app is restarted.
+        setFailedUrls((prev) => (prev.size ? new Set() : prev));
       } catch {
         // Non-fatal — keep whatever we had; the house fallback still plays.
       }

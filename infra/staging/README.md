@@ -5,7 +5,7 @@
 | Env | Où | Hôte DB | Notes |
 |-----|-----|---------|-------|
 | **Local** | Docker sur le PC | `localhost:5432` | `.env` + `packages/database/.env` du repo |
-| **Staging** | NAS, projet Docker `neofilm-staging` | `100.95.244.3:5443` (Tailscale) | images `:staging`, accès Tailscale HTTP `100.95.244.3:3011/3016` |
+| **Staging** | NAS, projet Docker `neofilm-staging` | `100.95.244.3:5443` (Tailscale) | images `:staging`, `neofilmapitest.alkaya.fr` (TLS en amont, SSL=None dans NPM) |
 | **Prod** | NAS, projet Docker `neofilm` | `100.95.244.3:5433` (Tailscale) | images `:latest`, `neofilmapi.alkaya.fr` — **ne pas toucher** |
 
 Les 3 bases s'appellent toutes `neofilm` : c'est **l'hôte** qui change, pas le nom.
@@ -29,7 +29,7 @@ L'URL du backend est **codée en dur** dans `apps/<app>/android/app/build.gradle
 => une APK buildée aujourd'hui (même debug) parle à la **prod**.
 
 **Convention cible :**
-- `debug`   → staging (`http://100.95.244.3:3016/coworking` — Tailscale/LAN, la box doit être sur le réseau)
+- `debug`   → staging (`https://neofilmapitest.alkaya.fr/...`)
 - `release` → prod   (`https://neofilmapi.alkaya.fr/...`)
 
 Le build APK exige le **SDK Android** (pas encore installé sur le poste).
@@ -45,7 +45,7 @@ Le build APK exige le **SDK Android** (pas encore installé sur le poste).
 
 ## Tester l'anti-VM/navigateur (feature device-class)
 
-- **Navigateur** : ouvrir `http://100.95.244.3:3016/coworking` dans Chrome
+- **Navigateur** : ouvrir `https://neofilmapitest.alkaya.fr/coworking` dans Chrome
   → classé `BROWSER` → écran masqué (pas de vues comptées). Testable **sans APK**.
 - **Émulateur/VM** : nécessite une **APK debug buildée depuis `dev`** (contient
   `getDeviceIntegrity()` natif) pointant sur staging → donc SDK Android requis.

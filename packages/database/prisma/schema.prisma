@@ -458,11 +458,25 @@ enum DeviceStatus {
   DECOMMISSIONED
 }
 
+// Legitimacy class of the client running the TV/coworking app. Reported by the
+// app at registration. Only HARDWARE (and UNKNOWN, i.e. older APKs that predate
+// this field) may drive a screen "online" — BROWSER and EMULATOR clients are
+// treated as non-display devices and hidden from live screen surfaces.
+enum DeviceClass {
+  HARDWARE
+  EMULATOR
+  BROWSER
+  UNKNOWN
+}
+
 model Device {
   id           String       @id @default(cuid())
   serialNumber String       @unique
   androidId    String?      @unique // Android hardware ID — survives app reinstall
   status       DeviceStatus @default(PROVISIONING)
+  // How the client identified itself at registration (real box vs browser/VM).
+  // UNKNOWN = legacy APK that predates the check → treated as legitimate.
+  deviceClass  DeviceClass  @default(UNKNOWN)
   macAddress   String?
 
   // Provisioning

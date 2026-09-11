@@ -70,9 +70,13 @@ export class DeviceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Update ScreenLiveStatus immediately on connect
     const device = await this.prisma.device.findUnique({
       where: { id: deviceId },
-      select: { screenId: true, screen: { select: { partnerOrgId: true } } },
+      select: { screenId: true, deviceClass: true, screen: { select: { partnerOrgId: true } } },
     });
-    if (device?.screenId) {
+    // Browser/emulator clients are not real displays — they must never mark a
+    // screen online (that is what makes it "appear" as a live screen).
+    const isLegitDisplay =
+      device?.deviceClass !== 'BROWSER' && device?.deviceClass !== 'EMULATOR';
+    if (device?.screenId && isLegitDisplay) {
       await this.prisma.screenLiveStatus.upsert({
         where: { screenId: device.screenId },
         create: { screenId: device.screenId, isOnline: true, lastHeartbeatAt: new Date() },

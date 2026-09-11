@@ -123,10 +123,10 @@ export interface TvAdsResponse {
 
 export const deviceApi = {
   /** Register this box → returns a PIN + deviceId (or alreadyPaired). */
-  register: (deviceId: string, serialNumber?: string, androidId?: string) =>
+  register: (deviceId: string, serialNumber?: string, androidId?: string, deviceClass?: string) =>
     deviceFetch<TvRegisterResponse>('/tv/register', {
       method: 'POST',
-      body: JSON.stringify({ deviceId, serialNumber, androidId }),
+      body: JSON.stringify({ deviceId, serialNumber, androidId, deviceClass }),
     }),
 
   /** Poll pairing status while showing the PIN. */

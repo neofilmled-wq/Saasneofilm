@@ -31,12 +31,26 @@ export class TvAuthService {
   /**
    * Device self-registers: creates or reuses a Device record, generates a 6-digit PIN.
    */
-  async registerDevice(deviceId: string, serialNumber?: string, androidId?: string) {
+  /** Coerce a client-supplied string to a valid DeviceClass, or undefined. */
+  private normalizeDeviceClass(
+    value?: string,
+  ): 'HARDWARE' | 'EMULATOR' | 'BROWSER' | undefined {
+    if (value === 'HARDWARE' || value === 'EMULATOR' || value === 'BROWSER') return value;
+    return undefined; // absent/invalid → leave as-is (legacy APK stays UNKNOWN)
+  }
+
+  async registerDevice(
+    deviceId: string,
+    serialNumber?: string,
+    androidId?: string,
+    deviceClass?: string,
+  ) {
     const serial = serialNumber || deviceId;
+    const cls = this.normalizeDeviceClass(deviceClass);
 
     // 0. Try reconnect by androidId first — if device already paired, skip registration
     if (androidId) {
-      const reconnected = await this.reconnectByAndroidId(androidId);
+      const reconnected = await this.reconnectByAndroidId(androidId, cls);
       if (reconnected) return { ...reconnected, alreadyPaired: true, pin: '', expiresAt: new Date(0).toISOString(), pairingUrl: '', qrPayload: '' };
     }
 
@@ -57,6 +71,7 @@ export class TvAuthService {
             serialNumber: serial,
             provisioningToken,
             status: 'PROVISIONING',
+            ...(cls ? { deviceClass: cls } : {}),
           },
         });
         this.logger.log(`New TV device registered: ${device.serialNumber} (${device.id})`);
@@ -74,6 +89,13 @@ export class TvAuthService {
 
     // Remember mapping
     this.fingerprintMap.set(deviceId, device.id);
+
+    // Keep the reported legitimacy class up to date (real box vs browser/VM).
+    if (cls && (device as { deviceClass?: string }).deviceClass !== cls) {
+      await this.prisma.device
+        .update({ where: { id: device.id }, data: { deviceClass: cls } })
+        .catch(() => undefined);
+    }
 
     // Refresh androidId on the device whenever the client sends a fresh one.
     // Important: keep it in sync even when the value already exists but changed —
@@ -244,7 +266,10 @@ export class TvAuthService {
    * When the fallback hits, we also backfill the androidId so the next call
    * takes the fast path.
    */
-  async reconnectByAndroidId(androidId: string) {
+  async reconnectByAndroidId(
+    androidId: string,
+    deviceClass?: 'HARDWARE' | 'EMULATOR' | 'BROWSER',
+  ) {
     if (!androidId) return null;
 
     let device = await this.prisma.device.findUnique({
@@ -281,10 +306,14 @@ export class TvAuthService {
     const ttl = this.configService.get<string>('DEVICE_TOKEN_TTL', '24h');
     const accessToken = this.jwtService.sign(payload, { expiresIn: ttl as any });
 
-    // Update last ping
+    // Update last ping (and refresh the reported legitimacy class if provided).
     await this.prisma.device.update({
       where: { id: device.id },
-      data: { status: 'ONLINE', lastPingAt: new Date() },
+      data: {
+        status: 'ONLINE',
+        lastPingAt: new Date(),
+        ...(deviceClass ? { deviceClass } : {}),
+      },
     });
 
     this.logger.log(`Device ${device.serialNumber} reconnected by androidId ${androidId}`);

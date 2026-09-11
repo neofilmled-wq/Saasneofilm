@@ -1752,6 +1752,38 @@ class MainActivity : AppCompatActivity() {
         }
 
         /**
+         * Integrity signals for the backend (JSON, e.g. {"isEmulator":true}).
+         * Lets browser/VM clients be hidden from live screen surfaces.
+         */
+        @JavascriptInterface
+        fun getDeviceIntegrity(): String = "{\"isEmulator\":${isProbablyEmulator()}}"
+
+        /**
+         * Best-effort emulator/VM detection from Build properties (AVD/goldfish/
+         * ranchu, Genymotion, VirtualBox, BlueStacks, Nox…). Not tamper-proof,
+         * but flags casual VMs.
+         */
+        private fun isProbablyEmulator(): Boolean {
+            val b = android.os.Build
+            val fp = (b.FINGERPRINT ?: "").lowercase()
+            val model = (b.MODEL ?: "").lowercase()
+            val product = (b.PRODUCT ?: "").lowercase()
+            val hardware = (b.HARDWARE ?: "").lowercase()
+            val device = (b.DEVICE ?: "").lowercase()
+            val manufacturer = (b.MANUFACTURER ?: "").lowercase()
+            val tokens = listOf(
+                "generic", "unknown", "emulator", "sdk_gphone", "sdk_google",
+                "google_sdk", "goldfish", "ranchu", "vbox", "genymotion",
+                "bluestacks", "nox", "andy", "ttvm", "droid4x", "windroye",
+            )
+            fun anyHit(s: String) = tokens.any { s.contains(it) }
+            return anyHit(fp) || anyHit(model) || anyHit(product) ||
+                anyHit(hardware) || anyHit(device) ||
+                manufacturer.contains("genymotion") ||
+                (b.MODEL?.contains("Android SDK built for") == true)
+        }
+
+        /**
          * Triggered by the React app when the backend pushes a `tv:update:available`
          * WebSocket event. Runs the OTA pipeline immediately instead of waiting
          * for the next WorkManager tick (~6h).

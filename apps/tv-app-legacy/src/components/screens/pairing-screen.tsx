@@ -6,7 +6,7 @@ import { CountdownTimer } from '@/components/common/countdown-timer';
 import { StatusIndicator } from '@/components/common/status-indicator';
 import { LoadingSpinner } from '@/components/common/loading-spinner';
 import { useDevice } from '@/providers/device-provider';
-import { getOrCreateDeviceFingerprint } from '@/lib/device-identity';
+import { getOrCreateDeviceFingerprint, getDeviceClass } from '@/lib/device-identity';
 import { deviceApi } from '@/lib/device-api';
 import { TV_CONFIG } from '@/lib/constants';
 
@@ -54,7 +54,7 @@ export function PairingScreen() {
 
       const fingerprint = getOrCreateDeviceFingerprint();
       const androidId = window.NeoFilmAndroid?.getAndroidId?.() || undefined;
-      const res = await deviceApi.register(fingerprint, undefined, androidId);
+      const res = await deviceApi.register(fingerprint, undefined, androidId, getDeviceClass());
 
       // Backend says device is already paired — try to get a fresh token via /tv/status
       if (res.alreadyPaired) {

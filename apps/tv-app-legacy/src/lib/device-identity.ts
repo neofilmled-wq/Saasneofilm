@@ -5,6 +5,8 @@ declare global {
     NeoFilmAndroid?: {
       getAndroidId?: () => string;
       isAndroidTv?: () => boolean;
+      /** JSON string with integrity signals, e.g. {"isEmulator":true}. */
+      getDeviceIntegrity?: () => string;
       getInstalledApps?: () => string;
       launchApp?: (packageName: string) => boolean;
       openWebPage?: (url: string) => void;
@@ -61,4 +63,26 @@ export function getOrCreateDeviceFingerprint(): string {
     localStorage.setItem(FINGERPRINT_KEY, fingerprint);
   }
   return fingerprint;
+}
+
+/**
+ * Classify the client so the backend can hide non-display devices (browsers,
+ * VMs) from live screen surfaces. No native bridge → BROWSER; bridge reporting
+ * an emulator → EMULATOR; otherwise HARDWARE. Older APKs without the integrity
+ * method report HARDWARE so the existing fleet is never wrongly hidden.
+ */
+export function getDeviceClass(): 'HARDWARE' | 'EMULATOR' | 'BROWSER' {
+  if (typeof window === 'undefined') return 'BROWSER';
+  const bridge = window.NeoFilmAndroid;
+  if (!bridge || typeof bridge.getAndroidId !== 'function') return 'BROWSER';
+  try {
+    const raw = bridge.getDeviceIntegrity?.();
+    if (raw) {
+      const info = JSON.parse(raw) as { isEmulator?: boolean };
+      if (info?.isEmulator) return 'EMULATOR';
+    }
+  } catch {
+    // Malformed/absent integrity payload — fall through to HARDWARE.
+  }
+  return 'HARDWARE';
 }

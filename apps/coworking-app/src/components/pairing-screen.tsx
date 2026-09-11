@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { deviceApi } from '@/lib/device-api';
-import { getOrCreateDeviceFingerprint, getAndroidId } from '@/lib/device-identity';
+import { getOrCreateDeviceFingerprint, getAndroidId, getDeviceClass } from '@/lib/device-identity';
 import { CW_CONFIG } from '@/lib/constants';
 
 type Phase = 'registering' | 'showing_pin' | 'error';
@@ -37,7 +37,7 @@ export function PairingScreen({ onPaired }: { onPaired: (info: PairedInfo) => vo
     try {
       const fingerprint = getOrCreateDeviceFingerprint();
       const androidId = getAndroidId();
-      const res = await deviceApi.register(fingerprint, undefined, androidId);
+      const res = await deviceApi.register(fingerprint, undefined, androidId, getDeviceClass());
 
       // Already paired on the backend (reconnect by ANDROID_ID) → use the token
       // it returns directly, or fetch one via /tv/status. NEVER show a PIN for a

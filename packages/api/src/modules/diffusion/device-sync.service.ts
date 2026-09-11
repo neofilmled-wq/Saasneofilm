@@ -109,12 +109,18 @@ export class DeviceSyncService {
     // Resolve device
     const device = await this.prisma.device.findUnique({
       where: { id: deviceId },
-      select: { id: true, screenId: true },
+      select: { id: true, screenId: true, deviceClass: true },
     });
 
     if (!device) {
       return { ack: false, serverTime: new Date().toISOString(), commands: [] };
     }
+
+    // A browser or emulator is not a real display: it must never drive a screen
+    // "online". HARDWARE (and legacy UNKNOWN) are the only legitimate displays.
+    const isLegitDisplay =
+      device.deviceClass !== 'BROWSER' && device.deviceClass !== 'EMULATOR';
+    const effectiveOnline = data.isOnline && isLegitDisplay;
 
     // Write heartbeat
     await this.prisma.deviceHeartbeat.create({
@@ -156,7 +162,7 @@ export class DeviceSyncService {
       await this.prisma.screenLiveStatus.upsert({
         where: { screenId: device.screenId },
         update: {
-          isOnline: data.isOnline,
+          isOnline: effectiveOnline,
           currentDeviceId: deviceId,
           lastHeartbeatAt: new Date(),
           appVersion: data.appVersion,
@@ -168,7 +174,7 @@ export class DeviceSyncService {
         },
         create: {
           screenId: device.screenId,
-          isOnline: data.isOnline,
+          isOnline: effectiveOnline,
           currentDeviceId: deviceId,
           lastHeartbeatAt: new Date(),
           appVersion: data.appVersion,

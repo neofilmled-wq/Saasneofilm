@@ -268,10 +268,10 @@ export interface TvBootstrapResponse {
 
 export const deviceApi = {
   /** TV self-registration: device gets a PIN + QR payload */
-  register: (deviceId: string, serialNumber?: string, androidId?: string) =>
+  register: (deviceId: string, serialNumber?: string, androidId?: string, deviceClass?: string) =>
     deviceFetch<TvRegisterResponse>('/tv/register', {
       method: 'POST',
-      body: JSON.stringify({ deviceId, serialNumber, androidId }),
+      body: JSON.stringify({ deviceId, serialNumber, androidId, deviceClass }),
     }),
 
   /** Reconnect by Android hardware ID — returns JWT if device was previously paired */

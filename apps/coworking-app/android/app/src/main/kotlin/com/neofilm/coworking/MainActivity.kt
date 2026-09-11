@@ -98,6 +98,14 @@ class MainActivity : AppCompatActivity() {
             ) ?: ""
 
         /**
+         * Integrity signals for the backend. Currently reports whether the app
+         * runs on an emulator/VM so browser/VM clients can be hidden from live
+         * screen surfaces. Returned as JSON, e.g. {"isEmulator":true}.
+         */
+        @JavascriptInterface
+        fun getDeviceIntegrity(): String = "{\"isEmulator\":${isProbablyEmulator()}}"
+
+        /**
          * Open the system Settings. Works on any Android TV box (Xiaomi, Nvidia,
          * generic Android TV) and Fire OS. The Settings app is a system app with no
          * regular launcher intent, so we use the standard ACTION_SETTINGS intent
@@ -201,6 +209,39 @@ class MainActivity : AppCompatActivity() {
         private fun pmLaunchIntent(pkg: String): Intent? =
             packageManager.getLeanbackLaunchIntentForPackage(pkg)
                 ?: packageManager.getLaunchIntentForPackage(pkg)
+
+        /**
+         * Best-effort emulator/VM detection from Build properties. Covers the
+         * common Android emulators (AVD/goldfish/ranchu), Genymotion, VirtualBox,
+         * BlueStacks, Nox, etc. Not tamper-proof, but enough to flag casual VMs.
+         */
+        private fun isProbablyEmulator(): Boolean {
+            val b = android.os.Build
+            val fp = (b.FINGERPRINT ?: "").lowercase()
+            val model = (b.MODEL ?: "").lowercase()
+            val product = (b.PRODUCT ?: "").lowercase()
+            val hardware = (b.HARDWARE ?: "").lowercase()
+            val manufacturer = (b.MANUFACTURER ?: "").lowercase()
+            val brand = (b.BRAND ?: "").lowercase()
+            val device = (b.DEVICE ?: "").lowercase()
+
+            val tokens = listOf(
+                "generic", "unknown", "emulator", "sdk_gphone", "sdk_google",
+                "google_sdk", "goldfish", "ranchu", "vbox", "genymotion",
+                "bluestacks", "nox", "andy", "ttvm", "droid4x", "windroye",
+            )
+            fun anyHit(s: String) = tokens.any { s.contains(it) }
+
+            return anyHit(fp) ||
+                anyHit(model) ||
+                anyHit(product) ||
+                anyHit(hardware) ||
+                anyHit(device) ||
+                manufacturer.contains("genymotion") ||
+                brand.startsWith("generic") ||
+                (b.FINGERPRINT?.startsWith("generic") == true) ||
+                (b.MODEL?.contains("Android SDK built for") == true)
+        }
     }
 
     companion object {

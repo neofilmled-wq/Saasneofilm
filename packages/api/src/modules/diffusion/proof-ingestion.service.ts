@@ -101,9 +101,30 @@ export class ProofIngestionService {
         id: true,
         screenId: true,
         status: true,
+        deviceClass: true,
         provisioningToken: true,
       },
     });
+
+    // Browser/emulator clients are not real displays: drop their proofs so they
+    // never generate billable views and never surface the screen in analytics.
+    if (device && (device.deviceClass === 'BROWSER' || device.deviceClass === 'EMULATOR')) {
+      this.fraudDetection.reportSignal({
+        signalType: 'GHOST_DEVICE',
+        severity: 'HIGH',
+        deviceId,
+        details: { reason: `Non-display device (${device.deviceClass})` },
+      });
+      return {
+        accepted: 0,
+        rejected: proofs.length,
+        results: proofs.map((p) => ({
+          proofId: p.proofId,
+          accepted: false,
+          reason: 'NON_DISPLAY_DEVICE',
+        })),
+      };
+    }
 
     if (!device || device.status === 'DECOMMISSIONED') {
       // Reject entire batch from unknown/decommissioned device

@@ -5,6 +5,9 @@ declare global {
     NeoFilmAndroid?: {
       getAndroidId?: () => string;
       isAndroidTv?: () => boolean;
+      /** JSON string with device integrity signals, e.g. {"isEmulator":true}.
+       *  Present only in APK builds that ship the emulator check. */
+      getDeviceIntegrity?: () => string;
       openSystemSettings?: () => void;
       setDeviceCredentials?: (token: string, apiUrl: string, deviceId: string, screenId: string) => void;
       /** JSON array of launchable apps: [{ packageName, label, icon(base64 PNG) }]. */
@@ -56,4 +59,29 @@ export function getAndroidId(): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Classify the client so the backend can hide non-display devices (browsers,
+ * VMs) from live screen surfaces:
+ *   - no native bridge  → BROWSER (the app opened in a plain web browser)
+ *   - bridge + emulator → EMULATOR (APK running in an Android VM/emulator)
+ *   - bridge + real box → HARDWARE
+ * An APK without the integrity method (older build) reports HARDWARE, so the
+ * existing fleet is never wrongly hidden.
+ */
+export function getDeviceClass(): 'HARDWARE' | 'EMULATOR' | 'BROWSER' {
+  if (typeof window === 'undefined') return 'BROWSER';
+  const bridge = window.NeoFilmAndroid;
+  if (!bridge || typeof bridge.getAndroidId !== 'function') return 'BROWSER';
+  try {
+    const raw = bridge.getDeviceIntegrity?.();
+    if (raw) {
+      const info = JSON.parse(raw) as { isEmulator?: boolean };
+      if (info?.isEmulator) return 'EMULATOR';
+    }
+  } catch {
+    // Malformed/absent integrity payload — fall through to HARDWARE.
+  }
+  return 'HARDWARE';
 }

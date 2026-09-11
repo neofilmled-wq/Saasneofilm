@@ -29,9 +29,24 @@ export class TvAuthController {
   @Post('register')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'TV device self-registration — returns PIN + QR data' })
-  async register(@Body() body: { deviceId: string; serialNumber?: string; androidId?: string }) {
+  async register(
+    @Body()
+    body: {
+      deviceId: string;
+      serialNumber?: string;
+      androidId?: string;
+      // Legitimacy class reported by the client: HARDWARE (real box), EMULATOR
+      // (Android VM), BROWSER (web, no native bridge). Absent = legacy APK.
+      deviceClass?: string;
+    },
+  ) {
     if (!body.deviceId) throw new BadRequestException('deviceId is required');
-    return this.tvAuthService.registerDevice(body.deviceId, body.serialNumber, body.androidId);
+    return this.tvAuthService.registerDevice(
+      body.deviceId,
+      body.serialNumber,
+      body.androidId,
+      body.deviceClass,
+    );
   }
 
   @Public()

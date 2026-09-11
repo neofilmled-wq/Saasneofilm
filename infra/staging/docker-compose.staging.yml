@@ -12,10 +12,12 @@
 #   - images :staging                                (jamais :latest)
 #   - secrets staging dedies                         (jamais les secrets prod)
 #
-# Acces : https://neofilmapitest.alkaya.fr via le NPM *deja existant* de la prod
-# (ne PAS relancer un 2e nginx-proxy-manager). Ajouter dans ce NPM un proxy host
-# host=neofilmapitest.alkaya.fr -> <IP du NAS>:3011 (l'API staging), + au besoin
-# /coworking -> :3016 et /tv -> :3015.
+# Acces : Tailscale HTTP (les certs SSL sont geres en amont, pas dans ce NPM —
+# on ne passe donc pas par un sous-domaine pour le staging). Acces direct par IP :
+#   API        http://100.95.244.3:3011/api/v1
+#   coworking  http://100.95.244.3:3016/coworking
+#   tv-legacy  http://100.95.244.3:3015/tv-legacy
+#   adminer    http://100.95.244.3:8092    minio  http://100.95.244.3:9010
 
 services:
   postgres:
@@ -91,15 +93,15 @@ services:
       JWT_ACCESS_EXPIRATION: 15m
       JWT_REFRESH_EXPIRATION: 7d
       API_PORT: 3001
-      API_CORS_ORIGINS: https://neofilmapitest.alkaya.fr
+      API_CORS_ORIGINS: http://100.95.244.3:3016,http://100.95.244.3:3015
       S3_ENDPOINT: http://minio:9000
       S3_ACCESS_KEY: minioadmin
       S3_SECRET_KEY: NeoStagingMinio2026!
       S3_REGION: us-east-1
       S3_BUCKET_CREATIVES: neofilm-creatives
       S3_BUCKET_UPLOADS: neofilm-uploads
-      CDN_BASE_URL: https://neofilmapitest.alkaya.fr/neofilm-creatives
-      API_PUBLIC_URL: https://neofilmapitest.alkaya.fr/api/v1
+      CDN_BASE_URL: http://100.95.244.3:9010/neofilm-creatives
+      API_PUBLIC_URL: http://100.95.244.3:3011/api/v1
       MQTT_BROKER_URL: mqtt://mosquitto:1883
       # Stripe de TEST — pas necessaire pour tester l'anti-VM. A remplir si besoin.
       STRIPE_SECRET_KEY: sk_test_placeholder

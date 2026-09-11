@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -47,6 +47,18 @@ export class TvAuthService {
   ) {
     const serial = serialNumber || deviceId;
     const cls = this.normalizeDeviceClass(deviceClass);
+
+    // Reject non-display clients outright: a browser or emulator/VM is not a
+    // valid NeoFilm screen. No PIN is issued, no device is created — the client
+    // shows this message instead of the pairing screen.
+    // 422 (not 401/403, which the device client swallows as an auth error) so
+    // the message reaches the pairing screen verbatim.
+    if (cls === 'BROWSER' || cls === 'EMULATOR') {
+      this.logger.warn(`Registration rejected — non-display device (${cls}) fingerprint=${deviceId}`);
+      throw new UnprocessableEntityException(
+        "Cet appareil n'est pas un ecran NeoFilm valide (navigateur ou machine virtuelle detecte). Installez l'application NeoFilm sur une vraie box.",
+      );
+    }
 
     // 0. Try reconnect by androidId first — if device already paired, skip registration
     if (androidId) {

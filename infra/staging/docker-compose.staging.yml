@@ -1,0 +1,143 @@
+# NeoFilm — environnement de STAGING, totalement isole de la prod.
+#
+# - Projet Docker distinct : lancer avec `-p neofilm-staging` (ou COMPOSE_PROJECT_NAME).
+# - Ses PROPRES services data (postgres/redis/minio/mosquitto) + volumes dedies :
+#   on ne touche jamais aux donnees de prod.
+# - Images taggees `:staging` (jamais `:latest`).
+# - Ports hote decales pour cohabiter avec la prod sur le meme NAS.
+# - Secrets tiers via variables d'env (voir infra/staging/.env.staging) — aucun
+#   secret prod en dur ici.
+#
+# Lancement sur le NAS :
+#   cd infra/staging
+#   sudo docker compose -p neofilm-staging --env-file .env.staging \
+#        -f docker-compose.staging.yml up -d
+#
+# Prod (projet `neofilm`, tags `:latest`) et staging cohabitent sans collision.
+
+services:
+  postgres:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_DB: neofilm
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${STAGING_POSTGRES_PASSWORD:-NeoStaging2026!}
+    volumes:
+      - /volume2/docker/neofilm-staging/postgres:/var/lib/postgresql/data
+    ports:
+      - '5443:5432' # prod = 5433
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --requirepass ${STAGING_REDIS_PASSWORD:-NeoStagingRedis2026!} --stop-writes-on-bgsave-error no
+    volumes:
+      - /volume2/docker/neofilm-staging/redis:/data
+    ports:
+      - '6390:6379' # prod = 6379
+
+  minio:
+    image: minio/minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${STAGING_MINIO_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${STAGING_MINIO_PASSWORD:-NeoStagingMinio2026!}
+    volumes:
+      - /volume2/docker/neofilm-staging/minio:/data
+    ports:
+      - '9010:9000' # prod = 9000
+      - '9011:9001' # prod = 9001
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    restart: on-failure
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      mc alias set local http://minio:9000 ${STAGING_MINIO_USER:-minioadmin} ${STAGING_MINIO_PASSWORD:-NeoStagingMinio2026!};
+      mc mb --ignore-existing local/neofilm-creatives;
+      mc mb --ignore-existing local/neofilm-uploads;
+      mc anonymous set download local/neofilm-creatives;
+      mc anonymous set download local/neofilm-uploads;
+      exit 0;
+      "
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    restart: always
+    volumes:
+      - /volume2/docker/neofilm-staging/mosquitto:/mosquitto/config
+    ports:
+      - '1893:1883' # prod = 1883
+
+  api:
+    image: kyksdev/neofilm-api:staging
+    restart: always
+    ports:
+      - '3011:3001' # prod = 3001
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:${STAGING_POSTGRES_PASSWORD:-NeoStaging2026!}@postgres:5432/neofilm
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${STAGING_REDIS_PASSWORD:-NeoStagingRedis2026!}
+      JWT_SECRET: ${STAGING_JWT_SECRET:?set a 32+ char staging JWT secret}
+      JWT_ACCESS_EXPIRATION: 15m
+      JWT_REFRESH_EXPIRATION: 7d
+      API_PORT: 3001
+      # Staging joignable via l'IP/port du NAS (ou un sous-domaine staging dedie).
+      API_CORS_ORIGINS: ${STAGING_CORS_ORIGINS:-}
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${STAGING_MINIO_USER:-minioadmin}
+      S3_SECRET_KEY: ${STAGING_MINIO_PASSWORD:-NeoStagingMinio2026!}
+      S3_REGION: us-east-1
+      S3_BUCKET_CREATIVES: neofilm-creatives
+      S3_BUCKET_UPLOADS: neofilm-uploads
+      CDN_BASE_URL: ${STAGING_CDN_BASE_URL:-http://minio:9000/neofilm-creatives}
+      API_PUBLIC_URL: ${STAGING_API_PUBLIC_URL:-http://localhost:3011/api/v1}
+      MQTT_BROKER_URL: mqtt://mosquitto:1883
+      # Stripe/Google/Resend : cles de TEST staging (jamais les cles prod).
+      STRIPE_SECRET_KEY: ${STAGING_STRIPE_SECRET_KEY:-sk_test_placeholder}
+      STRIPE_WEBHOOK_SECRET: ${STAGING_STRIPE_WEBHOOK_SECRET:-whsec_placeholder}
+      # Le controle anti-VM ne fait que classer ; laisser la valeur par defaut.
+    depends_on:
+      - postgres
+      - redis
+      - minio
+      - mosquitto
+
+  coworking:
+    image: kyksdev/neofilm-coworking:staging
+    restart: always
+    ports:
+      - '3016:3006' # prod = 3006
+    environment:
+      NODE_ENV: production
+      PORT: 3006
+      HOSTNAME: 0.0.0.0
+    depends_on:
+      - api
+
+  tv-legacy:
+    image: kyksdev/neofilm-tv-legacy:staging
+    restart: always
+    ports:
+      - '3015:3005' # prod = 3005
+    environment:
+      NODE_ENV: production
+      PORT: 3005
+      HOSTNAME: 0.0.0.0
+    depends_on:
+      - api
+
+  adminer:
+    image: adminer:latest
+    restart: always
+    ports:
+      - '8092:8080' # prod = 8082
+    depends_on:
+      - postgres

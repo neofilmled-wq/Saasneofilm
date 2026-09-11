@@ -108,6 +108,18 @@ services:
       # Stripe de TEST — pas necessaire pour tester l'anti-VM. A remplir si besoin.
       STRIPE_SECRET_KEY: sk_test_placeholder
       STRIPE_WEBHOOK_SECRET: whsec_placeholder
+      # --- Play Integrity (anti-VM inviolable) --------------------------------
+      # INERTE tant que PLAY_INTEGRITY_ENABLED != true (le chemin n'est pas lu).
+      # Pour activer :
+      #   1. deposer la cle de service JSON sur le NAS :
+      #        /volume2/docker/neofilm-staging/secrets/play-integrity.json
+      #   2. decommenter le volume plus bas
+      #   3. passer PLAY_INTEGRITY_ENABLED a "true" et recreer le conteneur api
+      PLAY_INTEGRITY_ENABLED: 'false'
+      PLAY_INTEGRITY_PROJECT_NUMBER: '126514179899'
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/play-integrity.json
+    # volumes:
+    #   - ./secrets/play-integrity.json:/run/secrets/play-integrity.json:ro
     depends_on:
       - postgres
       - redis

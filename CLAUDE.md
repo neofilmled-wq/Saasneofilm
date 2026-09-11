@@ -1160,3 +1160,26 @@ Full catalog in [docs/realtime.md](docs/realtime.md). Quick reference:
 - **Prisma client stale after schema changes** — Must run `pnpm db:generate` after every `schema.prisma` change. TypeScript errors about missing models are almost always this.
 - **MQTT broker required for TV prod** — Mosquitto config at `infra/mosquitto/`. Without it, TV falls back to WS-only mode.
 - **MinIO buckets auto-created by docker-compose** — `neofilm-creatives` and `neofilm-uploads` are created on `db:up`. If MinIO data volume is deleted, buckets must be recreated manually or via `docker compose up`.
+
+---
+
+## 17. Environments & Deployment
+
+**Three environments, three separate databases** (all named `neofilm` — only the host differs):
+
+| Env | Where | DB host | Images / URL |
+|-----|-------|---------|--------------|
+| **Local** | Docker on the dev PC | `localhost:5432` | repo `.env` + `packages/database/.env` |
+| **Staging** | NAS, Docker project `neofilm-staging` | `100.95.244.3:5443` (Tailscale) | `:staging` tags, `neofilmtestapi.alkaya.fr` |
+| **Prod** | NAS, Docker project `neofilm` | `100.95.244.3:5433` (Tailscale) | `:latest` tags, `neofilmapi.alkaya.fr` — **do not touch** |
+
+Staging is fully isolated: distinct compose (`infra/staging/docker-compose.staging.yml`), own volumes (`/volume2/docker/neofilm-staging/...`), shifted host ports (api `3011`, coworking `3016`, tv-legacy `3015`, pg `5443`, redis `6390`, minio `9010/9011`, adminer `8092`).
+
+**`git push main` is NOT a full deploy** (no GitHub Actions):
+- ✅ **Vercel** auto-redeploys the 4 front-ends to PROD (`web-admin`, `web-partner`, `web-advertiser`, `web-portal` — they track `main`). So push-to-main = instant Vercel prod.
+- ❌ **NAS** services (`api`, `tv`, `tv-legacy`, `coworking`): nothing automatic — manual Docker (`docker build` → push Docker Hub `kyksdev/neofilm-*` → `pull` + `up` on the NAS).
+- ❌ **Android APKs**: nothing (separate build + OTA).
+
+**⚠️ Which backend an APK talks to** is hardcoded in `apps/<app>/android/app/build.gradle.kts` (`CW_APP_URL` / `TV_APP_URL`) per build type. **Currently `debug` AND `release` both point at PROD** for coworking / tv-app / tv-app-legacy → any APK built today talks to prod. Target convention: `debug` → staging (`neofilmtestapi.alkaya.fr`), `release` → prod. APK builds require the Android SDK.
+
+**Workflow**: work on branch `dev` → deploy/validate on staging (`:staging`) → merge `dev → main` only when ready to deploy for real (Vercel goes automatically; the NAS still needs a manual `:latest` build/pull). Full memo: `infra/staging/README.md`.

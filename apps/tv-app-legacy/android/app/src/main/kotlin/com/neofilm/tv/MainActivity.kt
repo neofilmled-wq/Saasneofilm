@@ -1764,13 +1764,12 @@ class MainActivity : AppCompatActivity() {
          * but flags casual VMs.
          */
         private fun isProbablyEmulator(): Boolean {
-            val b = android.os.Build
-            val fp = (b.FINGERPRINT ?: "").lowercase()
-            val model = (b.MODEL ?: "").lowercase()
-            val product = (b.PRODUCT ?: "").lowercase()
-            val hardware = (b.HARDWARE ?: "").lowercase()
-            val device = (b.DEVICE ?: "").lowercase()
-            val manufacturer = (b.MANUFACTURER ?: "").lowercase()
+            val fp = (Build.FINGERPRINT ?: "").lowercase()
+            val model = (Build.MODEL ?: "").lowercase()
+            val product = (Build.PRODUCT ?: "").lowercase()
+            val hardware = (Build.HARDWARE ?: "").lowercase()
+            val device = (Build.DEVICE ?: "").lowercase()
+            val manufacturer = (Build.MANUFACTURER ?: "").lowercase()
             val tokens = listOf(
                 "generic", "unknown", "emulator", "sdk_gphone", "sdk_google",
                 "google_sdk", "goldfish", "ranchu", "vbox", "genymotion",
@@ -1780,7 +1779,7 @@ class MainActivity : AppCompatActivity() {
             return anyHit(fp) || anyHit(model) || anyHit(product) ||
                 anyHit(hardware) || anyHit(device) ||
                 manufacturer.contains("genymotion") ||
-                (b.MODEL?.contains("Android SDK built for") == true)
+                model.contains("android sdk built for")
         }
 
         /**

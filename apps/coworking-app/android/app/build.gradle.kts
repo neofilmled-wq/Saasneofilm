@@ -41,7 +41,8 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "CW_APP_URL", "\"https://neofilmapi.alkaya.fr/coworking\"")
+            // debug -> STAGING (release reste sur la prod)
+            buildConfigField("String", "CW_APP_URL", "\"https://neofilmapitest.alkaya.fr/coworking\"")
             isDebuggable = true
         }
         release {

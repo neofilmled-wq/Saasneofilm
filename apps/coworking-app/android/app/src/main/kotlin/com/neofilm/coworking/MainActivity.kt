@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.os.Build
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
@@ -216,14 +217,13 @@ class MainActivity : AppCompatActivity() {
          * BlueStacks, Nox, etc. Not tamper-proof, but enough to flag casual VMs.
          */
         private fun isProbablyEmulator(): Boolean {
-            val b = android.os.Build
-            val fp = (b.FINGERPRINT ?: "").lowercase()
-            val model = (b.MODEL ?: "").lowercase()
-            val product = (b.PRODUCT ?: "").lowercase()
-            val hardware = (b.HARDWARE ?: "").lowercase()
-            val manufacturer = (b.MANUFACTURER ?: "").lowercase()
-            val brand = (b.BRAND ?: "").lowercase()
-            val device = (b.DEVICE ?: "").lowercase()
+            val fp = (Build.FINGERPRINT ?: "").lowercase()
+            val model = (Build.MODEL ?: "").lowercase()
+            val product = (Build.PRODUCT ?: "").lowercase()
+            val hardware = (Build.HARDWARE ?: "").lowercase()
+            val manufacturer = (Build.MANUFACTURER ?: "").lowercase()
+            val brand = (Build.BRAND ?: "").lowercase()
+            val device = (Build.DEVICE ?: "").lowercase()
 
             val tokens = listOf(
                 "generic", "unknown", "emulator", "sdk_gphone", "sdk_google",
@@ -239,8 +239,8 @@ class MainActivity : AppCompatActivity() {
                 anyHit(device) ||
                 manufacturer.contains("genymotion") ||
                 brand.startsWith("generic") ||
-                (b.FINGERPRINT?.startsWith("generic") == true) ||
-                (b.MODEL?.contains("Android SDK built for") == true)
+                fp.startsWith("generic") ||
+                model.contains("android sdk built for")
         }
     }
 

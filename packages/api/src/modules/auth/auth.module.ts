@@ -19,6 +19,7 @@ import { OnboardingController } from './onboarding.controller';
 import { OnboardingService } from './onboarding.service';
 import { TvAuthController } from './tv-auth.controller';
 import { TvAuthService } from './tv-auth.service';
+import { PlayIntegrityService } from './play-integrity.service';
 import { PartnerGatewayModule } from '../partner-gateway/partner-gateway.module';
 import { AuditModule } from '../audit/audit.module';
 import { UsersModule } from '../users/users.module';
@@ -43,7 +44,7 @@ import { EmailModule } from '../email/email.module';
     PartnerGatewayModule,
   ],
   controllers: [AuthController, DeviceAuthController, TvAuthController, MfaController, OAuthController, OnboardingController],
-  providers: [AuthService, JwtStrategy, LocalStrategy, DeviceAuthService, TvAuthService, MfaService, BruteForceService, AnomalyService, OAuthService, OnboardingService],
+  providers: [AuthService, JwtStrategy, LocalStrategy, DeviceAuthService, TvAuthService, PlayIntegrityService, MfaService, BruteForceService, AnomalyService, OAuthService, OnboardingService],
   exports: [AuthService, JwtStrategy, PassportModule],
 })
 export class AuthModule {}

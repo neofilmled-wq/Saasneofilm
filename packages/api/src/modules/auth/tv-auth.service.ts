@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { PartnerGateway } from '../partner-gateway/partner.gateway';
 import { randomBytes, randomInt } from 'crypto';
 import { isInRolloutBucket } from '../tv-releases/tv-releases.gateway';
+import { PlayIntegrityService } from './play-integrity.service';
 
 @Injectable()
 export class TvAuthService {
@@ -23,6 +24,7 @@ export class TvAuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly partnerGateway: PartnerGateway,
+    private readonly playIntegrity: PlayIntegrityService,
   ) {
     // Clean expired PINs every minute
     setInterval(() => this.cleanExpiredPins(), 60_000);
@@ -44,6 +46,9 @@ export class TvAuthService {
     serialNumber?: string,
     androidId?: string,
     deviceClass?: string,
+    integrityToken?: string,
+    integrityNonce?: string,
+    packageName?: string,
   ) {
     const serial = serialNumber || deviceId;
     const cls = this.normalizeDeviceClass(deviceClass);
@@ -58,6 +63,23 @@ export class TvAuthService {
       throw new UnprocessableEntityException(
         "Cet appareil n'est pas un ecran NeoFilm valide (navigateur ou machine virtuelle detecte). Installez l'application NeoFilm sur une vraie box.",
       );
+    }
+
+    // 2nd filter (tamper-proof): Google Play Integrity. Inert unless
+    // PLAY_INTEGRITY_ENABLED=true. Google-signed proof of a genuine, non-emulated
+    // device — cannot be forged by a spoofed deviceClass. See docs/PLAY-INTEGRITY.md.
+    if (this.playIntegrity.enabled) {
+      const verdict = await this.playIntegrity.verify(
+        integrityToken ?? '',
+        integrityNonce ?? '',
+        packageName || 'com.neofilm.coworking',
+      );
+      if (!verdict.ok) {
+        this.logger.warn(`Registration rejected (Play Integrity: ${verdict.reason}) fingerprint=${deviceId}`);
+        throw new UnprocessableEntityException(
+          "Cet appareil n'est pas un ecran NeoFilm valide (verification d'integrite echouee). Installez l'application NeoFilm sur une vraie box.",
+        );
+      }
     }
 
     // 0. Try reconnect by androidId first — if device already paired, skip registration

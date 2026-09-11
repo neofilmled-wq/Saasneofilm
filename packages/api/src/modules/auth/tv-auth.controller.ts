@@ -14,12 +14,28 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { Public } from '../../common/decorators';
 import { TvAuthService } from './tv-auth.service';
+import { PlayIntegrityService } from './play-integrity.service';
 
 @ApiTags('TV Auth')
 @Controller('tv')
 @SkipThrottle()
 export class TvAuthController {
-  constructor(private readonly tvAuthService: TvAuthService) {}
+  constructor(
+    private readonly tvAuthService: TvAuthService,
+    private readonly playIntegrity: PlayIntegrityService,
+  ) {}
+
+  /**
+   * Nonce for a Play Integrity request (anti-replay). The APK embeds it when
+   * asking Google for an integrity token, then sends both to /tv/register.
+   */
+  @Public()
+  @Post('integrity/nonce')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get a one-time nonce for a Play Integrity request' })
+  async integrityNonce() {
+    return { nonce: this.playIntegrity.issueNonce() };
+  }
 
   /**
    * TV device self-registers and gets a 6-digit PIN + QR payload.
@@ -38,6 +54,10 @@ export class TvAuthController {
       // Legitimacy class reported by the client: HARDWARE (real box), EMULATOR
       // (Android VM), BROWSER (web, no native bridge). Absent = legacy APK.
       deviceClass?: string;
+      // Play Integrity (only enforced when PLAY_INTEGRITY_ENABLED=true).
+      integrityToken?: string;
+      integrityNonce?: string;
+      packageName?: string;
     },
   ) {
     if (!body.deviceId) throw new BadRequestException('deviceId is required');
@@ -46,6 +66,9 @@ export class TvAuthController {
       body.serialNumber,
       body.androidId,
       body.deviceClass,
+      body.integrityToken,
+      body.integrityNonce,
+      body.packageName,
     );
   }
 

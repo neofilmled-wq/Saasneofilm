@@ -1,31 +1,21 @@
-# NeoFilm — environnement de STAGING, totalement isole de la prod.
+# NeoFilm — STAGING, totalement isole de la prod. Fichier AUTONOME (toutes les
+# valeurs staging sont ici, aucun .env a creer).
 #
-# - Projet Docker distinct : lancer avec `-p neofilm-staging` (ou COMPOSE_PROJECT_NAME).
-# - Ses PROPRES services data (postgres/redis/minio/mosquitto) + volumes dedies :
-#   on ne touche jamais aux donnees de prod.
-# - Images taggees `:staging` (jamais `:latest`).
-# - Ports hote decales pour cohabiter avec la prod sur le meme NAS.
-# - Secrets tiers via variables d'env (voir infra/staging/.env.staging) — aucun
-#   secret prod en dur ici.
+# Sur le NAS :
+#   1. dossier dedie :            /volume2/docker/neofilm-staging/
+#   2. y sauver ce fichier sous : docker-compose.yml
+#   3. lancer :                   sudo docker compose -p neofilm-staging up -d
 #
-# Lancement sur le NAS :
-#   cd infra/staging
-#   sudo docker compose -p neofilm-staging --env-file .env.staging \
-#        -f docker-compose.staging.yml up -d
+# Isolation vs prod (projet `neofilm`) :
+#   - volumes /volume2/docker/neofilm-staging/...   (jamais ...neofilm/...)
+#   - ports hote decales                             (aucune collision)
+#   - images :staging                                (jamais :latest)
+#   - secrets staging dedies                         (jamais les secrets prod)
 #
-# Prod (projet `neofilm`, tags `:latest`) et staging cohabitent sans collision.
-#
-# Acces : sous-domaine dedie https://neofilmtestapi.alkaya.fr (via Nginx Proxy
-# Manager -> conteneurs staging). Routes NPM a creer (memes chemins que la prod,
-# host neofilmtestapi.alkaya.fr) :
-#   /               -> api        (staging, port hote 3011)
-#   /coworking      -> coworking  (staging, port hote 3016)
-#   /tv             -> tv-legacy  (staging, port hote 3015)
-#   /neofilm-creatives -> minio   (staging, port hote 9010)
-# Les images web `:staging` doivent etre buildees avec ces build-args :
-#   NEXT_PUBLIC_API_URL=https://neofilmtestapi.alkaya.fr/api/v1
-#   NEXT_PUBLIC_WS_URL=https://neofilmtestapi.alkaya.fr
-#   NEXT_PUBLIC_BASE_PATH=/coworking   (resp. /tv pour tv-legacy)
+# Acces : https://neofilmtestapi.alkaya.fr via le NPM *deja existant* de la prod
+# (ne PAS relancer un 2e nginx-proxy-manager). Ajouter dans ce NPM un proxy host
+# host=neofilmtestapi.alkaya.fr -> <IP du NAS>:3011 (l'API staging), + au besoin
+# /coworking -> :3016 et /tv -> :3015.
 
 services:
   postgres:
@@ -34,7 +24,7 @@ services:
     environment:
       POSTGRES_DB: neofilm
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${STAGING_POSTGRES_PASSWORD:-NeoStaging2026!}
+      POSTGRES_PASSWORD: NeoStaging2026!
     volumes:
       - /volume2/docker/neofilm-staging/postgres:/var/lib/postgresql/data
     ports:
@@ -43,7 +33,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: always
-    command: redis-server --requirepass ${STAGING_REDIS_PASSWORD:-NeoStagingRedis2026!} --stop-writes-on-bgsave-error no
+    command: redis-server --requirepass NeoStagingRedis2026! --stop-writes-on-bgsave-error no
     volumes:
       - /volume2/docker/neofilm-staging/redis:/data
     ports:
@@ -54,8 +44,8 @@ services:
     restart: always
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${STAGING_MINIO_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${STAGING_MINIO_PASSWORD:-NeoStagingMinio2026!}
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: NeoStagingMinio2026!
     volumes:
       - /volume2/docker/neofilm-staging/minio:/data
     ports:
@@ -70,7 +60,7 @@ services:
     entrypoint: >
       /bin/sh -c "
       sleep 5;
-      mc alias set local http://minio:9000 ${STAGING_MINIO_USER:-minioadmin} ${STAGING_MINIO_PASSWORD:-NeoStagingMinio2026!};
+      mc alias set local http://minio:9000 minioadmin NeoStagingMinio2026!;
       mc mb --ignore-existing local/neofilm-creatives;
       mc mb --ignore-existing local/neofilm-uploads;
       mc anonymous set download local/neofilm-creatives;
@@ -93,29 +83,27 @@ services:
       - '3011:3001' # prod = 3001
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://postgres:${STAGING_POSTGRES_PASSWORD:-NeoStaging2026!}@postgres:5432/neofilm
+      DATABASE_URL: postgresql://postgres:NeoStaging2026%21@postgres:5432/neofilm
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${STAGING_REDIS_PASSWORD:-NeoStagingRedis2026!}
-      JWT_SECRET: ${STAGING_JWT_SECRET:?set a 32+ char staging JWT secret}
+      REDIS_PASSWORD: NeoStagingRedis2026!
+      JWT_SECRET: 74ea1c707cc4c4eb814144745195a620378903307ab33693
       JWT_ACCESS_EXPIRATION: 15m
       JWT_REFRESH_EXPIRATION: 7d
       API_PORT: 3001
-      # Staging joignable via l'IP/port du NAS (ou un sous-domaine staging dedie).
-      API_CORS_ORIGINS: ${STAGING_CORS_ORIGINS:-}
+      API_CORS_ORIGINS: https://neofilmtestapi.alkaya.fr
       S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY: ${STAGING_MINIO_USER:-minioadmin}
-      S3_SECRET_KEY: ${STAGING_MINIO_PASSWORD:-NeoStagingMinio2026!}
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: NeoStagingMinio2026!
       S3_REGION: us-east-1
       S3_BUCKET_CREATIVES: neofilm-creatives
       S3_BUCKET_UPLOADS: neofilm-uploads
-      CDN_BASE_URL: ${STAGING_CDN_BASE_URL:-http://minio:9000/neofilm-creatives}
-      API_PUBLIC_URL: ${STAGING_API_PUBLIC_URL:-http://localhost:3011/api/v1}
+      CDN_BASE_URL: https://neofilmtestapi.alkaya.fr/neofilm-creatives
+      API_PUBLIC_URL: https://neofilmtestapi.alkaya.fr/api/v1
       MQTT_BROKER_URL: mqtt://mosquitto:1883
-      # Stripe/Google/Resend : cles de TEST staging (jamais les cles prod).
-      STRIPE_SECRET_KEY: ${STAGING_STRIPE_SECRET_KEY:-sk_test_placeholder}
-      STRIPE_WEBHOOK_SECRET: ${STAGING_STRIPE_WEBHOOK_SECRET:-whsec_placeholder}
-      # Le controle anti-VM ne fait que classer ; laisser la valeur par defaut.
+      # Stripe de TEST — pas necessaire pour tester l'anti-VM. A remplir si besoin.
+      STRIPE_SECRET_KEY: sk_test_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_placeholder
     depends_on:
       - postgres
       - redis

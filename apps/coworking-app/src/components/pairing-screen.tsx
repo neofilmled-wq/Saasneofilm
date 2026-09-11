@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { deviceApi } from '@/lib/device-api';
-import { getOrCreateDeviceFingerprint, getAndroidId, getDeviceClass } from '@/lib/device-identity';
+import { getOrCreateDeviceFingerprint, getAndroidId, getDeviceClass, getIntegrityToken } from '@/lib/device-identity';
 import { CW_CONFIG } from '@/lib/constants';
 
 type Phase = 'registering' | 'showing_pin' | 'error';
@@ -37,7 +37,32 @@ export function PairingScreen({ onPaired }: { onPaired: (info: PairedInfo) => vo
     try {
       const fingerprint = getOrCreateDeviceFingerprint();
       const androidId = getAndroidId();
-      const res = await deviceApi.register(fingerprint, undefined, androidId, getDeviceClass());
+
+      // Best-effort Play Integrity: fetch a nonce, ask the native layer for a
+      // Google-signed token. Silently skipped on browsers / older APKs — the
+      // backend enforces it only when PLAY_INTEGRITY_ENABLED=true.
+      let integrity: { integrityToken: string; integrityNonce: string; packageName?: string } | undefined;
+      try {
+        const { nonce } = await deviceApi.getIntegrityNonce();
+        const bundle = await getIntegrityToken(nonce);
+        if (bundle) {
+          integrity = {
+            integrityToken: bundle.integrityToken,
+            integrityNonce: nonce,
+            packageName: bundle.packageName,
+          };
+        }
+      } catch {
+        // Nonce endpoint or bridge unavailable — register without a token.
+      }
+
+      const res = await deviceApi.register(
+        fingerprint,
+        undefined,
+        androidId,
+        getDeviceClass(),
+        integrity,
+      );
 
       // Already paired on the backend (reconnect by ANDROID_ID) → use the token
       // it returns directly, or fetch one via /tv/status. NEVER show a PIN for a

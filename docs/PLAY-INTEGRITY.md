@@ -31,18 +31,36 @@ vrai appareil d'un émulateur/VM — c'est exactement notre besoin.
 Donne-moi : le **project number** + la **clé de service JSON** (via une variable
 d'env / secret, jamais dans le repo).
 
-## Côté APK (natif Kotlin) — je le code
+## État actuel
 
-- Ajouter la dépendance `com.google.android.play:integrity`.
-- Au démarrage (avant register), demander un **integrity token** (avec un
-  `nonce` fourni par le backend pour éviter le rejeu).
-- Exposer le token au web via le pont : `getIntegrityToken(nonce)` (async →
-  callback/polling, car l'appel est asynchrone).
-- L'app web l'envoie à `/tv/register` dans un champ `integrityToken`.
+- **Project number** : `126514179899` (constante `PLAY_INTEGRITY_PROJECT_NUMBER`
+  dans `apps/coworking-app/android/app/build.gradle.kts`, utilisée par
+  `setCloudProjectNumber`).
+- **Natif câblé** (coworking) : dépendance `com.google.android.play:integrity`,
+  pont `requestIntegrityToken(nonce)` + `getPackageName()`, résultat renvoyé au
+  web via `window.__neoIntegrityResult`. ✅
+- **Web câblé** : `getIntegrityToken(nonce)` (device-identity.ts), la pairing
+  screen récupère un nonce (`POST /tv/integrity/nonce`) puis le token, envoyés à
+  `/tv/register`. Best-effort : navigateur / vieille APK → pas de token, le
+  backend décide (flag). ✅
+- **Backend câblé** : `PlayIntegrityService.verify()` + 2e filtre dans
+  `registerDevice`, **inerte** tant que `PLAY_INTEGRITY_ENABLED != true`. ✅
+- **Reste à faire** : monter la clé JSON sur le NAS, poser les variables d'env,
+  builder/déployer une APK release intégrant le client, puis activer le flag sur
+  staging et tester (vraie box OK, émulateur rejeté même en trichant deviceClass).
 
-## Côté backend NestJS — je le code (scaffold prêt, derrière un flag)
+## Côté APK (natif Kotlin) — FAIT
 
-- `POST /tv/register/nonce` → génère un nonce court-vécu (anti-rejeu).
+- Dépendance `com.google.android.play:integrity:1.4.0`.
+- Avant register : nonce du backend → `IntegrityTokenRequest` avec
+  `setNonce(nonce)` + `setCloudProjectNumber(126514179899)`.
+- Token exposé au web via le pont (async → `window.__neoIntegrityResult`).
+- L'app web l'envoie à `/tv/register` dans `integrityToken` (+ `integrityNonce`,
+  `packageName`).
+
+## Côté backend NestJS — FAIT (scaffold prêt, derrière un flag)
+
+- `POST /tv/integrity/nonce` → génère un nonce court-vécu (anti-rejeu).
 - `PlayIntegrityService.verify(token, nonce)` :
   - appelle `playintegrity.googleapis.com` avec la clé de service,
   - vérifie `requestDetails.nonce` == le nonce émis,

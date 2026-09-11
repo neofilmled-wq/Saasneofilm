@@ -15,6 +15,8 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.play.core.integrity.IntegrityManagerFactory
+import com.google.android.play.core.integrity.IntegrityTokenRequest
 import java.io.ByteArrayOutputStream
 
 /**
@@ -73,6 +75,31 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    /** Deliver a Play Integrity result to the web layer on the UI thread. */
+    private fun deliverIntegrityResult(token: String?, error: String?) {
+        val tokenArg = if (token != null) jsString(token) else "null"
+        val errorArg = if (error != null) jsString(error) else "null"
+        runOnUiThread {
+            webView.evaluateJavascript(
+                "window.__neoIntegrityResult && window.__neoIntegrityResult($tokenArg, $errorArg)",
+                null,
+            )
+        }
+    }
+
+    /** Build a safely-escaped JS string literal (quotes included). */
+    private fun jsString(s: String): String {
+        val sb = StringBuilder("\"")
+        for (c in s) when (c) {
+            '\\' -> sb.append("\\\\")
+            '"' -> sb.append("\\\"")
+            '\n' -> sb.append("\\n")
+            '\r' -> sb.append("\\r")
+            else -> sb.append(c)
+        }
+        return sb.append("\"").toString()
+    }
+
     /** Forward Back to the web app; never leave the launcher. */
     override fun dispatchKeyEvent(event: KeyEvent?): Boolean {
         if (event != null && event.keyCode == KeyEvent.KEYCODE_BACK) {
@@ -105,6 +132,43 @@ class MainActivity : AppCompatActivity() {
          */
         @JavascriptInterface
         fun getDeviceIntegrity(): String = "{\"isEmulator\":${isProbablyEmulator()}}"
+
+        /** The APK package name (com.neofilm.coworking) - sent with the integrity
+         *  token so the backend calls decodeIntegrityToken on the right app. */
+        @JavascriptInterface
+        fun getPackageName(): String = applicationContext.packageName
+
+        /**
+         * Request a Play Integrity token (classic API). Asynchronous: the result
+         * is delivered back to the web layer through window.__neoIntegrityResult,
+         * which the JS wrapper (getIntegrityToken) turns into a Promise.
+         *
+         *   window.__neoIntegrityResult(token: string | null, error: string | null)
+         *
+         * `setCloudProjectNumber` lets a SIDELOADED APK (not on the Play Store)
+         * still obtain device-integrity verdicts, using our GCP project.
+         */
+        @JavascriptInterface
+        fun requestIntegrityToken(nonce: String) {
+            try {
+                val manager = IntegrityManagerFactory.create(applicationContext)
+                val request = IntegrityTokenRequest.builder()
+                    .setNonce(nonce)
+                    .setCloudProjectNumber(BuildConfig.PLAY_INTEGRITY_PROJECT_NUMBER)
+                    .build()
+                manager.requestIntegrityToken(request)
+                    .addOnSuccessListener { response ->
+                        deliverIntegrityResult(response.token(), null)
+                    }
+                    .addOnFailureListener { e ->
+                        Log.w(TAG, "Integrity request failed: ${e.message}")
+                        deliverIntegrityResult(null, e.message ?: "integrity_failed")
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "requestIntegrityToken error: ${e.message}")
+                deliverIntegrityResult(null, e.message ?: "integrity_error")
+            }
+        }
 
         /**
          * Open the system Settings. Works on any Android TV box (Xiaomi, Nvidia,

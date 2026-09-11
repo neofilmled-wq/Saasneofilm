@@ -122,11 +122,29 @@ export interface TvAdsResponse {
 // ── Endpoints (shared with the legacy backend — no server change needed) ────
 
 export const deviceApi = {
+  /** One-time nonce for a Play Integrity request (anti-replay). */
+  getIntegrityNonce: () =>
+    deviceFetch<{ nonce: string }>('/tv/integrity/nonce', { method: 'POST' }),
+
   /** Register this box → returns a PIN + deviceId (or alreadyPaired). */
-  register: (deviceId: string, serialNumber?: string, androidId?: string, deviceClass?: string) =>
+  register: (
+    deviceId: string,
+    serialNumber?: string,
+    androidId?: string,
+    deviceClass?: string,
+    integrity?: { integrityToken: string; integrityNonce: string; packageName?: string },
+  ) =>
     deviceFetch<TvRegisterResponse>('/tv/register', {
       method: 'POST',
-      body: JSON.stringify({ deviceId, serialNumber, androidId, deviceClass }),
+      body: JSON.stringify({
+        deviceId,
+        serialNumber,
+        androidId,
+        deviceClass,
+        integrityToken: integrity?.integrityToken,
+        integrityNonce: integrity?.integrityNonce,
+        packageName: integrity?.packageName,
+      }),
     }),
 
   /** Poll pairing status while showing the PIN. */

@@ -26,6 +26,11 @@ android {
 
         // Default URL (overridden per build type below)
         buildConfigField("String", "CW_APP_URL", "\"http://10.0.2.2:3006\"")
+
+        // Google Cloud project number backing the Play Integrity API. Same value
+        // for every build type (one GCP project). Used by setCloudProjectNumber
+        // so a sideloaded APK can still obtain integrity verdicts.
+        buildConfigField("long", "PLAY_INTEGRITY_PROJECT_NUMBER", "126514179899L")
     }
 
     signingConfigs {
@@ -72,4 +77,7 @@ android {
 dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.webkit:webkit:1.9.0")
+    // Play Integrity (classic API) — server-verifiable proof the app runs on a
+    // genuine device. Works for sideloaded APKs via setCloudProjectNumber.
+    implementation("com.google.android.play:integrity:1.4.0")
 }

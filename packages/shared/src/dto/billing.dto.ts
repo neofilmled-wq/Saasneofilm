@@ -75,16 +75,6 @@ export const freezeEntitySchema = z.object({
 
 export type FreezeEntityDto = z.infer<typeof freezeEntitySchema>;
 
-// ─── AI Credits Purchase ───
-
-export const purchaseAiCreditsSchema = z.object({
-  creditsPackage: z.enum(['100', '500']),
-  successUrl: z.string().url(),
-  cancelUrl: z.string().url(),
-});
-
-export type PurchaseAiCreditsDto = z.infer<typeof purchaseAiCreditsSchema>;
-
 // ─── Subscription Draft (NeoFilm Business Model) ───
 
 const ALLOWED_TV_COUNTS = [50, 100, 150, 200, 300] as const;

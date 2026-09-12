@@ -918,6 +918,12 @@ model StripeInvoice {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
 
+  // Subscription this invoice bills. Needed by the partner retrocession
+  // engine: a partner is credited for a renewal only when the invoice of THAT
+  // booking's subscription was paid. Matching on organization + date window
+  // instead let any invoice of the same advertiser unlock any of its bookings.
+  stripeSubscriptionId String?
+
   lineItems Json?
   payments  StripePayment[]
 
@@ -927,6 +933,7 @@ model StripeInvoice {
   @@index([organizationId])
   @@index([status])
   @@index([periodStart, periodEnd])
+  @@index([stripeSubscriptionId])
   @@map("stripe_invoices")
 }
 

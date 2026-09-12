@@ -6,6 +6,11 @@ import { AdminGateway } from '../../admin/admin.gateway';
 import { PartnerGateway } from '../../partner-gateway/partner.gateway';
 import { AdvertiserGateway } from '../../advertiser-gateway/advertiser.gateway';
 import { PartnerCommissionsService } from '../../partner-commissions/partner-commissions.service';
+import {
+  bookingIdFromInvoice,
+  invoicePeriod,
+  subscriptionIdFromInvoice,
+} from '../stripe-compat';
 
 @Injectable()
 export class InvoiceHandler {
@@ -31,10 +36,7 @@ export class InvoiceHandler {
   private async recomputeRetrocessionsForInvoice(invoice: Stripe.Invoice): Promise<void> {
     if (!this.partnerCommissions) return;
     try {
-      const anchor =
-        (invoice as any).period_start != null
-          ? new Date((invoice as any).period_start * 1000)
-          : new Date();
+      const anchor = invoicePeriod(invoice).start;
       const month = `${anchor.getFullYear()}-${String(anchor.getMonth() + 1).padStart(2, '0')}`;
       const results = await this.partnerCommissions.computeStatements(month);
       this.logger.log(
@@ -69,6 +71,8 @@ export class InvoiceHandler {
       return;
     }
 
+    const period = invoicePeriod(invoice);
+
     await this.prisma.stripeInvoice.upsert({
       where: { stripeInvoiceId: invoice.id },
       create: {
@@ -78,8 +82,9 @@ export class InvoiceHandler {
         amountDueCents: invoice.amount_due,
         amountPaidCents: invoice.amount_paid,
         currency: (invoice.currency ?? 'eur').toUpperCase(),
-        periodStart: new Date((invoice.period_start ?? 0) * 1000),
-        periodEnd: new Date((invoice.period_end ?? 0) * 1000),
+        periodStart: period.start,
+        periodEnd: period.end,
+        stripeSubscriptionId: subscriptionIdFromInvoice(invoice) ?? null,
         dueDate: invoice.due_date ? new Date(invoice.due_date * 1000) : null,
         hostedUrl: invoice.hosted_invoice_url ?? null,
         pdfUrl: invoice.invoice_pdf ?? null,
@@ -95,6 +100,7 @@ export class InvoiceHandler {
         amountPaidCents: invoice.amount_paid,
         hostedUrl: invoice.hosted_invoice_url ?? null,
         pdfUrl: invoice.invoice_pdf ?? null,
+        stripeSubscriptionId: subscriptionIdFromInvoice(invoice) ?? null,
       },
     });
 
@@ -156,28 +162,99 @@ export class InvoiceHandler {
         status: 'PAID',
         paidAt: new Date(),
         amountPaidCents: invoice.amount_paid,
+        // Re-assert the service period: rows written before the line-item fix,
+        // or by an invoice.created we never received, carry a zero-length
+        // window that would exclude the invoice from every partner statement.
+        periodStart: invoicePeriod(invoice).start,
+        periodEnd: invoicePeriod(invoice).end,
+        stripeSubscriptionId: subscriptionIdFromInvoice(invoice) ?? null,
         hostedUrl: invoice.hosted_invoice_url ?? undefined,
         pdfUrl: invoice.invoice_pdf ?? undefined,
       },
     });
 
     // Find related subscription and booking
-    const stripeSubscriptionId =
-      typeof (invoice as any).subscription === 'string'
-        ? (invoice as any).subscription
-        : (invoice as any).subscription?.id;
+    const stripeSubscriptionId = subscriptionIdFromInvoice(invoice);
 
     if (stripeSubscriptionId) {
-      const subscription = await this.prisma.stripeSubscription.findUnique({
-        where: { stripeSubscriptionId },
-      });
-
-      if (subscription) {
-        const booking = await this.prisma.booking.findUnique({
+      {
+        // The booking is linked to its subscription by
+        // checkout.session.completed, but Stripe does not guarantee webhook
+        // ordering: on a new subscription invoice.paid routinely arrives
+        // FIRST, while booking.stripeSubscriptionId is still null. Looking the
+        // booking up by that column alone silently skipped the screen-fill
+        // recalc and every realtime emit below. Fall back to the bookingId we
+        // set on subscription_data.metadata at checkout, and link it here.
+        // Note we no longer require a local StripeSubscription row either — it
+        // is written by customer.subscription.created, which can also land
+        // after this event.
+        let booking = await this.prisma.booking.findUnique({
           where: { stripeSubscriptionId },
         });
 
+        if (!booking) {
+          const bookingId = bookingIdFromInvoice(invoice);
+          if (bookingId) {
+            const pending = await this.prisma.booking.findUnique({
+              where: { id: bookingId },
+            });
+            if (pending) {
+              booking = pending.stripeSubscriptionId
+                ? pending
+                : await this.prisma.booking.update({
+                    where: { id: pending.id },
+                    data: { stripeSubscriptionId },
+                  });
+            }
+          }
+        }
+
         if (booking) {
+          // A paid invoice on a PAUSED booking means the advertiser regularised
+          // after a failed payment. This used to hang off
+          // payment_intent.succeeded → checkAndAutoResume, gated on
+          // `paymentIntent.invoice` — a field the current API version no longer
+          // sends, so the booking stayed paused forever even though the money
+          // had been collected. Resuming here also puts the booking back to
+          // ACTIVE before the screen-fill recount below, so capacity is right.
+          if (booking.status === 'PAUSED' && booking.resumePolicy === 'AUTO_RESUME') {
+            booking = await this.prisma.booking.update({
+              where: { id: booking.id },
+              data: { status: 'ACTIVE' },
+            });
+
+            if (booking.campaignId) {
+              const campaign = await this.prisma.campaign.findUnique({
+                where: { id: booking.campaignId },
+                select: { id: true, status: true },
+              });
+              if (campaign && campaign.status === 'FINISHED') {
+                await this.prisma.campaign.update({
+                  where: { id: campaign.id },
+                  data: { status: 'ACTIVE' },
+                });
+                this.logger.log(
+                  `Campaign ${campaign.id} auto-resumed after invoice ${invoice.id} paid`,
+                );
+              }
+            }
+
+            await this.audit.log({
+              action: 'BOOKING_AUTO_RESUMED',
+              entity: 'Booking',
+              entityId: booking.id,
+              newData: {
+                reason: 'invoice_paid',
+                stripeInvoiceId: invoice.id,
+              },
+              severity: 'INFO',
+            });
+
+            this.logger.log(
+              `Booking ${booking.id} auto-resumed after invoice ${invoice.id} paid`,
+            );
+          }
+
           await this.audit.log({
             action: 'INVOICE_PAID',
             entity: 'Booking',
@@ -268,10 +345,7 @@ export class InvoiceHandler {
   async handleInvoicePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
     this.logger.log(`Processing invoice.payment_failed: ${invoice.id}`);
 
-    const stripeSubscriptionId =
-      typeof (invoice as any).subscription === 'string'
-        ? (invoice as any).subscription
-        : (invoice as any).subscription?.id;
+    const stripeSubscriptionId = subscriptionIdFromInvoice(invoice);
 
     if (!stripeSubscriptionId) {
       this.logger.warn(
@@ -301,11 +375,22 @@ export class InvoiceHandler {
       `Subscription ${stripeSubscriptionId} marked as PAST_DUE`,
     );
 
-    // Find and pause the booking
-    const booking = await this.prisma.booking.findUnique({
+    // Find and pause the booking — same ordering caveat as invoice.paid:
+    // resolve by subscription id first, then by the checkout metadata.
+    let booking = await this.prisma.booking.findUnique({
       where: { stripeSubscriptionId },
       include: { campaign: true },
     });
+
+    if (!booking) {
+      const bookingId = bookingIdFromInvoice(invoice);
+      if (bookingId) {
+        booking = await this.prisma.booking.findUnique({
+          where: { id: bookingId },
+          include: { campaign: true },
+        });
+      }
+    }
 
     if (booking) {
       await this.prisma.booking.update({

@@ -10,7 +10,6 @@ import {
   Pencil,
   Users,
   PlayCircle,
-  Sparkles,
   Loader2,
   Mail,
   FileText,
@@ -27,7 +26,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
   Table,
   TableBody,
   TableCell,
@@ -517,7 +515,6 @@ export default function AdvertiserDetailPage() {
         <TabsList>
           <TabsTrigger value="campaigns">Campagnes</TabsTrigger>
           <TabsTrigger value="members">Membres</TabsTrigger>
-          <TabsTrigger value="ai-credits">Crédits IA</TabsTrigger>
         </TabsList>
 
         {/* ── Campaigns Tab ── */}
@@ -730,39 +727,6 @@ export default function AdvertiserDetailPage() {
           </Card>
         </TabsContent>
 
-        {/* ── AI Credits Tab ── */}
-        <TabsContent value="ai-credits">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5" />
-                Crédits IA
-              </CardTitle>
-              <CardDescription>
-                Portefeuille de crédits IA pour {advertiser.name}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-lg border p-4 text-center">
-                  <p className="text-sm text-muted-foreground">Solde actuel</p>
-                  <p className="text-2xl font-bold mt-1">-</p>
-                </div>
-                <div className="rounded-lg border p-4 text-center">
-                  <p className="text-sm text-muted-foreground">Crédits utilisés</p>
-                  <p className="text-2xl font-bold mt-1">-</p>
-                </div>
-                <div className="rounded-lg border p-4 text-center">
-                  <p className="text-sm text-muted-foreground">Crédits achetés</p>
-                  <p className="text-2xl font-bold mt-1">-</p>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground mt-6 text-center">
-                Les données de crédits IA seront disponibles une fois le module IA activé.
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       {/* ── Create Campaign Dialog ── */}

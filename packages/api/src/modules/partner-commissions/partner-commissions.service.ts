@@ -381,47 +381,6 @@ export class PartnerCommissionsService {
   }
 
   /**
-   * Add `months` to a date, clamping the day to the last day of the target
-   * month (standard subscription-billing behaviour: a Jan-31 anchor renews
-   * Feb-28, not Mar-3 as naive Date arithmetic would give).
-   */
-  private addMonthsClamped(date: Date, months: number): Date {
-    const targetDay = date.getDate();
-    const d = new Date(date.getFullYear(), date.getMonth() + months, 1);
-    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-    d.setDate(Math.min(targetDay, lastDay));
-    d.setHours(date.getHours(), date.getMinutes(), date.getSeconds(), 0);
-    return d;
-  }
-
-  /**
-   * Billing renewal dates (anchors) of a booking that fall within the calendar
-   * month [periodStart, periodEnd). Anchors are startDate + k months. A
-   * fixed-term booking has exactly `durationMonths` anchors; an ongoing one
-   * (no endDate/duration) renews forever, but we only ever collect anchors
-   * inside this month so the loop stops as soon as it passes periodEnd.
-   */
-  private getBillingAnchorsInMonth(
-    startDate: Date,
-    endDate: Date | null,
-    durationMonths: number | null,
-    periodStart: Date,
-    periodEnd: Date,
-  ): Date[] {
-    const maxK = durationMonths && durationMonths > 0 ? durationMonths : 1200; // ongoing → 100y cap
-    const anchors: Date[] = [];
-    for (let k = 0; k < maxK; k++) {
-      const anchor = this.addMonthsClamped(startDate, k);
-      // Anchors are monotonically increasing — once past this month, stop.
-      if (anchor.getTime() >= periodEnd.getTime()) break;
-      // Respect an explicit end (cancelled/finished subscription).
-      if (endDate && anchor.getTime() >= endDate.getTime()) break;
-      if (anchor.getTime() >= periodStart.getTime()) anchors.push(anchor);
-    }
-    return anchors;
-  }
-
-  /**
    * Compute commission statements from booking data for a given month.
    * Implements the pro-rata multi-partner rule:
    *   prix_par_tv = montant_mensuel / nb_total_tv
@@ -467,59 +426,59 @@ export class PartnerCommissionsService {
     });
 
     // ── Payment gate ──────────────────────────────────────────────────────
-    // Only credit a renewal to the partner if the advertiser's invoice for
-    // that billing period was actually PAID. Without this, a declined card
-    // (booking still ACTIVE / PAST_DUE) would still credit the partner — we'd
-    // be paying out money we never collected. We pre-load the PAID invoices of
-    // every advertiser involved whose billing period overlaps this month, then
-    // match each renewal anchor against them.
-    const advertiserOrgIds = [...new Set(bookings.map((b) => b.advertiserOrgId))];
-    const paidInvoices = advertiserOrgIds.length
+    // Only credit a renewal to the partner if the advertiser actually paid for
+    // it. The renewal count comes straight from Stripe: one PAID invoice of
+    // THIS booking's subscription whose service period opens inside the month
+    // = one monthly charge collected = one month owed to the partner.
+    //
+    // The previous version matched paid invoices on (advertiser org, date
+    // window) and compared them to anchors derived from booking.startDate.
+    // Both halves were wrong, in opposite directions:
+    //   - booking.startDate is set when the DRAFT is created, minutes BEFORE
+    //     Stripe opens the billing period, so a booking's own invoice never
+    //     covered its own anchor — with a single booking the partner was paid
+    //     nothing, forever.
+    //   - matching only on the org let ANY paid invoice of that advertiser
+    //     unlock ANY of its bookings, crediting partners from money collected
+    //     for something else.
+    // Counting the subscription's own paid invoices removes the clock skew and
+    // the cross-booking leak at once.
+    const subscriptionIds = bookings
+      .map((b) => b.stripeSubscriptionId)
+      .filter((id): id is string => !!id);
+
+    const paidInvoices = subscriptionIds.length
       ? await this.prisma.stripeInvoice.findMany({
           where: {
-            organizationId: { in: advertiserOrgIds },
+            stripeSubscriptionId: { in: subscriptionIds },
             status: 'PAID',
-            periodStart: { lt: periodEnd },
-            periodEnd: { gt: periodStart },
+            periodStart: { gte: periodStart, lt: periodEnd },
           },
-          select: { organizationId: true, periodStart: true, periodEnd: true },
+          select: { stripeSubscriptionId: true },
         })
       : [];
-    const paidByOrg = new Map<string, { start: number; end: number }[]>();
-    for (const inv of paidInvoices) {
-      const arr = paidByOrg.get(inv.organizationId) ?? [];
-      arr.push({ start: inv.periodStart.getTime(), end: inv.periodEnd.getTime() });
-      paidByOrg.set(inv.organizationId, arr);
-    }
-    const renewalIsPaid = (advertiserOrgId: string, anchor: Date): boolean => {
-      const periods = paidByOrg.get(advertiserOrgId);
-      if (!periods) return false;
-      const t = anchor.getTime();
-      // The renewal date is the start of a billing period → it falls inside
-      // the paid invoice's [periodStart, periodEnd).
-      return periods.some((p) => p.start <= t && t < p.end);
-    };
 
-    // Group by partner org
+    const paidRenewalsBySubscription = new Map<string, number>();
+    for (const inv of paidInvoices) {
+      if (!inv.stripeSubscriptionId) continue;
+      paidRenewalsBySubscription.set(
+        inv.stripeSubscriptionId,
+        (paidRenewalsBySubscription.get(inv.stripeSubscriptionId) ?? 0) + 1,
+      );
+    }
+
+        // Group by partner org
     const partnerData = new Map<string, { totalRevenueCents: number; screenCount: number }>();
 
     for (const booking of bookings) {
       const totalScreens = booking.bookingScreens.length;
       if (totalScreens === 0) continue;
 
-      // Renewal dates in this calendar month, then keep only those whose
-      // advertiser invoice was actually paid.
-      const anchors = this.getBillingAnchorsInMonth(
-        booking.startDate,
-        booking.endDate ?? null,
-        booking.durationMonths ?? null,
-        periodStart,
-        periodEnd,
-      );
-      const paidRenewals = anchors.filter((a) =>
-        renewalIsPaid(booking.advertiserOrgId, a),
-      ).length;
-      if (paidRenewals <= 0) continue; // no *paid* renewal this month → nothing to pay
+      // Monthly charges actually collected for this booking during the month.
+      const paidRenewals = booking.stripeSubscriptionId
+        ? (paidRenewalsBySubscription.get(booking.stripeSubscriptionId) ?? 0)
+        : 0;
+      if (paidRenewals <= 0) continue; // nothing collected → nothing to pay
 
       const monthlyForPeriod = booking.monthlyPriceCents * paidRenewals;
       const pricePerTv = monthlyForPeriod / totalScreens;

@@ -17,7 +17,6 @@ import {
   createBookingDraftSchema,
   createCheckoutSchema,
   updateBookingScreensSchema,
-  purchaseAiCreditsSchema,
   createSubscriptionDraftSchema,
 } from '@neofilm/shared';
 
@@ -119,20 +118,5 @@ export class BillingController {
     @Body(new ZodValidationPipe(createSubscriptionDraftSchema)) body: any,
   ) {
     return this.billingService.createSubscriptionDraft(user.orgId, body);
-  }
-
-  @Post('ai-credits')
-  @Permissions('billing:write')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Purchase AI credits via Stripe checkout' })
-  async purchaseAiCredits(
-    @CurrentUser() user: any,
-    @Body(new ZodValidationPipe(purchaseAiCreditsSchema)) body: any,
-  ) {
-    return this.billingService.purchaseAiCredits(
-      user.orgId,
-      body,
-      user.id,
-    );
   }
 }

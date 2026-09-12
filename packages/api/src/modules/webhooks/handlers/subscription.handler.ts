@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
 import { ScreenFillService } from '../../screens/screen-fill.service';
+import { subscriptionPeriod } from '../stripe-compat';
 
 /**
  * Maps Stripe subscription status strings to our SubscriptionStatus enum.
@@ -59,15 +60,15 @@ export class SubscriptionHandler {
       return;
     }
 
+    const period = subscriptionPeriod(subscription);
+
     await this.prisma.stripeSubscription.upsert({
       where: { stripeSubscriptionId: subscription.id },
       create: {
         stripeSubscriptionId: subscription.id,
         status: mapSubscriptionStatus(subscription.status) as any,
-        currentPeriodStart: new Date(
-          (subscription as any).current_period_start * 1000,
-        ),
-        currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+        currentPeriodStart: period.start,
+        currentPeriodEnd: period.end,
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
         customerId: stripeCustomer.id,
         organizationId: stripeCustomer.organizationId,
@@ -77,10 +78,8 @@ export class SubscriptionHandler {
       },
       update: {
         status: mapSubscriptionStatus(subscription.status) as any,
-        currentPeriodStart: new Date(
-          (subscription as any).current_period_start * 1000,
-        ),
-        currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+        currentPeriodStart: period.start,
+        currentPeriodEnd: period.end,
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
         metadata: subscription.metadata
           ? (subscription.metadata as any)
@@ -122,10 +121,8 @@ export class SubscriptionHandler {
       where: { stripeSubscriptionId: subscription.id },
       data: {
         status: newStatus as any,
-        currentPeriodStart: new Date(
-          (subscription as any).current_period_start * 1000,
-        ),
-        currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+        currentPeriodStart: subscriptionPeriod(subscription).start,
+        currentPeriodEnd: subscriptionPeriod(subscription).end,
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
         metadata: subscription.metadata
           ? (subscription.metadata as any)

@@ -84,11 +84,8 @@ export class PaymentHandler {
     this.logger.log(
       `Payment ${paymentIntent.id} recorded as SUCCEEDED`,
     );
-
-    // Auto-resume logic: if linked subscription was PAST_DUE
-    if (stripeInvoiceId) {
-      await this.checkAndAutoResume(stripeInvoiceId);
-    }
+    // Auto-resume of a PAUSED booking is handled by invoice.paid, which is the
+    // event that actually carries the subscription/booking link.
   }
 
   /**
@@ -178,79 +175,5 @@ export class PaymentHandler {
       },
       severity: 'WARN',
     });
-  }
-
-  /**
-   * If the invoice is linked to a subscription that was PAST_DUE,
-   * auto-resume the related booking and campaign.
-   */
-  private async checkAndAutoResume(
-    stripeInvoiceId: string,
-  ): Promise<void> {
-    // We need to find the subscription via the Stripe invoice
-    // The subscription link is typically on the invoice object in our DB
-    // We look for a booking linked to this invoice's subscription
-    const invoice = await this.prisma.stripeInvoice.findUnique({
-      where: { stripeInvoiceId },
-      select: { id: true },
-    });
-
-    if (!invoice) return;
-
-    // Find subscriptions that are PAST_DUE for this customer's org
-    // The link from invoice -> subscription is via Stripe metadata
-    // We check all PAST_DUE bookings for the same org
-    const pastDueBookings = await this.prisma.booking.findMany({
-      where: {
-        status: 'PAUSED',
-        resumePolicy: 'AUTO_RESUME',
-        stripeSubscriptionId: { not: null },
-      },
-      include: {
-        campaign: true,
-      },
-    });
-
-    for (const booking of pastDueBookings) {
-      if (!booking.stripeSubscriptionId) continue;
-
-      const subscription = await this.prisma.stripeSubscription.findUnique({
-        where: { stripeSubscriptionId: booking.stripeSubscriptionId },
-      });
-
-      // Only resume if the subscription is now ACTIVE
-      if (subscription && subscription.status === 'ACTIVE') {
-        await this.prisma.booking.update({
-          where: { id: booking.id },
-          data: { status: 'ACTIVE' },
-        });
-
-        this.logger.log(
-          `Booking ${booking.id} auto-resumed after successful payment`,
-        );
-
-        if (booking.campaign && booking.campaign.status === 'FINISHED') {
-          await this.prisma.campaign.update({
-            where: { id: booking.campaign.id },
-            data: { status: 'ACTIVE' },
-          });
-
-          this.logger.log(
-            `Campaign ${booking.campaign.id} auto-resumed after successful payment`,
-          );
-        }
-
-        await this.audit.log({
-          action: 'BOOKING_AUTO_RESUMED',
-          entity: 'Booking',
-          entityId: booking.id,
-          newData: {
-            reason: 'payment_succeeded',
-            stripeSubscriptionId: booking.stripeSubscriptionId,
-          },
-          severity: 'INFO',
-        });
-      }
-    }
   }
 }

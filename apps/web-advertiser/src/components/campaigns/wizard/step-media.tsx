@@ -12,7 +12,6 @@ const VIDEO_TYPES = ['video/mp4', 'video/quicktime'];
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_VIDEO_SIZE = 1024 * 1024 * 1024; // 1 GB
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;   // 10 MB
-const MIN_DURATION_S = 12;
 const MAX_DURATION_S = 35;
 
 interface UploadState {
@@ -186,7 +185,7 @@ function VideoUploadZone({
       <div className="flex items-center gap-2">
         <Film className="h-4 w-4 text-primary" />
         <span className="font-medium text-sm">Spot publicitaire — Vidéo</span>
-        <span className="text-xs text-muted-foreground">MP4/MOV, 15-30s, max 1 Go</span>
+        <span className="text-xs text-muted-foreground">MP4/MOV, 30s max, 1 Go max</span>
       </div>
       <div
         onDrop={handleDrop}
@@ -195,7 +194,7 @@ function VideoUploadZone({
       >
         <Upload className="mb-3 h-10 w-10 text-muted-foreground" />
         <p className="mb-1 font-medium">Glissez votre vidéo ici</p>
-        <p className="mb-3 text-sm text-muted-foreground">MP4 ou MOV, 15-30s</p>
+        <p className="mb-3 text-sm text-muted-foreground">MP4 ou MOV, 30s max</p>
         <label>
           <input type="file" accept="video/mp4,video/quicktime" onChange={handleFileInput} className="sr-only" />
           <span className="cursor-pointer text-sm font-medium text-primary hover:underline">Ou parcourir vos fichiers</span>
@@ -413,11 +412,11 @@ export function StepMedia() {
       return;
     }
 
-    if (duration < MIN_DURATION_S || duration > MAX_DURATION_S) {
+    if (duration > MAX_DURATION_S) {
       setVideoUpload((s) => ({
         ...s,
         status: 'error',
-        error: `La durée doit être entre ${MIN_DURATION_S}s et ${MAX_DURATION_S}s. Détecté : ${Math.round(duration)}s.`,
+        error: `La durée ne doit pas dépasser ${MAX_DURATION_S}s. Détecté : ${Math.round(duration)}s.`,
       }));
       return;
     }
@@ -596,7 +595,7 @@ export function StepMedia() {
       <h2 className="text-xl font-semibold">Médias publicitaires</h2>
       <p className="text-sm text-muted-foreground">
         {hasAdSpot
-            ? 'Uploadez votre vidéo (MP4/MOV, 15-30s, max 1 Go).'
+            ? 'Uploadez votre vidéo (MP4/MOV, 30s max, 1 Go max).'
             : 'Uploadez l\'image pour votre fiche catalogue (JPG/PNG/WebP, max 10 Mo).'}
       </p>
 

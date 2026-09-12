@@ -74,6 +74,10 @@ export interface TvRegisterResponse {
   alreadyPaired?: boolean;
   screenId?: string;
   screenName?: string | null;
+  // Present when the backend reconnected the device by ANDROID_ID (already
+  // paired) — a fresh token is returned directly, no PIN needed.
+  accessToken?: string;
+  expiresIn?: number;
 }
 
 export interface TvStatusResponse {
@@ -138,4 +142,27 @@ export const deviceApi = {
     if (maxAds) params.set('maxAds', String(maxAds));
     return deviceFetch<TvAdsResponse>(`/tv/ads?${params.toString()}`);
   },
+
+  /** Report played ads (diffusion proof batch format — same as the legacy app). */
+  reportImpression: (data: {
+    deviceId: string;
+    batchId: string;
+    proofs: Array<{
+      proofId: string;
+      screenId: string;
+      campaignId: string;
+      creativeId: string;
+      startTime: string;
+      endTime: string;
+      durationMs: number;
+      triggerContext: string;
+      appVersion: string;
+      mediaHash: string;
+      signature: string;
+    }>;
+  }) =>
+    deviceFetch<{ batchId: string; accepted: number; rejected: number }>('/diffusion/log', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };

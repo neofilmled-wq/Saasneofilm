@@ -33,6 +33,7 @@ export type TvTriggerContext =
   | 'SCHEDULED'      // Cron-based rotation (TV_REAPPEAR every 2h)
   | 'MANUAL'         // Admin-triggered push
   | 'STREAMING_OPEN' // Streaming tab opened → 1 ad before content
+  | 'COWORKING_LOOP' // Coworking full-screen queue → rotate ALL ads targeting the screen
   | string;          // future-proof
 
 interface TriggerConfig {
@@ -49,6 +50,10 @@ const TRIGGER_CONFIGS: Record<string, TriggerConfig> = {
   SCHEDULED:      { maxAds: 10, skipDelayOverrideMs: null, prioritizePremium: false },
   MANUAL:         { maxAds: 1, skipDelayOverrideMs: null, prioritizePremium: false },
   STREAMING_OPEN: { maxAds: 1, skipDelayOverrideMs: 5000, prioritizePremium: true },
+  // Coworking full-screen loop: return EVERY eligible ad targeting the screen so
+  // the app can rotate them as a queue. Cap = 40 (the screen's max advertiser
+  // capacity) → effectively "all of them", never artificially truncated.
+  COWORKING_LOOP: { maxAds: 40, skipDelayOverrideMs: null, prioritizePremium: false },
 };
 
 /**
@@ -147,8 +152,9 @@ export class TvAdsService {
       }
 
       // Anti-consecutive-advertiser (same campaign = same advertiser block)
-      // Skip for SCHEDULED trigger — the native overlay handles its own shuffle
-      if (triggerContext !== 'SCHEDULED' && noConsecutiveSameAdv && campaign.id === lastCampaignId && campaigns.filter(c => c.creatives.length > 0).length > 1) {
+      // Skip for SCHEDULED and COWORKING_LOOP — these return a full rotating
+      // queue, so every eligible campaign must be included (the client shuffles).
+      if (triggerContext !== 'SCHEDULED' && triggerContext !== 'COWORKING_LOOP' && noConsecutiveSameAdv && campaign.id === lastCampaignId && campaigns.filter(c => c.creatives.length > 0).length > 1) {
         continue;
       }
 

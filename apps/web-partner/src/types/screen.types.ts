@@ -20,6 +20,8 @@ export interface ScreenWithStatus {
   latitude: number | null;
   longitude: number | null;
   type: 'smartTV' | 'nonSmartTV';
+  /** NeoFilm experience: Airbnb TV vs Coworking TV. */
+  usage?: 'AIRBNB' | 'COWORKING';
   brand?: string;
   model?: string;
   resolution: string;

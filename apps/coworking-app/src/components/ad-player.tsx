@@ -1,7 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { deviceApi, resolveMediaUrl, type TvAdItem } from '@/lib/device-api';
+import { CW_CONFIG } from '@/lib/constants';
+import { flushImpressions, recordImpression } from '@/lib/diffusion-reporter';
 
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
@@ -21,12 +24,21 @@ const PLACEHOLDER_HOLD_MS = 7000;
 const IMAGE_HOLD_MS = 12000;
 const VIDEO_MAX_DURATION_MS = 45000;
 const REFETCH_INTERVAL_MS = 3 * 60_000;
+// When every scheduled ad has failed to load (a WiFi blip can hit them all at
+// once), retry the real videos this often instead of waiting for the 3-minute
+// refetch. Keeps the screen trying to show the ads it is supposed to play.
+const STUCK_RETRY_MS = 8000;
 
 type DisplayAd = {
   id: string;
   kind: 'video' | 'image' | 'placeholder';
   fileUrl: string;
   holdMs?: number;
+  /** Set only for real scheduled ads — the bundled local fallbacks have none,
+   *  and must not be counted as billable diffusions. */
+  campaignId?: string;
+  creativeId?: string;
+  mediaHash?: string;
 };
 
 /**
@@ -34,7 +46,17 @@ type DisplayAd = {
  * Fetches targeted + house ads from /tv/ads and rotates them; falls back to the
  * bundled Dupplex video + a NeoFilm placeholder when nothing is scheduled.
  */
-export function AdPlayer() {
+export function AdPlayer({
+  onBack,
+  screenId,
+  deviceId,
+}: {
+  onBack?: () => void;
+  /** Needed to attribute plays. A wrong value is treated as fraud server-side
+   *  (SCREEN_MISMATCH), so reporting is skipped when either id is missing. */
+  screenId?: string | null;
+  deviceId?: string | null;
+}) {
   const [targeted, setTargeted] = useState<TvAdItem[]>([]);
   const [house, setHouse] = useState<TvAdItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -46,10 +68,18 @@ export function AdPlayer() {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await deviceApi.getAds('POWER_ON', 20);
+        // COWORKING_LOOP = full rotating queue of every ad targeting this screen
+        // (not the legacy POWER_ON which caps at a single ad).
+        const res = await deviceApi.getAds('COWORKING_LOOP', 40);
         if (cancelled) return;
         setTargeted(Array.isArray(res.ads) ? res.ads : []);
         setHouse(Array.isArray(res.fallbackHouseAds) ? res.fallbackHouseAds : []);
+        // Give previously-failed URLs another chance on every refresh. Without
+        // this, a transient network blip that fails a video load poisons
+        // `failedUrls` permanently (the length-based reset below never fires
+        // when the API keeps returning the same ads), leaving the screen stuck
+        // on the placeholder until the app is restarted.
+        setFailedUrls((prev) => (prev.size ? new Set() : prev));
       } catch {
         // Non-fatal — keep whatever we had; the house fallback still plays.
       }
@@ -63,20 +93,19 @@ export function AdPlayer() {
   }, []);
 
   const adPool: DisplayAd[] = useMemo(() => {
-    const t: DisplayAd[] = targeted
-      .filter((ad) => !isSentinel(ad.fileUrl))
-      .map((ad) => ({
-        id: `t_${ad.creativeId}`,
-        kind: ad.mimeType.startsWith('video/') ? 'video' : 'image',
-        fileUrl: resolveMediaUrl(ad.fileUrl),
-      }));
-    const h: DisplayAd[] = house
-      .filter((ad) => !isSentinel(ad.fileUrl))
-      .map((ad) => ({
-        id: `h_${ad.creativeId}`,
-        kind: ad.mimeType.startsWith('video/') ? 'video' : 'image',
-        fileUrl: resolveMediaUrl(ad.fileUrl),
-      }));
+    // Both lists come from /tv/ads and carry real campaign/creative ids, so
+    // both are reportable diffusions — only the bundled fallbacks below are not.
+    const toDisplayAd = (prefix: string) => (ad: TvAdItem): DisplayAd => ({
+      id: `${prefix}_${ad.creativeId}`,
+      kind: ad.mimeType.startsWith('video/') ? 'video' : 'image',
+      fileUrl: resolveMediaUrl(ad.fileUrl),
+      campaignId: ad.campaignId,
+      creativeId: ad.creativeId,
+      mediaHash: ad.fileHash,
+    });
+
+    const t: DisplayAd[] = targeted.filter((ad) => !isSentinel(ad.fileUrl)).map(toDisplayAd('t'));
+    const h: DisplayAd[] = house.filter((ad) => !isSentinel(ad.fileUrl)).map(toDisplayAd('h'));
 
     if (t.length === 0 && h.length === 0) {
       return HOUSE_AD_POOL.map((e) => ({
@@ -94,9 +123,29 @@ export function AdPlayer() {
   );
   const current = livePool[currentIndex % Math.max(1, livePool.length)] ?? null;
 
+  // Counts finished plays. With a single ad in the pool `currentIndex` cannot
+  // change ((0+1)%1 === 0), so nothing observable would mark the end of a play
+  // and the diffusion would never be counted. This counter makes every
+  // completed play visible to the reporting effect and re-arms the timers.
+  const [playCount, setPlayCount] = useState(0);
+
   const playNext = useCallback(() => {
+    setPlayCount((c) => c + 1);
     setCurrentIndex((i) => (livePool.length > 0 ? (i + 1) % livePool.length : 0));
   }, [livePool.length]);
+
+  /** A video reached its end (or the safety timer fired). */
+  const handleEnded = useCallback(() => {
+    const v = videoRef.current;
+    playNext();
+    // Single ad: the index stays put and React keeps the same <video> element
+    // (stable `key`), so replay it ourselves instead of relying on `loop` —
+    // native looping never fires `ended`, which is what hid the play from us.
+    if (livePool.length === 1 && v) {
+      v.currentTime = 0;
+      void v.play().catch(() => {});
+    }
+  }, [playNext, livePool.length]);
 
   const markFailed = useCallback((url: string) => {
     setFailedUrls((prev) => {
@@ -113,6 +162,55 @@ export function AdPlayer() {
     setFailedUrls(new Set());
   }, [targeted.length, house.length]);
 
+  // Count each finished play. The cleanup fires both when the ad rotates and
+  // on unmount (Back → app grid), so the ad on screen is never dropped.
+  // Declared before the flush effect so its proof is buffered first at unmount.
+  //
+  // Depends on primitives, not on `current`: the 3-minute refetch replaces the
+  // targeted/house arrays and rebuilds identical DisplayAd objects, which would
+  // otherwise re-run this effect mid-play and split one play into two proofs.
+  const playingId = current?.id;
+  const playingCampaignId = current?.campaignId;
+  const playingCreativeId = current?.creativeId;
+  const playingMediaHash = current?.mediaHash;
+  useEffect(() => {
+    // No campaign/creative → bundled local fallback, not a billable diffusion.
+    if (!screenId || !deviceId || !playingCampaignId || !playingCreativeId) return;
+    const startedAt = Date.now();
+    return () => {
+      recordImpression({
+        screenId,
+        campaignId: playingCampaignId,
+        creativeId: playingCreativeId,
+        startedAt,
+        endedAt: Date.now(),
+        mediaHash: playingMediaHash ?? 'none',
+      });
+    };
+  }, [
+    playingId,
+    playingCampaignId,
+    playingCreativeId,
+    playingMediaHash,
+    // Closes out the play when the same ad repeats and the id cannot change.
+    playCount,
+    screenId,
+    deviceId,
+  ]);
+
+  // Send buffered proofs on a timer, and once more on unmount.
+  useEffect(() => {
+    const did = deviceId;
+    if (!did) return;
+    const id = setInterval(() => {
+      void flushImpressions(did);
+    }, CW_CONFIG.DIFFUSION_FLUSH_INTERVAL_MS);
+    return () => {
+      clearInterval(id);
+      void flushImpressions(did);
+    };
+  }, [deviceId]);
+
   // Advance timers for image / placeholder / stuck-video.
   useEffect(() => {
     if (!current) return;
@@ -124,23 +222,65 @@ export function AdPlayer() {
       const t = setTimeout(playNext, current.holdMs ?? PLACEHOLDER_HOLD_MS);
       return () => clearTimeout(t);
     }
-    if (current.kind === 'video' && livePool.length > 1) {
-      const t = setTimeout(playNext, VIDEO_MAX_DURATION_MS);
+    // Safety net, now also for a lone video: if `ended` never fires (stalled
+    // download, autoplay refused), force the play to close out and restart.
+    if (current.kind === 'video') {
+      const t = setTimeout(handleEnded, VIDEO_MAX_DURATION_MS);
       return () => clearTimeout(t);
     }
-  }, [current, playNext, livePool.length]);
+    // playCount re-arms these timers when the index cannot change.
+  }, [current, playNext, handleEnded, livePool.length, playCount]);
 
+  // The <video> element is reused across ads (constant key), so `autoPlay`
+  // only fires for the very first source. When the src changes on rotation we
+  // must (re)load and play it ourselves. Using the reused element means the
+  // previous decoder is released before the next source loads — one decoder at
+  // a time, no accumulation.
+  const currentVideoUrl = current?.kind === 'video' ? current.fileUrl : null;
+  useEffect(() => {
+    if (!currentVideoUrl) return;
+    const v = videoRef.current;
+    if (!v) return;
+    try {
+      v.load();
+    } catch {
+      /* element not ready — the next render's effect will retry */
+    }
+    void v.play().catch(() => {});
+  }, [currentVideoUrl]);
+
+  // Stuck-recovery: when every scheduled ad has failed to load, `livePool` is
+  // empty and `current` is null — the timer effect above bails out, so nothing
+  // else would retry until the 3-minute refetch. Clear `failedUrls` on a short
+  // timer so the real videos are re-attempted quickly and playback resumes as
+  // soon as the network recovers. `adPool.length > 0` ensures there are real
+  // ads to retry (not the bundled house fallback, which never fails).
+  useEffect(() => {
+    if (current || adPool.length === 0) return;
+    const t = setTimeout(() => {
+      setFailedUrls((prev) => (prev.size ? new Set() : prev));
+    }, STUCK_RETRY_MS);
+    return () => clearTimeout(t);
+  }, [current, adPool.length, failedUrls]);
+
+  let media: React.ReactNode;
   if (!current || current.kind === 'placeholder') {
-    return <NeoFilmPlaceholder />;
-  }
-
-  if (current.kind === 'video') {
-    const onlyOne = livePool.length === 1;
-    return (
+    media = <NeoFilmPlaceholder />;
+  } else if (current.kind === 'video') {
+    media = (
       <div style={fullscreen}>
         <video
           ref={videoRef}
-          key={current.id}
+          // CONSTANT key on purpose: a per-ad key ({current.id}) remounted the
+          // element on every rotation, spawning a fresh hardware MediaCodec
+          // decoder each time. On the Amlogic box those accumulated and
+          // exhausted the graphic-buffer memory (ACodec "Out of memory" →
+          // "Cannot start the media codec" → playback fails → placeholder).
+          // That is why the freeze only appeared once a 2nd ad made the key
+          // change. A stable key reuses one element, hence one decoder, freed
+          // and re-acquired sequentially per source. Playback on src change is
+          // driven by the effect below (autoPlay only fires on mount).
+          key="ad-video"
           src={current.fileUrl}
           style={{ position: 'absolute', inset: 0, height: '100%', width: '100%', objectFit: 'cover' }}
           width={1280}
@@ -149,8 +289,26 @@ export function AdPlayer() {
           muted
           playsInline
           preload="auto"
-          loop={onlyOne}
-          onEnded={onlyOne ? undefined : playNext}
+          // Never native-loop: `loop` suppresses `ended`, which is the only
+          // signal that a play finished. handleEnded replays a lone ad itself,
+          // so the visible behaviour is unchanged but each pass is counted.
+          loop={false}
+          onEnded={handleEnded}
+          onError={() => {
+            markFailed(current.fileUrl);
+            playNext();
+          }}
+        />
+      </div>
+    );
+  } else {
+    media = (
+      <div style={fullscreen}>
+        <img
+          key={current.id}
+          src={current.fileUrl}
+          alt=""
+          style={{ position: 'absolute', inset: 0, height: '100%', width: '100%', objectFit: 'cover' }}
           onError={() => {
             markFailed(current.fileUrl);
             playNext();
@@ -161,18 +319,52 @@ export function AdPlayer() {
   }
 
   return (
-    <div style={fullscreen}>
-      <img
-        key={current.id}
-        src={current.fileUrl}
-        alt=""
-        style={{ position: 'absolute', inset: 0, height: '100%', width: '100%', objectFit: 'cover' }}
-        onError={() => {
-          markFailed(current.fileUrl);
-          playNext();
-        }}
-      />
-    </div>
+    <>
+      {media}
+      {onBack && <BackButton onBack={onBack} />}
+    </>
+  );
+}
+
+/**
+ * Small "Retour" button pinned bottom-center, auto-focused so a single OK press
+ * on the remote returns to the launcher (app grid). Kept discreet so it barely
+ * covers the ad, but clearly highlighted when focused for TV navigation.
+ */
+function BackButton({ onBack }: { onBack: () => void }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <button
+      autoFocus
+      onClick={onBack}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        position: 'fixed',
+        bottom: '1.25rem',
+        left: '50%',
+        transform: focused ? 'translateX(-50%) scale(1.06)' : 'translateX(-50%)',
+        zIndex: 50,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.4rem',
+        padding: '0.4rem 0.85rem',
+        borderRadius: '999px',
+        fontFamily: 'inherit',
+        fontSize: '0.8rem',
+        fontWeight: 600,
+        color: '#fff',
+        cursor: 'pointer',
+        background: focused ? 'linear-gradient(135deg, #E63946 0%, #b71c2c 100%)' : 'rgba(0,0,0,0.55)',
+        border: focused ? '2px solid #fff' : '1px solid rgba(255,255,255,0.35)',
+        boxShadow: focused ? '0 0 0 3px rgba(230,57,70,0.5), 0 6px 20px rgba(0,0,0,0.5)' : '0 2px 8px rgba(0,0,0,0.4)',
+        outline: 'none',
+        transition: 'transform 0.1s, background 0.1s, box-shadow 0.1s',
+      }}
+    >
+      <ArrowLeft size={15} />
+      Retour
+    </button>
   );
 }
 

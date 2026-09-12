@@ -86,6 +86,28 @@ export class CampaignsService {
     }
   }
 
+  /**
+   * Coworking screens run an app that has no catalogue page, so a listing
+   * targeted at one would never be displayed. The advertiser UI already hides
+   * them from the Catalogue TV selector; this rejects a request that targets
+   * them anyway (crafted call, stale draft, or a client bypassing the UI).
+   */
+  private async rejectCoworkingForCatalog(screenIds: string[]): Promise<void> {
+    if (!screenIds || screenIds.length === 0) return;
+
+    const coworking = await this.prisma.screen.findMany({
+      where: { id: { in: screenIds }, usage: 'COWORKING' },
+      select: { name: true, city: true },
+    });
+
+    if (coworking.length > 0) {
+      const names = coworking.map((s) => `${s.name} (${s.city})`).join(', ');
+      throw new BadRequestException(
+        `Les écrans suivants sont des écrans coworking et ne peuvent pas recevoir de fiche catalogue : ${names}`,
+      );
+    }
+  }
+
   async findAll(params: {
     page: number;
     limit: number;
@@ -245,6 +267,9 @@ export class CampaignsService {
 
     // Server-side validation: reject full screens
     await this.rejectFullScreens(selectedScreenIds ?? []);
+    if (campaignData.type === 'CATALOG_LISTING') {
+      await this.rejectCoworkingForCatalog(selectedScreenIds ?? []);
+    }
 
     const result = await this.prisma.$transaction(async (tx) => {
       const campaign = await tx.campaign.create({
@@ -349,6 +374,9 @@ export class CampaignsService {
       ...(payload.catalog?.selectedScreenIds ?? []),
     ];
     await this.rejectFullScreens(allScreenIdsToValidate);
+    // Only the catalogue leg is restricted — coworking screens remain valid
+    // targets for ad diffusion.
+    await this.rejectCoworkingForCatalog(payload.catalog?.selectedScreenIds ?? []);
 
     const result = await this.prisma.$transaction(async (tx) => {
       let adSpotCampaignId: string | undefined;
@@ -498,7 +526,7 @@ export class CampaignsService {
   }
 
   async update(id: string, data: any, ctx?: CampaignScopeCtx) {
-    await this.findById(id, ctx); // borne l'ownership (IDOR)
+    const current = await this.findById(id, ctx); // borne l'ownership (IDOR)
     const { selectedScreenIds } = data;
 
     // Mass-assignment guard : on ne persiste QUE les champs éditables. Empêche
@@ -511,6 +539,9 @@ export class CampaignsService {
     // Server-side validation: reject full screens
     if (selectedScreenIds) {
       await this.rejectFullScreens(selectedScreenIds);
+      if (current.type === 'CATALOG_LISTING') {
+        await this.rejectCoworkingForCatalog(selectedScreenIds);
+      }
     }
 
     return this.prisma.$transaction(async (tx) => {

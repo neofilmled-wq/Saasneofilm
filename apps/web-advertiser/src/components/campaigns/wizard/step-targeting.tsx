@@ -20,6 +20,8 @@ const AdvertiserScreenMap = dynamic(
 );
 
 const TV_PACKS = [50, 100, 150, 200] as const;
+// Progressive per-TV pricing: pick any number of screens from 1 to MAX_TV_COUNT.
+const MAX_TV_COUNT = 200;
 const ENVIRONMENTS: { value: ScreenEnvironment | 'ALL'; label: string }[] = [
   { value: 'ALL', label: 'Tous les types' },
   { value: 'HOTEL_LOBBY', label: "Hall d'hôtel" },
@@ -110,22 +112,45 @@ function TargetingBlock({
         </div>
         <p className="text-sm text-muted-foreground">{description}</p>
 
-        {/* Pack selector */}
+        {/* Screen count — free choice (progressive per-TV pricing). */}
         <div>
-          <Label className="mb-2 block text-xs uppercase tracking-wide text-muted-foreground">Pack TV</Label>
-          <div className="flex flex-wrap gap-2">
+          <Label className="mb-2 block text-xs uppercase tracking-wide text-muted-foreground">Nombre d&apos;écrans TV</Label>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="number"
+              min={minPack || 1}
+              max={Math.min(availableScreens.length, MAX_TV_COUNT)}
+              value={packSize ?? ''}
+              disabled={availableScreens.length === 0}
+              onChange={(e) => {
+                const raw = parseInt(e.target.value, 10);
+                if (!raw || raw < 1) {
+                  onPackClear();
+                  return;
+                }
+                const capped = Math.max(minPack || 1, Math.min(raw, availableScreens.length, MAX_TV_COUNT));
+                onPackSelect(capped);
+              }}
+              placeholder="Ex. 12"
+              className="w-24 rounded-lg border-2 border-muted px-3 py-1.5 text-sm focus:border-primary/50 focus:outline-none disabled:opacity-50"
+            />
+            <span className="text-xs text-muted-foreground">
+              / {Math.min(availableScreens.length, MAX_TV_COUNT)} max
+            </span>
+
+            {/* Quick presets */}
             {TV_PACKS.map((size) => {
               const tooMany = size > availableScreens.length;
               const belowMin = minPack > 0 && size < minPack;
               const disabled = tooMany || belowMin;
-              const isActive = packSize === size || (minPack === size && !packSize);
+              const isActive = packSize === size;
               return (
                 <button
                   key={size}
                   onClick={() => !disabled && onPackSelect(size)}
                   disabled={disabled}
                   title={
-                    belowMin ? `Pack actuel : ${minPack} TV — vous ne pouvez pas réduire`
+                    belowMin ? `Minimum actuel : ${minPack}`
                     : tooMany ? `Seulement ${availableScreens.length} écrans en ligne disponibles`
                     : undefined
                   }
@@ -137,7 +162,7 @@ function TargetingBlock({
                         : 'border-muted hover:border-primary/50'
                   }`}
                 >
-                  {size} TV
+                  {size}
                 </button>
               );
             })}
@@ -152,7 +177,7 @@ function TargetingBlock({
           </div>
           {priceLine}
           <p className="mt-1 text-xs text-muted-foreground">
-            {availableScreens.length} écran{availableScreens.length !== 1 ? 's' : ''} en ligne disponible{availableScreens.length !== 1 ? 's' : ''}
+            {availableScreens.length} écran{availableScreens.length !== 1 ? 's' : ''} en ligne disponible{availableScreens.length !== 1 ? 's' : ''} · ou choisissez les écrans sur la carte
           </p>
         </div>
 
@@ -241,6 +266,13 @@ export function StepTargeting() {
     environment: environment === 'ALL' ? undefined : environment,
   });
 
+  // Coworking screens run an app with no catalogue page, so a listing targeted
+  // at one would never be displayed. They stay available for ad diffusion.
+  const catalogScreens = useMemo(
+    () => screens.filter((s) => s.usage !== 'COWORKING'),
+    [screens],
+  );
+
   // Derived sets
   const diffusionIds = new Set(draft.selectedScreenIds);
   const catalogIds = new Set(draft.catalogSelectedScreenIds);
@@ -255,9 +287,10 @@ export function StepTargeting() {
     durationMonths,
   );
 
-  // Helper: find matching pack for a screen count, or null
+  // Progressive per-TV pricing: any count from 1 to MAX_TV_COUNT is valid, so the
+  // "pack size" is simply the number of selected screens.
   function findMatchingPack(count: number): number | null {
-    return TV_PACKS.find((p) => p === count) ?? null;
+    return count >= 1 && count <= MAX_TV_COUNT ? count : null;
   }
 
   // ── Diffusion handlers ──
@@ -299,7 +332,7 @@ export function StepTargeting() {
   }
 
   function selectCatalogPack(size: number) {
-    const online = screens.filter((s) => !busyCatalogIds.has(s.id));
+    const online = catalogScreens.filter((s) => !busyCatalogIds.has(s.id));
     const selected = online.slice(0, size);
     updateDraft({
       catalogPackSize: size,
@@ -316,12 +349,13 @@ export function StepTargeting() {
     ? { lat: draft.targetingLat, lng: draft.targetingLng }
     : null;
 
-  const diffusionValid = !hasAdSpot || TV_PACKS.includes(draft.selectedScreenIds.length as any);
-  const catalogValid = !hasCatalog || TV_PACKS.includes(draft.catalogSelectedScreenIds.length as any);
+  const diffusionValid = !hasAdSpot || (draft.selectedScreenIds.length >= 1 && draft.selectedScreenIds.length <= MAX_TV_COUNT);
+  const catalogValid = !hasCatalog || (draft.catalogSelectedScreenIds.length >= 1 && draft.catalogSelectedScreenIds.length <= MAX_TV_COUNT);
   const canProceed = diffusionValid && catalogValid;
 
-  const diffusionMismatch = hasAdSpot && draft.selectedScreenIds.length > 0 && !TV_PACKS.includes(draft.selectedScreenIds.length as any);
-  const catalogMismatch = hasCatalog && draft.catalogSelectedScreenIds.length > 0 && !TV_PACKS.includes(draft.catalogSelectedScreenIds.length as any);
+  // Only "too many" (> MAX_TV_COUNT) is a mismatch now — any 1..MAX count is fine.
+  const diffusionMismatch = hasAdSpot && draft.selectedScreenIds.length > MAX_TV_COUNT;
+  const catalogMismatch = hasCatalog && draft.catalogSelectedScreenIds.length > MAX_TV_COUNT;
 
   return (
     <div className="space-y-6">
@@ -421,7 +455,7 @@ export function StepTargeting() {
           accentClass="border-blue-500"
           accentBg="bg-blue-50"
           packActiveClass="border-blue-500 bg-blue-500 text-white"
-          screens={screens}
+          screens={catalogScreens}
           isLoading={isLoading}
           selectedIds={catalogIds}
           selectedScreens={draft.catalogSelectedScreens}
@@ -484,17 +518,17 @@ export function StepTargeting() {
         </p>
       )}
 
-      {/* Pack validation warnings */}
+      {/* Count validation warnings — only when above the max */}
       {diffusionMismatch && (
         <p className="text-sm text-amber-600 font-medium">
           <Info className="mr-1 inline h-4 w-4" />
-          Diffusion TV : {draft.selectedScreenIds.length} écrans sélectionnés — veuillez choisir un pack valide ({TV_PACKS.join(', ')})
+          Diffusion TV : {draft.selectedScreenIds.length} écrans sélectionnés — maximum {MAX_TV_COUNT}. Au-delà, contactez-nous.
         </p>
       )}
       {catalogMismatch && (
         <p className="text-sm text-amber-600 font-medium">
           <Info className="mr-1 inline h-4 w-4" />
-          Catalogue TV : {draft.catalogSelectedScreenIds.length} écrans sélectionnés — veuillez choisir un pack valide ({TV_PACKS.join(', ')})
+          Catalogue TV : {draft.catalogSelectedScreenIds.length} écrans sélectionnés — maximum {MAX_TV_COUNT}. Au-delà, contactez-nous.
         </p>
       )}
 

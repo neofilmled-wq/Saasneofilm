@@ -17,8 +17,16 @@ RUN pnpm install --frozen-lockfile --shamefully-hoist
 
 COPY . .
 
-RUN pnpm --filter @neofilm/shared build || true
-RUN pnpm --filter @neofilm/config build || true
+# Build the workspace deps with the HOISTED tsc (pnpm install --shamefully-hoist
+# puts typescript in /app/node_modules, NOT in packages/*/node_modules, so
+# `pnpm --filter <pkg> build` → `tsc` fails with "Cannot find module .../tsc").
+# Same pattern as prisma/nest below.
+#
+# NO `|| true` on @neofilm/shared: it carries the Zod DTOs (e.g. billing.dto). If
+# its build fails silently, the API ships a STALE dist and validation rules (like
+# the TV-count range) revert to old values. Fail the image build loudly instead.
+RUN cd packages/shared && /app/node_modules/.bin/tsc --project tsconfig.json
+RUN cd packages/config && /app/node_modules/.bin/tsc --project tsconfig.json || true
 RUN /app/node_modules/.bin/prisma generate --schema=/app/packages/database/prisma/schema.prisma
 RUN cd packages/api && /app/node_modules/.bin/nest build || \
     (cd /app/packages/api && find src -type d -name __tests__ -exec rm -rf {} + 2>/dev/null; /app/node_modules/.bin/tsc --skipLibCheck --outDir dist && echo "Built with tsc fallback")

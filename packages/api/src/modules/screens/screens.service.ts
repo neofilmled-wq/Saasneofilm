@@ -57,6 +57,7 @@ export class ScreensService {
         take: limit,
         include: {
           partnerOrg: { select: { name: true } },
+          site: { select: { name: true } },
           screenLiveStatus: { select: { isOnline: true, lastHeartbeatAt: true, cpuPercent: true, memoryPercent: true } },
           screenFill: { select: { activeAdvertiserCount: true } },
           _count: { select: { devices: true, schedules: true, targetIncluded: true } },
@@ -73,6 +74,7 @@ export class ScreensService {
       where: this.scopedWhere(id, ctx),
       include: {
         partnerOrg: true,
+        site: { select: { name: true } },
         devices: true,
         schedules: { include: { slots: true } },
         screenLiveStatus: true,
@@ -265,6 +267,10 @@ export class ScreensService {
         longitude: true,
         environment: true,
         screenType: true,
+        // Which NeoFilm experience the screen runs (AIRBNB | COWORKING).
+        // Advertiser targeting needs it: the Coworking app has no catalogue
+        // page, so those screens must not be offered for catalogue listings.
+        usage: true,
         status: true,
         monthlyPriceCents: true,
         currency: true,

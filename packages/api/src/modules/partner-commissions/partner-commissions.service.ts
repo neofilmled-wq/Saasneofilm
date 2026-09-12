@@ -519,6 +519,24 @@ export class PartnerCommissionsService {
       const partnerShareCents = Math.round(totalRevenueCents * rate);
       const platformShareCents = totalRevenueCents - partnerShareCents;
 
+      // A settled month is history — never rewrite it. Recomputing used to reset
+      // a PAID statement back to CALCULATED and overwrite its amounts, so the
+      // admin console would show a partner as unpaid after money had actually
+      // left the account. There is no double-payment risk (the payout batch
+      // skips statements already attached to a payout), but the displayed
+      // status and the audited amounts must keep matching what was transferred.
+      const settled = await this.prisma.revenueShare.findUnique({
+        where: { partnerOrgId_periodStart_periodEnd: { partnerOrgId, periodStart, periodEnd } },
+      });
+
+      if (settled && (settled.status === 'PAID' || settled.payoutId)) {
+        this.logger.log(
+          `Statement ${settled.id} for partner ${partnerOrgId} is already settled — left untouched`,
+        );
+        results.push(settled);
+        continue;
+      }
+
       // Upsert (idempotent)
       const statement = await this.prisma.revenueShare.upsert({
         where: { partnerOrgId_periodStart_periodEnd: { partnerOrgId, periodStart, periodEnd } },

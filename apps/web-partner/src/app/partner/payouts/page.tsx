@@ -27,8 +27,7 @@ interface Payout {
   amountCents: number;
   currency: string;
   status: string;
-  periodStart: string;
-  periodEnd: string;
+  createdAt: string;
   paidAt?: string;
   stripeTransferId?: string;
 }
@@ -50,9 +49,13 @@ export default function PayoutsPage() {
     queryKey: ['partner', 'connect', 'status'],
     queryFn: () => apiFetch<any>('/partner/payouts/connect/status'),
   });
+  // The endpoint answers { profile, readiness } — reading the flags off the
+  // envelope gave undefined, so an onboarded partner was still being told to
+  // configure their payouts.
   const connectData = (connect as any)?.data ?? connect ?? {};
-  const payoutsReady = !!connectData.payoutsEnabled;
-  const detailsSubmitted = !!connectData.detailsSubmitted;
+  const connectProfile = connectData.profile ?? connectData;
+  const payoutsReady = !!(connectData.readiness?.ready ?? connectProfile.payoutsEnabled);
+  const detailsSubmitted = !!connectProfile.detailsSubmitted;
 
   const setupMutation = useMutation({
     mutationFn: () =>
@@ -135,7 +138,7 @@ export default function PayoutsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Période</TableHead>
+                  <TableHead>Émis le</TableHead>
                   <TableHead>Montant</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead>Date de paiement</TableHead>
@@ -144,16 +147,18 @@ export default function PayoutsPage() {
               </TableHeader>
               <TableBody>
                 {(payouts as Payout[]).map((payout) => {
-                  const cfg = STATUS_CONFIG[payout.status];
+                  const cfg = STATUS_CONFIG[payout.status] ?? {
+                    icon: Clock,
+                    label: payout.status,
+                    variant: 'bg-muted text-muted-foreground',
+                  };
                   const StatusIcon = cfg.icon;
                   return (
                     <TableRow key={payout.id}>
                       <TableCell>
-                        <div>
-                          <p className="text-sm font-medium">
-                            {formatDate(payout.periodStart)} — {formatDate(payout.periodEnd)}
-                          </p>
-                        </div>
+                        <p className="text-sm font-medium">
+                          {payout.createdAt ? formatDate(payout.createdAt) : '—'}
+                        </p>
                       </TableCell>
                       <TableCell className="font-semibold">
                         {formatCurrency(payout.amountCents)}

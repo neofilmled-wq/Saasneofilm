@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Recette paiements NeoFilm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500;700&display=swap">
+
+<style>
+  :root {
+    --ground: #F6F8F8;
+    --surface: #FFFFFF;
+    --sunk: #EBEFEF;
+    --ink: #111819;
+    --ink-2: #4C5B5E;
+    --ink-3: #74858880;
+    --rule: #D5DDDD;
+    --rule-strong: #B6C2C2;
+    --accent: #0B6E6B;
+    --accent-soft: #DFEFED;
+    --pass: #1B6B45;
+    --pass-soft: #DDEEE4;
+    --warn: #8A5712;
+    --warn-soft: #F4E9D5;
+    --fail: #973019;
+    --fail-soft: #F6E2DC;
+
+    --step--1: 0.8125rem;
+    --step-0: 1.0rem;
+    --step-1: 1.1875rem;
+    --step-2: 1.5rem;
+    --step-3: 2.125rem;
+    --step-4: 2.875rem;
+
+    --display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+    --body: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0C1112;
+      --surface: #141B1C;
+      --sunk: #101718;
+      --ink: #E6EDEC;
+      --ink-2: #94A6A7;
+      --ink-3: #6F818280;
+      --rule: #242F30;
+      --rule-strong: #354344;
+      --accent: #4FC9C2;
+      --accent-soft: #10302F;
+      --pass: #5FC28D;
+      --pass-soft: #12281D;
+      --warn: #D4A24C;
+      --warn-soft: #2A2313;
+      --fail: #E28268;
+      --fail-soft: #2C1913;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0C1112;
+    --surface: #141B1C;
+    --sunk: #101718;
+    --ink: #E6EDEC;
+    --ink-2: #94A6A7;
+    --ink-3: #6F818280;
+    --rule: #242F30;
+    --rule-strong: #354344;
+    --accent: #4FC9C2;
+    --accent-soft: #10302F;
+    --pass: #5FC28D;
+    --pass-soft: #12281D;
+    --warn: #D4A24C;
+    --warn-soft: #2A2313;
+    --fail: #E28268;
+    --fail-soft: #2C1913;
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  body { margin: 0; }
+  img { max-width: 100%; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: var(--step-0);
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: clamp(1.75rem, 4vw, 3.5rem) clamp(1.1rem, 4vw, 2.5rem) 5rem;
+  }
+
+  .prose { max-width: 68ch; }
+
+  h1, h2, h3 {
+    font-family: var(--display);
+    text-wrap: balance;
+    margin: 0;
+    line-height: 1.15;
+    letter-spacing: -0.018em;
+  }
+
+  h1 { font-size: var(--step-4); font-weight: 700; letter-spacing: -0.03em; }
+  h2 { font-size: var(--step-2); font-weight: 600; }
+  h3 { font-size: var(--step-1); font-weight: 600; letter-spacing: -0.01em; }
+
+  p { margin: 0; }
+
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  code, .mono { font-family: var(--mono); font-size: 0.86em; }
+  code {
+    background: var(--sunk);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    color: var(--ink);
+  }
+
+  .eyebrow {
+    font-family: var(--display);
+    font-size: var(--step--1);
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  /* ── Masthead ───────────────────────────────────────── */
+  header.masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    padding-bottom: 2rem;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .lede {
+    font-size: var(--step-1);
+    color: var(--ink-2);
+    max-width: 62ch;
+  }
+
+  .meta-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 2rem;
+    font-family: var(--mono);
+    font-size: var(--step--1);
+    color: var(--ink-2);
+    padding-top: 0.4rem;
+  }
+  .meta-strip b {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  section { margin-top: clamp(2.5rem, 5vw, 3.75rem); }
+
+  .sec-head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1.4rem;
+  }
+
+  /* ── Headline result ────────────────────────────────── */
+  .verdict {
+    margin-top: 2.25rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 5px solid var(--pass);
+    padding: clamp(1.4rem, 3vw, 2rem);
+    display: grid;
+    gap: 1.5rem clamp(1.5rem, 4vw, 3rem);
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    align-items: start;
+  }
+  .fig-label {
+    font-family: var(--display);
+    font-size: var(--step--1);
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    display: block;
+    margin-bottom: 0.35rem;
+  }
+  .fig {
+    font-family: var(--display);
+    font-size: var(--step-3);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .fig.zero { color: var(--pass); }
+  .fig-note {
+    display: block;
+    font-size: var(--step--1);
+    color: var(--ink-2);
+    margin-top: 0.45rem;
+    line-height: 1.45;
+  }
+
+  /* ── Tables ─────────────────────────────────────────── */
+  .table-scroll { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+  }
+  caption {
+    text-align: left;
+    font-size: var(--step--1);
+    color: var(--ink-2);
+    padding-bottom: 0.6rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.62rem 0.9rem 0.62rem 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-family: var(--display);
+    font-size: var(--step--1);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    border-bottom: 1px solid var(--rule-strong);
+    white-space: nowrap;
+  }
+  td.num, th.num {
+    text-align: right;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    padding-right: 0;
+  }
+  tr.total td {
+    border-top: 2px solid var(--ink);
+    border-bottom: none;
+    font-weight: 600;
+    padding-top: 0.75rem;
+  }
+  tr.total td.num { font-family: var(--mono); }
+
+  /* ── Pills ──────────────────────────────────────────── */
+  .pill {
+    display: inline-block;
+    font-family: var(--display);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.16rem 0.5rem;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .pill.ok   { background: var(--pass-soft); color: var(--pass); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  .pill.crit { background: var(--fail-soft); color: var(--fail); }
+
+  /* ── Lifecycle sequence ─────────────────────────────── */
+  ol.seq {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  ol.seq > li {
+    display: grid;
+    grid-template-columns: 2.6rem 1fr;
+    gap: 0 1.1rem;
+    padding: 1.05rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  ol.seq > li:first-child { border-top: 1px solid var(--rule-strong); }
+  .seq-n {
+    font-family: var(--mono);
+    font-size: var(--step--1);
+    font-weight: 700;
+    color: var(--accent);
+    padding-top: 0.22rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .seq-body { display: flex; flex-direction: column; gap: 0.35rem; }
+  .seq-title {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.02rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+  }
+  .seq-obs {
+    font-size: 0.92rem;
+    color: var(--ink-2);
+  }
+  .seq-obs .mono { color: var(--ink); }
+
+  /* ── Callouts ───────────────────────────────────────── */
+  .note {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    padding: 1.15rem 1.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+  .note.flag { border-left: 4px solid var(--warn); }
+  .note-title {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 0.98rem;
+  }
+  .note p { font-size: 0.94rem; color: var(--ink-2); }
+  .note p strong { color: var(--ink); font-weight: 600; }
+
+  /* ── Repro block ────────────────────────────────────── */
+  pre {
+    margin: 0;
+    background: var(--sunk);
+    border: 1px solid var(--rule);
+    padding: 1rem 1.15rem;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    line-height: 1.75;
+    color: var(--ink);
+  }
+  pre .c { color: var(--ink-2); }
+
+  ul.plain {
+    margin: 0;
+    padding-left: 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  ul.plain li { font-size: 0.95rem; }
+  ul.plain li::marker { color: var(--accent); }
+
+  .stack { display: flex; flex-direction: column; gap: 1.1rem; }
+
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.4rem;
+    border-top: 1px solid var(--rule);
+    font-size: var(--step--1);
+    color: var(--ink-2);
+    font-family: var(--mono);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <span class="eyebrow">Recette — environnement de test</span>
+    <h1>Paiements &amp; rétrocessions partenaires</h1>
+    <p class="lede">
+      Cycle de facturation vérifié de bout en bout sur de vrais événements Stripe :
+      encaissement, tarification progressive, impayé, régularisation, puis répartition
+      du chiffre d'affaires entre partenaires.
+    </p>
+    <div class="meta-strip">
+      <span>branche <b>dev</b></span>
+      <span>commits <b>0e1c686</b> · <b>5919105</b></span>
+      <span>Stripe <b>mode test</b></span>
+      <span>sessions <b>5 &amp; 12 sept. 2026</b></span>
+    </div>
+  </header>
+
+  <div class="verdict">
+    <div>
+      <span class="fig-label">Écart de réconciliation</span>
+      <span class="fig zero">0,00 €</span>
+      <span class="fig-note">CA attribué aux partenaires = encaissé Stripe, au centime.</span>
+    </div>
+    <div>
+      <span class="fig-label">Encaissé sur septembre</span>
+      <span class="fig">1 748,12 €</span>
+      <span class="fig-note">4 paiements réels, dont un refus de carte puis régularisation.</span>
+    </div>
+    <div>
+      <span class="fig-label">Webhooks en échec</span>
+      <span class="fig zero">0</span>
+      <span class="fig-note">Les 3 événements historiquement bloqués ont été rejoués et guéris.</span>
+    </div>
+    <div>
+      <span class="fig-label">Anomalies corrigées</span>
+      <span class="fig">7</span>
+      <span class="fig-note">Dont 2 qui faussaient directement l'argent versé aux partenaires.</span>
+    </div>
+  </div>
+
+  <!-- ───────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="eyebrow">Méthode</span>
+      <h2>Comment ces tests ont été faits</h2>
+    </div>
+    <div class="prose stack">
+      <p>
+        Rien n'est simulé côté Stripe. Les sessions de paiement sont créées par l'API NeoFilm,
+        la page de paiement hébergée est réellement réglée avec la carte de test
+        <code>4242 4242 4242 4242</code> pilotée par un navigateur sans interface, et les webhooks
+        reviennent par <code>stripe listen</code> vers l'API locale. Les montants, les factures et
+        les abonnements existent dans le tableau de bord Stripe en mode test.
+      </p>
+      <p>
+        Le refus de carte est lui aussi authentique : moyen de paiement
+        <code>pm_card_chargeCustomerFail</code>, qui provoque un vrai
+        <code>card_declined</code> et donc un vrai <code>invoice.payment_failed</code>.
+      </p>
+      <p>
+        Chaque étape est vérifiée dans PostgreSQL, pas seulement dans la réponse HTTP :
+        statut du booking, de l'abonnement, de la facture, compteurs de capacité,
+        journal d'audit et notifications.
+      </p>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="eyebrow">Test 1</span>
+      <h2>Tarification progressive par tranches</h2>
+      <p class="prose" style="color:var(--ink-2); font-size:0.95rem;">
+        Les packs fixes 50 / 100 / 150 / 200 sont remplacés par un barème par tranches de 50 écrans.
+        Vérification des bornes, et surtout de la continuité avec l'ancienne grille : un pack complet
+        doit coûter exactement le même prix qu'avant.
+      </p>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <caption>Diffusion — <code>GET /pricing/compute</code>, valeurs observées</caption>
+        <thead>
+          <tr>
+            <th>Écrans</th>
+            <th class="num">1</th><th class="num">10</th><th class="num">50</th>
+            <th class="num">51</th><th class="num">60</th><th class="num">100</th>
+            <th class="num">150</th><th class="num">200</th><th class="num">201</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>€ / mois</td>
+            <td class="num">0,78</td><td class="num">7,80</td><td class="num">39,00</td>
+            <td class="num">39,55</td><td class="num">44,46</td><td class="num">66,30</td>
+            <td class="num">91,65</td><td class="num">115,05</td>
+            <td class="num" style="color:var(--warn)">refus 400</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:1.25rem;">
+      <span class="note-title">Continuité confirmée</span>
+      <p>
+        Aux quatre paliers historiques — <strong>39,00 · 66,30 · 91,65 · 115,05 €</strong> —
+        le nouveau barème retombe au centime sur l'ancienne grille. Un client déjà sur un pack
+        de 100 écrans paiera exactement le même montant. Au-delà de 200 écrans, l'API refuse
+        et renvoie vers le commercial.
+      </p>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="eyebrow">Test 2</span>
+      <h2>Cycle de vie complet d'un abonnement</h2>
+      <p class="prose" style="color:var(--ink-2); font-size:0.95rem;">
+        Les étapes sont numérotées parce qu'elles s'enchaînent réellement dans cet ordre :
+        chacune est déclenchée par l'événement Stripe de la précédente.
+      </p>
+    </div>
+    <ol class="seq">
+      <li>
+        <span class="seq-n">01</span>
+        <div class="seq-body">
+          <span class="seq-title">Devis d'abonnement <span class="pill ok">conforme</span></span>
+          <span class="seq-obs">
+            4 écrans, 6 mois → <span class="mono">312 c</span> soit <strong>3,12 €/mois</strong>,
+            réparti en <span class="mono">78 c</span> par écran.
+          </span>
+        </div>
+      </li>
+      <li>
+        <span class="seq-n">02</span>
+        <div class="seq-body">
+          <span class="seq-title">Paiement de la session Checkout <span class="pill ok">conforme</span></span>
+          <span class="seq-obs">
+            Booking <span class="mono">ACTIVE</span>, abonnement <span class="mono">ACTIVE</span> avec
+            les vraies dates de période, facture <span class="mono">PAID 312 c</span> et son lien
+            d'abonnement écrit en direct.
+          </span>
+        </div>
+      </li>
+      <li>
+        <span class="seq-n">03</span>
+        <div class="seq-body">
+          <span class="seq-title">Capacité des écrans recomptée <span class="pill ok">conforme</span></span>
+          <span class="seq-obs">
+            <span class="mono">ScreenFill</span> mis à jour sur les 4 écrans — c'est ce compteur qui
+            empêche de vendre un écran au-delà de 40 annonceurs.
+          </span>
+        </div>
+      </li>
+      <li>
+        <span class="seq-n">04</span>
+        <div class="seq-body">
+          <span class="seq-title">Impayé sur renouvellement <span class="pill ok">conforme</span></span>
+          <span class="seq-obs">
+            Carte refusée → booking <span class="mono">PAUSED</span>, abonnement
+            <span class="mono">PAST_DUE</span>, notification <span class="mono">PAYMENT_FAILED</span>
+            créée pour l'annonceur, audit <span class="mono">INVOICE_PAYMENT_FAILED</span>.
+          </span>
+        </div>
+      </li>
+      <li>
+        <span class="seq-n">05</span>
+        <div class="seq-body">
+          <span class="seq-title">Régularisation <span class="pill ok">conforme</span></span>
+          <span class="seq-obs">
+            Nouvelle carte valide → audit <span class="mono">BOOKING_AUTO_RESUMED</span>,
+            booking de retour en <span class="mono">ACTIVE</span>, campagne relancée.
+          </span>
+        </div>
+      </li>
+      <li>
+        <span class="seq-n">06</span>
+        <div class="seq-body">
+          <span class="seq-title">Rejeu des webhooks bloqués <span class="pill ok">conforme</span></span>
+          <span class="seq-obs">
+            Les 3 événements restés en erreur (5 sept. et 7 sept.) rejoués avec signature valide :
+            tous traités. <strong>0 événement en échec.</strong>
+          </span>
+        </div>
+      </li>
+      <li>
+        <span class="seq-n">07</span>
+        <div class="seq-body">
+          <span class="seq-title">Transfert Stripe Connect <span class="pill warn">non testé</span></span>
+          <span class="seq-obs">
+            L'inscription Connect du partenaire est protégée par un captcha : elle demande
+            un passage humain dans un navigateur. Voir plus bas.
+          </span>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ───────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="eyebrow">Test 3</span>
+      <h2>Répartition entre partenaires</h2>
+      <p class="prose" style="color:var(--ink-2); font-size:0.95rem;">
+        Il n'y a pas de partage Stripe en temps réel : NeoFilm encaisse 100 %, puis répartit
+        au prorata du nombre d'écrans de chaque partenaire dans chaque booking, avant d'appliquer
+        le taux négocié partenaire par partenaire.
+      </p>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <caption>Relevés calculés pour septembre 2026</caption>
+        <thead>
+          <tr>
+            <th>Partenaire</th>
+            <th class="num">Taux</th>
+            <th class="num">CA attribué</th>
+            <th class="num">Rétrocession</th>
+            <th class="num">Part plateforme</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Cinémas Lumière</td>
+            <td class="num">30 %</td>
+            <td class="num">1 151,56 €</td>
+            <td class="num">345,47 €</td>
+            <td class="num">806,09 €</td>
+          </tr>
+          <tr>
+            <td>Réseau Écran Sud</td>
+            <td class="num">25 %</td>
+            <td class="num">596,56 €</td>
+            <td class="num">149,14 €</td>
+            <td class="num">447,42 €</td>
+          </tr>
+          <tr class="total">
+            <td>Total</td>
+            <td class="num">—</td>
+            <td class="num">1 748,12 €</td>
+            <td class="num">494,61 €</td>
+            <td class="num">1 253,51 €</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:1.25rem; border-left:4px solid var(--pass);">
+      <span class="note-title">Contrôle de cohérence</span>
+      <p>
+        Encaissé Stripe sur la période : <strong>1 748,12 €</strong>. CA attribué aux partenaires :
+        <strong>1 748,12 €</strong>. <strong>Écart nul.</strong> Ce contrôle est maintenant vrai
+        par construction : le moteur répartit les centimes réellement encaissés, et non plus le prix
+        théorique du booking.
+      </p>
+    </div>
+    <div class="note" style="margin-top:1rem;">
+      <span class="note-title">Un booking à cheval sur deux partenaires</span>
+      <p>
+        Cas vérifié : une campagne de 1 100 €/mois sur un écran Lumière et un écran Écran Sud est
+        d'abord coupée en <strong>550 € / 550 €</strong>, puis chaque moitié reçoit son propre taux —
+        30 % d'un côté, 25 % de l'autre. Le prorata se fait bien par écran, pas par partenaire.
+      </p>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="eyebrow">Résultats</span>
+      <h2>Ce que les tests ont mis au jour</h2>
+      <p class="prose" style="color:var(--ink-2); font-size:0.95rem;">
+        Toutes ces anomalies étaient silencieuses : aucune ne remontait d'erreur visible,
+        parce que le traitement des webhooks répondait « 200 OK » même quand il échouait.
+      </p>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Anomalie</th>
+            <th>Conséquence réelle</th>
+            <th>Gravité</th>
+            <th>État</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Les webhooks arrivent dans la version d'API du <em>compte</em> Stripe, pas celle du SDK — 5 champs ont déménagé</td>
+            <td>Résiliations jamais enregistrées, capacité jamais recomptée, impayés jamais mis en pause</td>
+            <td><span class="pill crit">Critique</span></td>
+            <td><span class="pill ok">Corrigé</span></td>
+          </tr>
+          <tr>
+            <td>Porte de paiement des rétrocessions fausse deux fois : jamais le bon mois, et les factures d'un booking débloquaient les autres</td>
+            <td>Partenaires payés zéro, ou payés depuis l'argent d'une autre campagne</td>
+            <td><span class="pill crit">Critique</span></td>
+            <td><span class="pill ok">Corrigé</span></td>
+          </tr>
+          <tr>
+            <td>Répartition sur le prix théorique du booking au lieu du montant encaissé</td>
+            <td>Sur un prorata, une remise ou un remboursement, les partenaires touchent de l'argent jamais reçu</td>
+            <td><span class="pill crit">Critique</span></td>
+            <td><span class="pill ok">Corrigé</span></td>
+          </tr>
+          <tr>
+            <td>Un échec de traitement répondait 200 : aucun rejeu, jamais</td>
+            <td>C'est ce qui a masqué tout le reste pendant des mois</td>
+            <td><span class="pill warn">Élevée</span></td>
+            <td><span class="pill ok">Corrigé</span></td>
+          </tr>
+          <tr>
+            <td>Ordre des webhooks : <code>invoice.paid</code> arrive avant <code>checkout.session.completed</code></td>
+            <td>Au premier paiement, le booking n'était pas encore relié à son abonnement</td>
+            <td><span class="pill warn">Élevée</span></td>
+            <td><span class="pill ok">Corrigé</span></td>
+          </tr>
+          <tr>
+            <td>Reprise automatique après impayé branchée sur un champ Stripe supprimé</td>
+            <td>Un client qui régularise restait en pause indéfiniment</td>
+            <td><span class="pill warn">Élevée</span></td>
+            <td><span class="pill ok">Corrigé</span></td>
+          </tr>
+          <tr>
+            <td>Facture d'un client inconnu → erreur en boucle</td>
+            <td>Arrive dès qu'un autre environnement partage le même compte Stripe. Observé en vrai : un paiement de 0,78 € venu d'ailleurs</td>
+            <td><span class="pill warn">Moyenne</span></td>
+            <td><span class="pill ok">Corrigé</span></td>
+          </tr>
+          <tr>
+            <td>Crédits IA : la carte était débitée, le portefeuille jamais crédité</td>
+            <td>Aucun client impacté — l'interface n'appelait pas encore l'endpoint</td>
+            <td><span class="pill warn">Moyenne</span></td>
+            <td><span class="pill ok">Retiré</span></td>
+          </tr>
+          <tr>
+            <td>Recalculer un mois remet un relevé approuvé ou payé en « calculé »</td>
+            <td>Statut affiché faux. Pas de double versement : le lot de paiement filtre sur les relevés déjà réglés</td>
+            <td><span class="pill warn">Mineure</span></td>
+            <td><span class="pill warn">Connu</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="eyebrow">Reste à faire</span>
+      <h2>Avant de passer en production</h2>
+    </div>
+    <div class="stack">
+      <div class="note flag">
+        <span class="note-title">1 · Terminer l'inscription Stripe Connect d'un partenaire</span>
+        <p>
+          C'est le seul maillon non vérifié. Le compte Express est bien créé par l'application
+          (<code>acct_1UCJ1ORVPo19o6Ci</code> pour Cinémas Lumière) et l'URL d'inscription est
+          renvoyée correctement, mais la page Stripe est protégée par un captcha — impossible à
+          franchir en automatique, et il n'est pas question de le contourner. Deux minutes dans un
+          navigateur suffisent, ensuite le lot de versement peut être relancé.
+        </p>
+        <p>
+          En attendant, le garde-fou fonctionne : <strong>482,50 € retenus</strong>, motif
+          « pas de compte Connect », zéro euro transféré, zéro échec.
+        </p>
+      </div>
+      <div class="note flag">
+        <span class="note-title">2 · Rattraper les factures déjà en base de production</span>
+        <p>
+          Les <code>stripe_invoices</code> existantes n'ont pas de lien d'abonnement et portent une
+          période de durée nulle. Sans reconstruction depuis les webhooks archivés,
+          <strong>les partenaires seront sous-payés sur les mois passés</strong>. Le script a déjà
+          tourné sur l'environnement de test.
+        </p>
+      </div>
+      <div class="note flag">
+        <span class="note-title">3 · Durcissement avant ouverture</span>
+        <p>
+          Activer <code>API_CORS_STRICT=true</code> ; conditionner la documentation
+          <code>/api/docs</code> à l'environnement, aujourd'hui publique ; revoir le proxy
+          <code>/storage/files/:bucket/*</code>, accessible sans authentification et sans contrôle
+          par fichier. Et révoquer les deux jetons GitHub, dont un stocké en clair dans
+          <code>.git/config</code>.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="eyebrow">Pour l'équipe</span>
+      <h2>Rejouer ces tests</h2>
+      <p class="prose" style="color:var(--ink-2); font-size:0.95rem;">
+        Depuis la racine du dépôt, sur la branche <code>dev</code>.
+      </p>
+    </div>
+    <pre><span class="c"># 1. Services (PAS le postgres du compose — voir le piège ci-dessous)</span>
+docker compose up -d redis minio minio-init mailpit
+pnpm db:generate &amp;&amp; pnpm db:push
+
+<span class="c"># 2. Secret de webhook : à écrire dans .env AVANT de lancer l'API</span>
+stripe listen --api-key "$STRIPE_SECRET_KEY" --print-secret
+
+<span class="c"># 3. API, puis redirection des webhooks</span>
+pnpm dev:api
+stripe listen --api-key "$STRIPE_SECRET_KEY" \
+  --forward-to localhost:3001/api/v1/webhooks/stripe
+
+<span class="c"># 4. Comptes de démonstration — mot de passe : Password123!</span>
+<span class="c">#    admin@neofilm.com · partner@demo.com · advertiser@demo.com</span>
+
+<span class="c"># 5. Recalcul des rétrocessions d'un mois (admin)</span>
+POST /api/v1/admin/commissions/compute   {"month":"2026-09"}</pre>
+    <div class="note" style="margin-top:1.25rem;">
+      <span class="note-title">Trois pièges qui font perdre une heure</span>
+      <ul class="plain" style="margin-top:0.3rem;">
+        <li>
+          <strong>Deux PostgreSQL écoutent sur le port 5432</strong> — le conteneur Docker et un
+          service Windows natif. C'est le natif qui gagne, et c'est lui qui contient les données.
+          Symptôme : <code>psql</code> dans le conteneur ne voit aucune table pendant que Prisma
+          travaille normalement.
+        </li>
+        <li>
+          <strong><code>stripe events resend</code> ne fonctionne pas</strong> vers un listener
+          local. Pour rejouer un événement bloqué, il faut resigner le payload archivé avec le
+          secret de webhook et le poster sur l'API.
+        </li>
+        <li>
+          <strong>Le compte Stripe de test est partagé</strong> entre environnements. Un
+          <code>stripe listen</code> qui tourne récupère aussi les paiements des autres —
+          d'où la facture de 0,78 € tombée ici pendant les tests.
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    Recette exécutée les 5 et 12 septembre 2026 · branche <b>dev</b>, isolée de <b>main</b> ·
+    montants en mode test Stripe, aucun mouvement d'argent réel.
+  </footer>
+
+</div>
+</body>
+</html>

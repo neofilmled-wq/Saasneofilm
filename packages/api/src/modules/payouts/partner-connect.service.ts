@@ -195,18 +195,64 @@ export class PartnerConnectService {
    * including the readiness check.
    */
   async getConnectStatus(partnerOrgId: string) {
-    const profile = await this.prisma.partnerPayoutProfile.findUnique({
-      where: { partnerOrgId },
-      include: {
-        partnerOrg: {
-          select: { name: true, contactEmail: true, stripeConnectAccountId: true },
-        },
+    const include = {
+      partnerOrg: {
+        select: { name: true, contactEmail: true, stripeConnectAccountId: true },
       },
+    };
+
+    let profile = await this.prisma.partnerPayoutProfile.findUnique({
+      where: { partnerOrgId },
+      include,
     });
 
     if (!profile) {
       throw new NotFoundException(
         `No Connect profile found for organization ${partnerOrgId}`,
+      );
+    }
+
+    // Ask Stripe, don't just re-read our cache. These flags are normally kept
+    // current by the account.updated webhook, but that event only arrives if a
+    // Connect webhook endpoint is configured, and a single missed delivery
+    // leaves a fully-onboarded partner stuck as "not ready" — their payout
+    // held forever — with no way to recover from the admin UI. This status
+    // check is exactly what an admin reaches for in that case, so it has to be
+    // authoritative. Stripe stays the source of truth; we refresh and persist.
+    try {
+      const account = await this.stripe.accounts.retrieve(
+        profile.stripeConnectAccountId,
+      );
+
+      const fresh = {
+        chargesEnabled: account.charges_enabled ?? false,
+        payoutsEnabled: account.payouts_enabled ?? false,
+        detailsSubmitted: account.details_submitted ?? false,
+      };
+
+      if (
+        fresh.chargesEnabled !== profile.chargesEnabled ||
+        fresh.payoutsEnabled !== profile.payoutsEnabled ||
+        fresh.detailsSubmitted !== profile.detailsSubmitted
+      ) {
+        profile = await this.prisma.partnerPayoutProfile.update({
+          where: { id: profile.id },
+          data: fresh,
+          include,
+        });
+
+        this.logger.log(
+          `Connect status refreshed from Stripe for org ${partnerOrgId}: ` +
+            `charges=${fresh.chargesEnabled} payouts=${fresh.payoutsEnabled} ` +
+            `details=${fresh.detailsSubmitted}`,
+        );
+      }
+    } catch (err) {
+      // Never fail the status check on a Stripe hiccup — fall back to the
+      // cached flags, which is what this method returned before.
+      this.logger.warn(
+        `Could not refresh Connect status for org ${partnerOrgId}: ` +
+          `${err instanceof Error ? err.message : String(err)}`,
       );
     }
 

@@ -67,6 +67,21 @@ export class StorageService implements OnModuleInit {
     );
   }
 
+  /** Public creatives bucket (world-readable ads). */
+  get creativesBucket(): string {
+    return this.bucketCreatives;
+  }
+
+  /** Private uploads bucket (temporary, never public). */
+  get uploadsBucket(): string {
+    return this.bucketUploads;
+  }
+
+  /** Whether a client-supplied bucket name is one we allow addressing. */
+  isKnownBucket(bucket?: string): boolean {
+    return bucket === undefined || bucket === this.bucketCreatives || bucket === this.bucketUploads;
+  }
+
   // ──────────────────────────────────────────────────────────────────────────
   // Presigned URLs
   // ──────────────────────────────────────────────────────────────────────────

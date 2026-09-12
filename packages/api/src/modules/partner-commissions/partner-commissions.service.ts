@@ -454,16 +454,24 @@ export class PartnerCommissionsService {
             status: 'PAID',
             periodStart: { gte: periodStart, lt: periodEnd },
           },
-          select: { stripeSubscriptionId: true },
+          select: { stripeSubscriptionId: true, amountPaidCents: true },
         })
       : [];
 
-    const paidRenewalsBySubscription = new Map<string, number>();
+    // Sum what was ACTUALLY COLLECTED per subscription, not
+    // `monthlyPriceCents × number of renewals`. The booking's theoretical price
+    // and the invoiced amount diverge as soon as there is a proration (screens
+    // added/removed mid-cycle via updateBookingScreens), a discount, or a
+    // partial refund — and the partner would then be paid on money we never
+    // received. Distributing the collected cents makes
+    // "sum of partner statements == sum of paid invoices" true by construction.
+    const collectedCentsBySubscription = new Map<string, number>();
     for (const inv of paidInvoices) {
       if (!inv.stripeSubscriptionId) continue;
-      paidRenewalsBySubscription.set(
+      collectedCentsBySubscription.set(
         inv.stripeSubscriptionId,
-        (paidRenewalsBySubscription.get(inv.stripeSubscriptionId) ?? 0) + 1,
+        (collectedCentsBySubscription.get(inv.stripeSubscriptionId) ?? 0) +
+          inv.amountPaidCents,
       );
     }
 
@@ -474,14 +482,13 @@ export class PartnerCommissionsService {
       const totalScreens = booking.bookingScreens.length;
       if (totalScreens === 0) continue;
 
-      // Monthly charges actually collected for this booking during the month.
-      const paidRenewals = booking.stripeSubscriptionId
-        ? (paidRenewalsBySubscription.get(booking.stripeSubscriptionId) ?? 0)
+      // Cents actually collected for this booking during the month.
+      const collectedCents = booking.stripeSubscriptionId
+        ? (collectedCentsBySubscription.get(booking.stripeSubscriptionId) ?? 0)
         : 0;
-      if (paidRenewals <= 0) continue; // nothing collected → nothing to pay
+      if (collectedCents <= 0) continue; // nothing collected → nothing to pay
 
-      const monthlyForPeriod = booking.monthlyPriceCents * paidRenewals;
-      const pricePerTv = monthlyForPeriod / totalScreens;
+      const pricePerTv = collectedCents / totalScreens;
 
       // Group screens by partner
       const byPartner = new Map<string, number>();

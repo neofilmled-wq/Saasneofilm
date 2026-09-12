@@ -122,6 +122,21 @@ export class InvoiceHandler {
         `Invoice ${invoice.id} not found in database, creating it first`,
       );
       await this.handleInvoiceCreated(invoice);
+
+      // handleInvoiceCreated gives up silently when the Stripe customer is
+      // unknown to us — which happens for any invoice belonging to another
+      // environment sharing this Stripe account. Updating anyway threw P2025
+      // and, now that a failure answers 5xx, Stripe would redeliver it for
+      // three days. Skip instead: the invoice simply is not ours.
+      if (!(await this.prisma.stripeInvoice.findUnique({
+        where: { stripeInvoiceId: invoice.id },
+        select: { id: true },
+      }))) {
+        this.logger.warn(
+          `Invoice ${invoice.id} still unknown after create (unknown customer) — skipping`,
+        );
+        return;
+      }
     }
 
     await this.prisma.stripeInvoice.update({
@@ -154,6 +169,18 @@ export class InvoiceHandler {
         `Invoice ${invoice.id} not found in database, creating it first`,
       );
       await this.handleInvoiceCreated(invoice);
+
+      // Same guard as invoice.finalized: an invoice whose Stripe customer we
+      // do not know is not ours to record.
+      if (!(await this.prisma.stripeInvoice.findUnique({
+        where: { stripeInvoiceId: invoice.id },
+        select: { id: true },
+      }))) {
+        this.logger.warn(
+          `Invoice ${invoice.id} still unknown after create (unknown customer) — skipping`,
+        );
+        return;
+      }
     }
 
     const updatedInvoice = await this.prisma.stripeInvoice.update({

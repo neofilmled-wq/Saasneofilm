@@ -6,8 +6,14 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
 import { PrismaService } from '../../prisma/prisma.service';
+import { authenticateSocket, type WsPrincipal } from '../auth/ws-auth.util';
+
+interface ScopedSocket extends Socket {
+  data: { principal?: WsPrincipal };
+}
 
 @WebSocketGateway({
   namespace: '/screen-status',
@@ -22,7 +28,10 @@ export class ScreenStatusGateway
   private readonly logger = new Logger(ScreenStatusGateway.name);
   private intervalRef: NodeJS.Timeout | null = null;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   afterInit() {
     this.logger.log('Screen status gateway initialized');
@@ -30,36 +39,59 @@ export class ScreenStatusGateway
     this.intervalRef = setInterval(() => this.broadcastScreenStatuses(), 10_000);
   }
 
-  handleConnection(client: Socket) {
-    this.logger.log(`Dashboard client connected: ${client.id}`);
-    // Send initial status immediately
+  async handleConnection(client: ScopedSocket) {
+    const principal = await authenticateSocket(client, this.config, this.prisma);
+    // Only admins (all screens) or a partner (their own screens) may subscribe.
+    const allowed =
+      principal?.kind === 'user' &&
+      (principal.isAdmin || principal.orgType === 'PARTNER');
+    if (!allowed) {
+      this.logger.warn(`Screen-status WS rejected (unauthenticated/not admin-or-partner): ${client.id}`);
+      client.disconnect();
+      return;
+    }
+    client.data = { principal };
+    this.logger.log(`Screen-status client connected: ${client.id}`);
+    // Send initial status immediately, scoped to this client
     this.sendScreenStatuses(client);
   }
 
   handleDisconnect(client: Socket) {
-    this.logger.log(`Dashboard client disconnected: ${client.id}`);
+    this.logger.log(`Screen-status client disconnected: ${client.id}`);
   }
 
-  private async sendScreenStatuses(client: Socket) {
+  private async sendScreenStatuses(client: ScopedSocket) {
     try {
-      const statuses = await this.getScreenStatuses();
+      const statuses = await this.getScreenStatuses(client.data?.principal);
       client.emit('screen.status', statuses);
     } catch (err) {
       this.logger.error(`Failed to send screen statuses: ${err}`);
     }
   }
 
+  /** Emit per-socket so each client only sees screens it is entitled to. */
   private async broadcastScreenStatuses() {
     try {
-      const statuses = await this.getScreenStatuses();
-      this.server.emit('screen.status', statuses);
+      const sockets = await this.server.fetchSockets();
+      for (const s of sockets) {
+        const principal = (s.data as { principal?: WsPrincipal })?.principal;
+        if (!principal) continue;
+        const statuses = await this.getScreenStatuses(principal);
+        s.emit('screen.status', statuses);
+      }
     } catch (err) {
       this.logger.error(`Failed to broadcast screen statuses: ${err}`);
     }
   }
 
-  private async getScreenStatuses() {
+  private async getScreenStatuses(principal?: WsPrincipal) {
+    // Admins see every screen; a partner only their own org's screens.
+    const where =
+      principal?.kind === 'user' && !principal.isAdmin && principal.orgType === 'PARTNER'
+        ? { partnerOrgId: principal.orgId ?? '__none__' }
+        : {};
     const screens = await this.prisma.screen.findMany({
+      where,
       select: {
         id: true,
         name: true,

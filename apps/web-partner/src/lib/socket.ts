@@ -6,12 +6,14 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:3001';
 
 let socket: Socket | null = null;
 
-export function getSocket(partnerOrgId: string): Socket {
+export function getSocket(_partnerOrgId?: string): Socket {
   if (socket) return socket;
 
+  // The server derives the partner org from the verified JWT — we only send the token.
+  const token = typeof window !== 'undefined' ? localStorage.getItem('neofilm_partner_token') : null;
   socket = io(SOCKET_URL, {
     path: '/ws/partner',
-    auth: { partnerOrgId },
+    auth: { token },
     transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: Infinity,

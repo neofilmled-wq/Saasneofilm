@@ -22,7 +22,9 @@ export function useAdminSocket() {
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('neofilm_admin_token') : null;
     const socket = io(`${WS_URL}/admin`, {
+      auth: { token },
       transports: ['websocket', 'polling'],
     });
     socketRef.current = socket;

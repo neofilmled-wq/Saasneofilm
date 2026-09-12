@@ -45,7 +45,7 @@ const INVALIDATION_MAP: Record<string, (event: RealtimeEvent) => readonly (reado
 
 export function useRealtimeSync() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const socketRef = useRef<Socket | null>(null);
   const seenIds = useRef(new Set<string>());
   const seenOrder = useRef<string[]>([]);
@@ -53,10 +53,10 @@ export function useRealtimeSync() {
   const orgId = user?.orgId;
 
   useEffect(() => {
-    if (!orgId) return;
+    if (!orgId || !token) return;
 
     const socket = io(`${WS_URL}/realtime`, {
-      auth: { role: 'advertiser', orgId },
+      auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
@@ -91,5 +91,5 @@ export function useRealtimeSync() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [queryClient, orgId]);
+  }, [queryClient, orgId, token]);
 }

@@ -9,10 +9,17 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Logger, OnModuleDestroy } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
 import { EventBusService } from '../../services/realtime/event-bus.service';
 import { OfflineTvQueueService } from './offline-tv-queue.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { authenticateSocket, type WsPrincipal } from '../auth/ws-auth.util';
 import type { DomainEvent } from '@neofilm/shared';
+
+interface RealtimeSocket extends Socket {
+  data: { principal?: WsPrincipal };
+}
 
 @WebSocketGateway({
   namespace: '/realtime',
@@ -30,6 +37,8 @@ export class RealtimeGateway
   constructor(
     private readonly eventBus: EventBusService,
     private readonly offlineTvQueue: OfflineTvQueueService,
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
   ) {}
 
   afterInit() {
@@ -58,65 +67,91 @@ export class RealtimeGateway
     this.logger.log('RealtimeGateway initialized on /realtime namespace');
   }
 
-  handleConnection(client: Socket) {
-    const role = client.handshake.auth?.role as string;
-    const orgId = client.handshake.auth?.orgId as string;
-    const deviceId = client.handshake.auth?.deviceId as string;
+  async handleConnection(client: RealtimeSocket) {
+    const principal = await authenticateSocket(client, this.config, this.prisma);
+    if (!principal) {
+      this.logger.warn(`/realtime rejected (unauthenticated): ${client.id}`);
+      client.disconnect();
+      return;
+    }
+    client.data = { principal };
 
-    if (role === 'admin') {
+    // Rooms are derived from the VERIFIED identity — never from client input.
+    if (principal.kind === 'device') {
+      client.join(`device:${principal.deviceId}`);
+      this.offlineTvQueue.markOnline(principal.deviceId);
+      if (principal.screenId) client.join(`screen:${principal.screenId}`);
+      this.logger.log(`Device ${principal.deviceId} joined /realtime (socket=${client.id})`);
+      return;
+    }
+    if (principal.isAdmin) {
       client.join('admin');
-      this.logger.log(`Admin client joined /realtime (socket=${client.id})`);
+      this.logger.log(`Admin joined /realtime (socket=${client.id})`);
     }
-    if (role === 'partner' && orgId) {
-      client.join(`partner:${orgId}`);
-      this.logger.log(`Partner ${orgId} joined /realtime (socket=${client.id})`);
+    if (principal.orgType === 'PARTNER' && principal.orgId) {
+      client.join(`partner:${principal.orgId}`);
+      this.logger.log(`Partner ${principal.orgId} joined /realtime (socket=${client.id})`);
     }
-    if (role === 'advertiser' && orgId) {
-      client.join(`advertiser:${orgId}`);
-      this.logger.log(`Advertiser ${orgId} joined /realtime (socket=${client.id})`);
-    }
-    if (role === 'device' && deviceId) {
-      client.join(`device:${deviceId}`);
-      this.offlineTvQueue.markOnline(deviceId);
-      const screenId = client.handshake.auth?.screenId as string;
-      if (screenId) {
-        client.join(`screen:${screenId}`);
-      }
-      this.logger.log(`Device ${deviceId} joined /realtime (socket=${client.id})`);
+    if (principal.orgType === 'ADVERTISER' && principal.orgId) {
+      client.join(`advertiser:${principal.orgId}`);
+      this.logger.log(`Advertiser ${principal.orgId} joined /realtime (socket=${client.id})`);
     }
   }
 
-  handleDisconnect(client: Socket) {
-    const deviceId = client.handshake.auth?.deviceId as string;
-    if (deviceId) {
-      this.offlineTvQueue.markOffline(deviceId);
+  handleDisconnect(client: RealtimeSocket) {
+    const principal = client.data?.principal;
+    if (principal?.kind === 'device') {
+      this.offlineTvQueue.markOffline(principal.deviceId);
     }
     this.logger.debug(`Client disconnected from /realtime (socket=${client.id})`);
   }
 
+  /**
+   * Explicit room join — validated against the authenticated principal so a
+   * client can only (re)join a room it is already entitled to. Prevents joining
+   * another tenant's / the admin room.
+   */
   @SubscribeMessage('join-room')
   handleJoinRoom(
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: RealtimeSocket,
     @MessageBody() data: { room: string },
   ) {
-    const allowedPrefixes = ['partner:', 'advertiser:', 'screen:', 'device:', 'admin'];
-    const isAllowed = allowedPrefixes.some((prefix) => data.room.startsWith(prefix));
+    const principal = client.data?.principal;
+    if (!principal || !data?.room) return { status: 'denied' };
 
-    if (isAllowed) {
+    const allowed = ((): boolean => {
+      if (data.room === 'admin') return principal.kind === 'user' && principal.isAdmin;
+      if (principal.kind === 'user' && principal.isAdmin) return true; // admins may observe any room
+      if (principal.kind === 'device') {
+        return (
+          data.room === `device:${principal.deviceId}` ||
+          (!!principal.screenId && data.room === `screen:${principal.screenId}`)
+        );
+      }
+      if (principal.orgType === 'PARTNER') return data.room === `partner:${principal.orgId}`;
+      if (principal.orgType === 'ADVERTISER') return data.room === `advertiser:${principal.orgId}`;
+      return false;
+    })();
+
+    if (allowed) {
       client.join(data.room);
       return { status: 'joined', room: data.room };
     }
-    return { status: 'denied', reason: 'Invalid room prefix' };
+    this.logger.warn(`join-room denied: ${client.id} -> ${data.room}`);
+    return { status: 'denied', reason: 'Not entitled to this room' };
   }
 
   @SubscribeMessage('get-queued-events')
   async handleGetQueuedEvents(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { deviceId: string; sinceTimestamp?: string },
+    @ConnectedSocket() client: RealtimeSocket,
+    @MessageBody() data: { sinceTimestamp?: string },
   ) {
+    // Device id comes from the verified token, not the message body.
+    const principal = client.data?.principal;
+    if (principal?.kind !== 'device') return;
     const events = await this.offlineTvQueue.getQueuedEvents(
-      data.deviceId,
-      data.sinceTimestamp,
+      principal.deviceId,
+      data?.sinceTimestamp,
     );
     client.emit('queued-events', events);
   }

@@ -6,9 +6,11 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Logger, OnModuleDestroy } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
 import { AdminService } from './admin.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { authenticateSocket } from '../auth/ws-auth.util';
 
 @WebSocketGateway({
   namespace: '/admin',
@@ -26,6 +28,7 @@ export class AdminGateway
   constructor(
     private readonly adminService: AdminService,
     private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
   ) {}
 
   afterInit() {
@@ -34,8 +37,14 @@ export class AdminGateway
     this.intervalRef = setInterval(() => this.broadcastAll(), 10_000);
   }
 
-  handleConnection(client: Socket) {
-    this.logger.log(`Admin client connected: ${client.id}`);
+  async handleConnection(client: Socket) {
+    const principal = await authenticateSocket(client, this.config, this.prisma);
+    if (!principal || principal.kind !== 'user' || !principal.isAdmin) {
+      this.logger.warn(`Admin WS rejected (unauthenticated/non-admin): ${client.id}`);
+      client.disconnect();
+      return;
+    }
+    this.logger.log(`Admin client connected: ${client.id} (user=${principal.userId})`);
     // Send initial data immediately
     this.sendInitialData(client);
   }

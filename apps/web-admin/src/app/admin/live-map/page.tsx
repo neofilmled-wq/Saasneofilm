@@ -69,7 +69,9 @@ export default function LiveMapPage() {
 
   // WebSocket for real-time status
   useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('neofilm_admin_token') : null;
     const socket: Socket = io(`${WS_URL}/screen-status`, {
+      auth: { token },
       transports: ['websocket', 'polling'],
     });
 

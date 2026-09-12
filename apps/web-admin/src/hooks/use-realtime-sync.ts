@@ -52,8 +52,9 @@ export function useRealtimeSync() {
   const seenOrder = useRef<string[]>([]);
 
   useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('neofilm_admin_token') : null;
     const socket = io(`${WS_URL}/realtime`, {
-      auth: { role: 'admin' },
+      auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,

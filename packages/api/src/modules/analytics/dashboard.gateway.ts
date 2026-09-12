@@ -6,8 +6,11 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Logger, OnModuleDestroy } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
 import { DashboardSummaryService } from './dashboard-summary.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { authenticateSocket } from '../auth/ws-auth.util';
 
 @WebSocketGateway({
   namespace: '/dashboard',
@@ -22,15 +25,25 @@ export class DashboardGateway
   private readonly logger = new Logger(DashboardGateway.name);
   private intervalRef: NodeJS.Timeout | null = null;
 
-  constructor(private readonly summaryService: DashboardSummaryService) {}
+  constructor(
+    private readonly summaryService: DashboardSummaryService,
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   afterInit() {
     this.logger.log('Dashboard gateway initialized');
     this.intervalRef = setInterval(() => this.broadcastSummary(), 10_000);
   }
 
-  handleConnection(client: Socket) {
-    this.logger.log(`Dashboard client connected: ${client.id}`);
+  async handleConnection(client: Socket) {
+    const principal = await authenticateSocket(client, this.config, this.prisma);
+    if (!principal || principal.kind !== 'user') {
+      this.logger.warn(`Dashboard WS rejected (unauthenticated): ${client.id}`);
+      client.disconnect();
+      return;
+    }
+    this.logger.log(`Dashboard client connected: ${client.id} (user=${principal.userId})`);
     this.sendSummary(client);
   }
 

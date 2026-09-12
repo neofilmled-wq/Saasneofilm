@@ -5,11 +5,15 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
+import { PrismaService } from '../../prisma/prisma.service';
+import { authenticateSocket } from '../auth/ws-auth.util';
 
 /**
  * WebSocket gateway for advertiser web clients.
  * Advertisers connect and join a room keyed by their orgId: `advertiser:<orgId>`
+ * The room is derived from the VERIFIED JWT, never from a client-supplied field.
  * Services call emit* methods to push real-time updates.
  */
 @WebSocketGateway({
@@ -23,14 +27,20 @@ export class AdvertiserGateway implements OnGatewayConnection, OnGatewayDisconne
 
   private readonly logger = new Logger(AdvertiserGateway.name);
 
-  handleConnection(client: Socket) {
-    const orgId = client.handshake.auth?.advertiserOrgId as string | undefined;
-    if (orgId) {
-      client.join(`advertiser:${orgId}`);
-      this.logger.log(`Advertiser ${orgId} connected (socket=${client.id})`);
-    } else {
-      this.logger.warn(`Advertiser WS connection without orgId (socket=${client.id})`);
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
+
+  async handleConnection(client: Socket) {
+    const principal = await authenticateSocket(client, this.config, this.prisma);
+    if (!principal || principal.kind !== 'user' || principal.orgType !== 'ADVERTISER' || !principal.orgId) {
+      this.logger.warn(`Advertiser WS rejected (unauthenticated/not an advertiser): ${client.id}`);
+      client.disconnect();
+      return;
     }
+    client.join(`advertiser:${principal.orgId}`);
+    this.logger.log(`Advertiser ${principal.orgId} connected (socket=${client.id})`);
   }
 
   handleDisconnect(client: Socket) {

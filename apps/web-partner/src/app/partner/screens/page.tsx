@@ -38,7 +38,8 @@ export default function ScreensPage() {
   const [liveStatuses, setLiveStatuses] = useState<Record<string, any>>({});
 
   useEffect(() => {
-    const socket: Socket = io(`${WS_URL}/screen-status`, { transports: ['websocket', 'polling'] });
+    const token = typeof window !== 'undefined' ? localStorage.getItem('neofilm_partner_token') : null;
+    const socket: Socket = io(`${WS_URL}/screen-status`, { auth: { token }, transports: ['websocket', 'polling'] });
     socket.on('screen.status', (statuses: any[]) => {
       const map: Record<string, any> = {};
       statuses.forEach((s) => { map[s.screenId] = s; });

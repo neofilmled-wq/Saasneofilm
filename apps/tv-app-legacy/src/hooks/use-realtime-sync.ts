@@ -19,6 +19,8 @@ interface RealtimeEvent {
 interface UseRealtimeSyncOptions {
   deviceId: string | null;
   screenId: string | null;
+  /** Device JWT — required now that /realtime authenticates the handshake. */
+  token?: string | null;
   onScheduleInvalidation?: () => void;
 }
 
@@ -29,6 +31,7 @@ interface UseRealtimeSyncOptions {
 export function useRealtimeSync({
   deviceId,
   screenId,
+  token,
   onScheduleInvalidation,
 }: UseRealtimeSyncOptions) {
   const socketRef = useRef<Socket | null>(null);
@@ -58,10 +61,10 @@ export function useRealtimeSync({
   );
 
   useEffect(() => {
-    if (!deviceId) return;
+    if (!deviceId || !token) return;
 
     const socket = io(`${WS_URL}/realtime`, {
-      auth: { role: 'device', deviceId, screenId },
+      auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
@@ -103,5 +106,5 @@ export function useRealtimeSync({
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [deviceId, screenId, handleEvent]);
+  }, [deviceId, screenId, token, handleEvent]);
 }

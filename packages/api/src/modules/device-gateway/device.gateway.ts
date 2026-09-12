@@ -8,10 +8,12 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { PartnerGateway } from '../partner-gateway/partner.gateway';
+import { authenticateSocket } from '../auth/ws-auth.util';
 
 interface DeviceHeartbeatPayload {
   deviceId: string;
@@ -43,21 +45,29 @@ export class DeviceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   /** Map socket.id → deviceId for connected devices */
   private readonly connectedDevices = new Map<string, string>();
 
+  /** Map socket.id → screenId (from the verified device token). */
+  private readonly connectedScreens = new Map<string, string>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly partnerGateway: PartnerGateway,
+    private readonly config: ConfigService,
   ) {}
 
   async handleConnection(client: Socket) {
-    const deviceId = client.handshake.query?.deviceId as string;
-    if (!deviceId) {
-      this.logger.warn(`WS connection rejected: no deviceId (socket=${client.id})`);
+    // Require a verified device token; derive the deviceId from it, never from
+    // the (spoofable) handshake query.
+    const principal = await authenticateSocket(client, this.config, this.prisma);
+    if (!principal || principal.kind !== 'device') {
+      this.logger.warn(`/devices WS rejected (no valid device token): socket=${client.id}`);
       client.disconnect();
       return;
     }
+    const deviceId = principal.deviceId;
 
     this.connectedDevices.set(client.id, deviceId);
+    if (principal.screenId) this.connectedScreens.set(client.id, principal.screenId);
     client.join(`device:${deviceId}`);
 
     // Cache device status in Redis
@@ -92,6 +102,7 @@ export class DeviceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleDisconnect(client: Socket) {
     const deviceId = this.connectedDevices.get(client.id);
+    this.connectedScreens.delete(client.id);
     if (deviceId) {
       this.connectedDevices.delete(client.id);
 
@@ -140,7 +151,13 @@ export class DeviceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: DeviceHeartbeatPayload,
   ) {
-    const deviceId = this.connectedDevices.get(client.id) ?? data.deviceId;
+    // Identity comes from the connection (verified token), not the body.
+    const deviceId = this.connectedDevices.get(client.id);
+    if (!deviceId) {
+      client.disconnect();
+      return { status: 'unauthorized' };
+    }
+    const screenId = this.connectedScreens.get(client.id);
 
     // Store heartbeat
     await this.prisma.deviceHeartbeat.create({
@@ -152,12 +169,12 @@ export class DeviceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       },
     });
 
-    // Update screen live status
-    if (data.screenId) {
+    // Update screen live status (screenId from the device's paired screen)
+    if (screenId) {
       await this.prisma.screenLiveStatus.upsert({
-        where: { screenId: data.screenId },
+        where: { screenId },
         create: {
-          screenId: data.screenId,
+          screenId,
           isOnline: data.isOnline,
           lastHeartbeatAt: new Date(),
         },
@@ -170,13 +187,13 @@ export class DeviceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Notify the owning partner in real time
       try {
         const screen = await this.prisma.screen.findUnique({
-          where: { id: data.screenId },
+          where: { id: screenId },
           select: { partnerOrgId: true },
         });
         if (screen?.partnerOrgId) {
           this.partnerGateway.emitScreenStatusChanged(
             screen.partnerOrgId,
-            data.screenId,
+            screenId,
             data.isOnline ? 'ONLINE' : 'OFFLINE',
           );
         }
@@ -199,7 +216,11 @@ export class DeviceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: DeviceMetricsPayload,
   ) {
-    const deviceId = this.connectedDevices.get(client.id) ?? data.deviceId;
+    const deviceId = this.connectedDevices.get(client.id);
+    if (!deviceId) {
+      client.disconnect();
+      return { status: 'unauthorized' };
+    }
 
     await this.prisma.deviceMetrics.create({
       data: {
@@ -219,9 +240,13 @@ export class DeviceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('error')
   async handleError(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { deviceId: string; severity: string; code: string; message: string; stackTrace?: string },
+    @MessageBody() data: { severity: string; code: string; message: string; stackTrace?: string },
   ) {
-    const deviceId = this.connectedDevices.get(client.id) ?? data.deviceId;
+    const deviceId = this.connectedDevices.get(client.id);
+    if (!deviceId) {
+      client.disconnect();
+      return { status: 'unauthorized' };
+    }
 
     await this.prisma.deviceErrorLog.create({
       data: {

@@ -5,11 +5,15 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
+import { PrismaService } from '../../prisma/prisma.service';
+import { authenticateSocket } from '../auth/ws-auth.util';
 
 /**
  * WebSocket gateway for partner web clients.
  * Partners connect and join a room keyed by their orgId:  `partner:<orgId>`
+ * The room is derived from the VERIFIED JWT, never from a client-supplied field.
  * Other services call the emit* methods to push real-time updates.
  */
 @WebSocketGateway({
@@ -23,14 +27,22 @@ export class PartnerGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
   private readonly logger = new Logger(PartnerGateway.name);
 
-  handleConnection(client: Socket) {
-    const orgId = client.handshake.auth?.partnerOrgId as string | undefined;
-    if (orgId) {
-      client.join(`partner:${orgId}`);
-      this.logger.log(`Partner ${orgId} connected (socket=${client.id})`);
-    } else {
-      this.logger.warn(`Partner WS connection without orgId (socket=${client.id})`);
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
+
+  async handleConnection(client: Socket) {
+    const principal = await authenticateSocket(client, this.config, this.prisma);
+    // Admins may observe any partner room via /realtime; here we bind a partner
+    // strictly to their own org room. Non-partners are rejected.
+    if (!principal || principal.kind !== 'user' || principal.orgType !== 'PARTNER' || !principal.orgId) {
+      this.logger.warn(`Partner WS rejected (unauthenticated/not a partner): ${client.id}`);
+      client.disconnect();
+      return;
     }
+    client.join(`partner:${principal.orgId}`);
+    this.logger.log(`Partner ${principal.orgId} connected (socket=${client.id})`);
   }
 
   handleDisconnect(client: Socket) {

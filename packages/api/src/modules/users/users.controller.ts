@@ -40,8 +40,8 @@ export class UsersController {
   @Patch(':id')
   @Roles('ADMIN', 'SUPER_ADMIN')
   @ApiOperation({ summary: 'Update user (admin only)' })
-  async update(@Param('id') id: string, @Body() data: any) {
-    return this.usersService.update(id, data);
+  async update(@Param('id') id: string, @Body() data: any, @CurrentUser() actor: any) {
+    return this.usersService.update(id, data, actor);
   }
 
   @Delete(':id')

@@ -6,11 +6,16 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AdsSchedulerService } from './ads-scheduler.service';
+import { Roles } from '../../common/decorators';
 
 // ═══════════════════════════════════════════════════════════════
 // ADMIN-FACING AD ENGINE ENDPOINTS
 // ═══════════════════════════════════════════════════════════════
 
+// Platform-staff only. Without this, any authenticated user — an advertiser —
+// could reset the frequency-capping counters or force a full recompute, both of
+// which distort ad delivery and the billing that rides on it.
+@Roles('ADMIN', 'SUPER_ADMIN')
 @ApiTags('Admin Ads Engine')
 @Controller('admin/ads')
 export class AdsAdminController {

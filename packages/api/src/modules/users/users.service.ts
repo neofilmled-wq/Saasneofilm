@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -58,11 +58,33 @@ export class UsersService {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
-  async update(id: string, data: any) {
+  async update(id: string, data: any, actor?: { id?: string; platformRole?: string }) {
     await this.findById(id);
+
+    // Mass-assignment + privilege-escalation guard. `data` was passed to Prisma
+    // verbatim, so an ADMIN could PATCH their own id with
+    // { platformRole: 'SUPER_ADMIN' } and self-promote — or flip anyone's role,
+    // password or verification. Only profile fields and isActive are freely
+    // writable; platformRole is SUPER_ADMIN-only and can never be set on oneself.
+    const ALLOWED = ['firstName', 'lastName', 'phone', 'isActive'];
+    const clean: any = {};
+    for (const k of ALLOWED) if (data[k] !== undefined) clean[k] = data[k];
+
+    if (data.platformRole !== undefined) {
+      const isSuperAdmin = actor?.platformRole === 'SUPER_ADMIN';
+      const targetingSelf = actor?.id && actor.id === id;
+      if (!isSuperAdmin) {
+        throw new ForbiddenException('Seul un SUPER_ADMIN peut modifier le rôle plateforme.');
+      }
+      if (targetingSelf) {
+        throw new ForbiddenException('Un administrateur ne peut pas modifier son propre rôle.');
+      }
+      clean.platformRole = data.platformRole;
+    }
+
     return this.prisma.user.update({
       where: { id },
-      data,
+      data: clean,
       select: {
         id: true,
         email: true,

@@ -92,14 +92,14 @@ export class CampaignsController {
 
   @Post(':id/publish')
   @ApiOperation({ summary: 'Publish/activate a campaign → emits tv:ads:update to screens' })
-  async publish(@Param('id') id: string) {
-    return this.campaignsService.publish(id);
+  async publish(@Param('id') id: string, @Req() req?: any) {
+    return this.campaignsService.publish(id, orgScope(req?.user));
   }
 
   @Post(':id/deactivate')
   @ApiOperation({ summary: 'Deactivate an active campaign → emits tv:ads:update to screens' })
-  async deactivate(@Param('id') id: string) {
-    return this.campaignsService.deactivate(id);
+  async deactivate(@Param('id') id: string, @Req() req?: any) {
+    return this.campaignsService.deactivate(id, orgScope(req?.user));
   }
 
   @Patch(':id')

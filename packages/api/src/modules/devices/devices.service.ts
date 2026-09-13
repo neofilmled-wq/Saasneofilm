@@ -10,6 +10,13 @@ export class DevicesService {
     private readonly partnerGateway: PartnerGateway,
   ) {}
 
+  // provisioningToken is the per-device HMAC secret that signs diffusion
+  // proofs. It must NEVER travel back over the API — a device receives it once,
+  // at creation. Returning it in list/detail responses leaked the whole fleet's
+  // signing secrets to any authenticated caller, enabling forged proofs. Prisma
+  // `omit` strips it from every read below.
+  private static readonly SAFE_OMIT = { provisioningToken: true } as const;
+
   async findAll(params: { page: number; limit: number; status?: string; screenId?: string }) {
     const { page, limit, status, screenId } = params;
     const where: any = {};
@@ -21,6 +28,7 @@ export class DevicesService {
         where,
         skip: (page - 1) * limit,
         take: limit,
+        omit: DevicesService.SAFE_OMIT,
         include: { screen: { select: { name: true, partnerOrg: { select: { name: true } } } } },
         orderBy: { lastPingAt: { sort: 'desc', nulls: 'last' } },
       }),
@@ -32,6 +40,7 @@ export class DevicesService {
   async findById(id: string) {
     const device = await this.prisma.device.findUnique({
       where: { id },
+      omit: DevicesService.SAFE_OMIT,
       include: { screen: { include: { partnerOrg: true } } },
     });
     if (!device) throw new NotFoundException('Device not found');
@@ -47,7 +56,21 @@ export class DevicesService {
 
   async update(id: string, data: any) {
     await this.findById(id);
-    return this.prisma.device.update({ where: { id }, data });
+    // Mass-assignment guard. `data` used to be passed to Prisma verbatim, so a
+    // PATCH could overwrite provisioningToken (the signing secret), reassign
+    // screenId to steal an appliance, or forge serialNumber/androidId identity.
+    // Only these operational fields are writable through the API.
+    const ALLOWED = [
+      'status', 'macAddress', 'ipAddress',
+      'appVersion', 'firmwareVersion', 'osVersion', 'otaVersion',
+    ];
+    const clean: any = {};
+    for (const k of ALLOWED) if (data[k] !== undefined) clean[k] = data[k];
+    return this.prisma.device.update({
+      where: { id },
+      omit: DevicesService.SAFE_OMIT,
+      data: clean,
+    });
   }
 
   async heartbeat(id: string, data: any) {

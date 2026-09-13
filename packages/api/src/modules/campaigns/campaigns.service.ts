@@ -580,9 +580,9 @@ export class CampaignsService {
   }
 
   /** Publish a campaign → ACTIVE and notify TV screens */
-  async publish(id: string) {
-    const campaign = await this.prisma.campaign.findUnique({
-      where: { id },
+  async publish(id: string, ctx?: CampaignScopeCtx) {
+    const campaign = await this.prisma.campaign.findFirst({
+      where: this.scopedWhere(id, ctx),
       include: {
         targeting: {
           include: { includedScreens: { select: { id: true } } },
@@ -653,9 +653,9 @@ export class CampaignsService {
   }
 
   /** Deactivate an active campaign (ACTIVE → FINISHED) and notify TV screens */
-  async deactivate(id: string) {
-    const campaign = await this.prisma.campaign.findUnique({
-      where: { id },
+  async deactivate(id: string, ctx?: CampaignScopeCtx) {
+    const campaign = await this.prisma.campaign.findFirst({
+      where: this.scopedWhere(id, ctx),
       include: {
         targeting: {
           include: { includedScreens: { select: { id: true } } },

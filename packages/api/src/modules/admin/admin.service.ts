@@ -1266,7 +1266,11 @@ export class AdminService {
     if (data.contactEmail !== undefined) orgUpdate.contactEmail = data.contactEmail;
     if (data.city !== undefined) orgUpdate.city = data.city;
     if (data.address !== undefined) orgUpdate.address = data.address;
-    if (data.commissionRate !== undefined) orgUpdate.commissionRate = Math.min(0.20, Math.max(0.05, data.commissionRate));
+    // Canonical bound 1–30% (0.01–0.30). The old 5–20% cap silently reduced
+    // any partner negotiated above 20% (e.g. the seed's 25%/30% partners) to
+    // 20% on the next admin edit — under-paying them. Aligned with the other
+    // write paths.
+    if (data.commissionRate !== undefined) orgUpdate.commissionRate = Math.min(0.30, Math.max(0.01, data.commissionRate));
 
     const profileUpdate: any = {};
     if (data.isSuspended !== undefined) {

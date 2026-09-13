@@ -28,6 +28,10 @@ export class AuditService {
           entity: input.entity,
           entityId: input.entityId,
           userId: input.userId,
+          // orgId was accepted by the interface but silently dropped here, so no
+          // audit row was attached to a tenant — including Stripe Connect money
+          // movements. Persist it (the column and its index already exist).
+          orgId: input.orgId,
           oldData: input.oldData ? (input.oldData as any) : undefined,
           newData: input.newData ? (input.newData as any) : undefined,
           ipAddress: input.ipAddress,

@@ -34,7 +34,12 @@ export class AnalyticsController {
 
   @Get('campaigns/:campaignId')
   @ApiOperation({ summary: 'Get campaign analytics' })
-  async getCampaignAnalytics(@Param('campaignId') campaignId: string) {
-    return this.analyticsService.getCampaignAnalytics(campaignId);
+  async getCampaignAnalytics(@Param('campaignId') campaignId: string, @Req() req?: any) {
+    const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT'];
+    const isAdmin = !!req?.user?.platformRole && ADMIN_ROLES.includes(req.user.platformRole);
+    return this.analyticsService.getCampaignAnalytics(campaignId, {
+      orgId: req?.user?.orgId ?? null,
+      isAdmin,
+    });
   }
 }

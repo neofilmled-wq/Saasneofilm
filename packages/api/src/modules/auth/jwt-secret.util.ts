@@ -19,13 +19,16 @@ export function resolveJwtSecret(config: ConfigService): string {
 
   if (!secret || secret === DEV_FALLBACK_SECRET) {
     if (isProd) {
-      // Loud warning instead of a hard crash: bricking a live API (with 200
-      // TVs + paying customers) is worse than continuing. The operator must
-      // still set a strong JWT_SECRET, but the app stays up in the meantime.
-      // eslint-disable-next-line no-console
-      console.error(
+      // Refuse to boot in production. The fallback is a PUBLIC string shipped in
+      // .env.example, so signing with it lets anyone forge a SUPER_ADMIN (or
+      // device) JWT and take over the platform — strictly worse than a failed
+      // deploy. A boot refusal only ever fires on a MISCONFIGURED deploy (the
+      // running instance keeps serving until the next restart), and the fix is
+      // one env var: set a strong 32+ char JWT_SECRET on the host.
+      throw new Error(
         '[SECURITY] JWT_SECRET is missing or uses the insecure default in PRODUCTION. ' +
-          'Set a strong (32+ char) JWT_SECRET immediately — tokens are currently signable with a public value.',
+          'Refusing to start: set a strong (32+ char) JWT_SECRET before deploying — ' +
+          'otherwise tokens are forgeable with a public value.',
       );
     }
     return secret || DEV_FALLBACK_SECRET;

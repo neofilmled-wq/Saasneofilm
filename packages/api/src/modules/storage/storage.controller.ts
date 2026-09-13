@@ -11,9 +11,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { StorageService } from './storage.service';
-import { Public } from '../../common/decorators';
+import { Public, Roles } from '../../common/decorators';
 
 class RequestUploadDto {
   filename!: string;
@@ -32,7 +33,10 @@ class ConfirmUploadDto {
 @ApiBearerAuth()
 @Controller('storage')
 export class StorageController {
-  constructor(private readonly storage: StorageService) {}
+  constructor(
+    private readonly storage: StorageService,
+    private readonly config: ConfigService,
+  ) {}
 
   /**
    * Request a presigned URL for direct upload to S3/MinIO.
@@ -94,11 +98,14 @@ export class StorageController {
    * Delete a file from storage.
    */
   @Delete(':key')
-  @ApiOperation({ summary: 'Delete a file from storage' })
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Delete a file from storage (staff only)' })
   async deleteFile(
     @Param('key') key: string,
     @Query('bucket') bucket?: string,
   ) {
+    // Was open to any authenticated user with a caller-chosen bucket → anyone
+    // could delete any file in any bucket. Restricted to platform staff.
     await this.storage.delete(key, bucket);
     return { deleted: true, key };
   }
@@ -110,12 +117,21 @@ export class StorageController {
    */
   @Public()
   @Get('/files/:bucket/*')
-  @ApiOperation({ summary: 'Proxy a file from MinIO' })
+  @ApiOperation({ summary: 'Proxy a public creative asset from MinIO' })
   async proxyFile(
     @Param('bucket') bucket: string,
     @Req() req: Request,
     @Res() res: Response,
   ) {
+    // This route is @Public (creatives must be readable by TVs and web without
+    // a token). It used to serve ANY bucket the caller named — including
+    // neofilm-uploads, which holds pre-move uploads and the OTA APKs — with no
+    // auth. Lock it to the creatives bucket only; everything else is private and
+    // must go through an authenticated, scope-checked path.
+    const creativesBucket = this.config.get<string>('S3_BUCKET_CREATIVES', 'neofilm-creatives');
+    if (bucket !== creativesBucket) {
+      throw new NotFoundException('File not found');
+    }
     // Extract key from URL path: /storage/files/{bucket}/{...key}
     const prefix = `/storage/files/${bucket}/`;
     const fullPath = req.originalUrl.replace(/^\/api\/v1/, '');

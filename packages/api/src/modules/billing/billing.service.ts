@@ -14,16 +14,9 @@ import type {
   CreateBookingDraftDto,
   CreateCheckoutDto,
   UpdateBookingScreensDto,
-  PurchaseAiCreditsDto,
   CreateSubscriptionDraftDto,
 } from '@neofilm/shared';
 import { PricingEngineService } from '../pricing/pricing-engine.service';
-import { ScreenFillService } from '../screens/screen-fill.service';
-
-const AI_CREDITS_PACKAGES: Record<string, { credits: number; priceCents: number }> = {
-  '100': { credits: 100, priceCents: 990 },
-  '500': { credits: 500, priceCents: 3990 },
-};
 
 @Injectable()
 export class BillingService {
@@ -33,7 +26,6 @@ export class BillingService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly pricingEngine: PricingEngineService,
-    private readonly screenFill: ScreenFillService,
     @Inject(STRIPE_CLIENT) private readonly stripe: Stripe,
   ) {}
 
@@ -406,106 +398,6 @@ export class BillingService {
     return this.createCheckoutSession(booking.id, orgId, dto);
   }
 
-  // ─── Webhook: Checkout Completed ─────────────────────────────────────
-
-  async handleCheckoutCompleted(session: Stripe.Checkout.Session) {
-    const bookingId = session.metadata?.bookingId;
-    const orgId = session.metadata?.orgId;
-
-    if (!bookingId || !orgId) {
-      this.logger.warn(
-        `Checkout session ${session.id} missing bookingId or orgId in metadata`,
-      );
-      return;
-    }
-
-    const stripeSubscriptionId =
-      typeof session.subscription === 'string'
-        ? session.subscription
-        : session.subscription?.id;
-
-    if (!stripeSubscriptionId) {
-      this.logger.error(
-        `Checkout session ${session.id} has no subscription ID`,
-      );
-      return;
-    }
-
-    const stripeSub = await this.stripe.subscriptions.retrieve(stripeSubscriptionId);
-
-    await this.prisma.$transaction(async (tx) => {
-      const booking = await tx.booking.findUnique({
-        where: { id: bookingId },
-      });
-
-      if (!booking) {
-        this.logger.error(`Booking ${bookingId} not found during checkout completion`);
-        return;
-      }
-
-      if (booking.status !== 'PENDING') {
-        this.logger.warn(
-          `Booking ${bookingId} status is ${booking.status}, expected PENDING. Skipping.`,
-        );
-        return;
-      }
-
-      await tx.booking.update({
-        where: { id: bookingId },
-        data: {
-          status: 'ACTIVE',
-          stripeSubscriptionId,
-        },
-      });
-
-      const stripeCustomer = await tx.stripeCustomer.findFirst({
-        where: { organizationId: orgId },
-      });
-
-      if (stripeCustomer) {
-        await tx.stripeSubscription.create({
-          data: {
-            stripeSubscriptionId,
-            status: 'ACTIVE',
-            currentPeriodStart: new Date(((stripeSub as any).current_period_start ?? 0) * 1000),
-            currentPeriodEnd: new Date(((stripeSub as any).current_period_end ?? 0) * 1000),
-            customerId: stripeCustomer.id,
-            organizationId: orgId,
-            metadata: {
-              bookingId,
-            },
-          },
-        });
-      }
-
-      if (booking.campaignId) {
-        await tx.campaign.update({
-          where: { id: booking.campaignId },
-          data: { status: 'ACTIVE' },
-        });
-      }
-    });
-
-    // Recalculate ScreenFill for all screens in this booking (may emit capacity_full event)
-    void this.screenFill.recalculateForBooking(bookingId);
-
-    await this.audit.log({
-      action: 'CHECKOUT_COMPLETED',
-      entity: 'Booking',
-      entityId: bookingId,
-      newData: {
-        stripeSubscriptionId,
-        stripeCheckoutSessionId: session.id,
-        orgId,
-      },
-      severity: 'INFO',
-    });
-
-    this.logger.log(
-      `Booking ${bookingId} activated via checkout session ${session.id}`,
-    );
-  }
-
   // ─── Cancel Subscription ─────────────────────────────────────────────
 
   async cancelSubscription(bookingId: string, orgId: string, userId?: string) {
@@ -761,61 +653,6 @@ export class BillingService {
     });
 
     return this.getBookingDraft(bookingId, orgId);
-  }
-
-  // ─── AI Credits Purchase ─────────────────────────────────────────────
-
-  async purchaseAiCredits(orgId: string, dto: PurchaseAiCreditsDto, userId?: string) {
-    const pack = AI_CREDITS_PACKAGES[dto.creditsPackage];
-    if (!pack) {
-      throw new BadRequestException(`Invalid credits package: ${dto.creditsPackage}`);
-    }
-
-    const stripeCustomer = await this.ensureStripeCustomer(orgId);
-
-    const session = await this.stripe.checkout.sessions.create({
-      customer: stripeCustomer.stripeCustomerId,
-      mode: 'payment',
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'eur',
-            product_data: {
-              name: `NeoFilm AI Credits - ${pack.credits} credits`,
-              metadata: {
-                orgId,
-                credits: String(pack.credits),
-              },
-            },
-            unit_amount: pack.priceCents,
-          },
-          quantity: 1,
-        },
-      ],
-      metadata: {
-        type: 'ai_credits',
-        orgId,
-        credits: String(pack.credits),
-      },
-      success_url: dto.successUrl,
-      cancel_url: dto.cancelUrl,
-    });
-
-    await this.audit.log({
-      action: 'AI_CREDITS_CHECKOUT_CREATED',
-      entity: 'AIWallet',
-      entityId: orgId,
-      userId,
-      newData: {
-        credits: pack.credits,
-        priceCents: pack.priceCents,
-        sessionId: session.id,
-      },
-      severity: 'INFO',
-    });
-
-    return { sessionId: session.id, url: session.url };
   }
 
   // ─── Ensure Stripe Customer ──────────────────────────────────────────

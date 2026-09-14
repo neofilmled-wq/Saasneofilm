@@ -1,21 +1,31 @@
-import { Controller, Get, Patch, Query, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Query, Body, Req, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PartnerProfileService } from './partner-profile.service';
-import { OrgGuard } from '../../common/guards';
 
-// OrgGuard: un partenaire ne peut lire/modifier QUE le profil de sa propre
-// org (?orgId=). Ferme le détournement de compte inter-tenant (IDOR H1).
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT'];
+
+/**
+ * orgId used to be read straight from the query param: omitting it 500'd
+ * (findUnique with orgId=undefined), and passing another partner's id exposed
+ * their profile (IDOR). It now comes from the JWT; staff may target any org.
+ */
+function resolveOrg(user: any, requested?: string): string {
+  const isAdmin = !!user?.platformRole && ADMIN_ROLES.includes(user.platformRole);
+  const orgId = isAdmin ? (requested ?? user?.orgId) : user?.orgId;
+  if (!orgId) throw new BadRequestException('Aucune organisation associée');
+  return orgId;
+}
+
 @ApiTags('Partner Profile')
 @ApiBearerAuth()
-@UseGuards(OrgGuard)
 @Controller('partner/profile')
 export class PartnerProfileController {
   constructor(private readonly service: PartnerProfileService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get partner profile for an org' })
-  async getProfile(@Query('orgId') orgId: string) {
-    return this.service.getProfile(orgId);
+  @ApiOperation({ summary: 'Get partner profile for the current org' })
+  async getProfile(@Query('orgId') orgId: string, @Req() req: any) {
+    return this.service.getProfile(resolveOrg(req?.user, orgId));
   }
 
   @Patch()
@@ -23,7 +33,8 @@ export class PartnerProfileController {
   async upsertProfile(
     @Query('orgId') orgId: string,
     @Body() body: any,
+    @Req() req: any,
   ) {
-    return this.service.upsertProfile(orgId, body);
+    return this.service.upsertProfile(resolveOrg(req?.user, orgId), body);
   }
 }

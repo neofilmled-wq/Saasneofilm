@@ -153,6 +153,13 @@ export class OrganizationsService {
     if (cleanData.city === '') cleanData.city = null;
     if (cleanData.address === '') cleanData.address = null;
     if (cleanData.vatNumber === '') cleanData.vatNumber = null;
+    // Canonical retrocession-rate bound: 1–30% (0.01–0.30), matching
+    // PartnerCommissionsService.updateCommissionRate. This generic org update
+    // had NO bound at all — a rate could be set to anything (even > 100%),
+    // over-paying partners. Clamp here so every write path agrees.
+    if (cleanData.commissionRate !== undefined && cleanData.commissionRate !== null) {
+      cleanData.commissionRate = Math.min(0.30, Math.max(0.01, Number(cleanData.commissionRate) || 0));
+    }
     // contactEmail is required, ensure it's not null/empty
     if ('contactEmail' in cleanData && !cleanData.contactEmail?.trim()) {
       delete cleanData.contactEmail;

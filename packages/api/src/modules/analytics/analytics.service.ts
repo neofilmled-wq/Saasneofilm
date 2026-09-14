@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -45,7 +45,20 @@ export class AnalyticsService {
    * campaign dashboard needs: summary, daily timeseries, breakdown by trigger,
    * and per-screen performance. Replaces the previous mock-data path.
    */
-  async getCampaignAnalytics(campaignId: string) {
+  async getCampaignAnalytics(
+    campaignId: string,
+    ctx?: { orgId?: string | null; isAdmin?: boolean },
+  ) {
+    // Bound the campaign to the caller's org (staff bypass); otherwise any
+    // authenticated user reads another advertiser's diffusion proofs and the
+    // screens their campaign runs on, just by knowing a campaign id.
+    if (ctx && !ctx.isAdmin) {
+      const owned = await this.prisma.campaign.findFirst({
+        where: { id: campaignId, advertiserOrgId: ctx.orgId ?? '__no_org__' },
+        select: { id: true },
+      });
+      if (!owned) throw new NotFoundException('Campaign not found');
+    }
     const [campaign, logs] = await Promise.all([
       this.prisma.campaign.findUnique({
         where: { id: campaignId },

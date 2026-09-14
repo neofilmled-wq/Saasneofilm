@@ -22,7 +22,9 @@ describe('RealtimeGateway', () => {
       getQueuedEvents: jest.fn().mockResolvedValue([]),
     };
 
-    gateway = new RealtimeGateway(eventBusMock, offlineTvQueueMock);
+    const prismaMock: any = {};
+    const configMock: any = { get: jest.fn() };
+    gateway = new RealtimeGateway(eventBusMock, offlineTvQueueMock, prismaMock, configMock);
 
     serverMock = {
       to: jest.fn().mockReturnThis(),

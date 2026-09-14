@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Delete, Param, Body, Query,
+  Controller, Get, Post, Patch, Delete, Param, Body, Query, BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ScreensService, type ScreenScopeCtx } from './screens.service';
@@ -77,9 +77,15 @@ export class ScreensController {
   @Post('bulk')
   @ApiOperation({ summary: 'Bulk create screens from JSON rows (CSV import)' })
   async bulkCreate(
-    @Body() body: { partnerOrgId: string; rows: Array<Record<string, any>> },
+    @Body() body: { partnerOrgId?: string; rows: Array<Record<string, any>> },
+    @CurrentUser() user: any,
   ) {
-    return this.screensService.bulkCreate(body.partnerOrgId, body.rows);
+    // partnerOrgId from the token: a partner could otherwise create screens
+    // under a competitor's org. Staff may target the org given in the body.
+    const scope = orgScope(user);
+    const partnerOrgId = scope.isAdmin ? (body.partnerOrgId ?? scope.orgId) : scope.orgId;
+    if (!partnerOrgId) throw new BadRequestException('Aucune organisation associée');
+    return this.screensService.bulkCreate(partnerOrgId, body.rows);
   }
 
   // ─── SINGLE CRUD ─────────────────────────────────────────────────────────
@@ -113,20 +119,20 @@ export class ScreensController {
 
   @Post(':id/publish')
   @ApiOperation({ summary: 'Set screen status to ACTIVE (publish)' })
-  async publish(@Param('id') id: string) {
-    return this.screensService.publish(id);
+  async publish(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.screensService.publish(id, orgScope(user));
   }
 
   @Post(':id/maintenance')
   @ApiOperation({ summary: 'Set screen to MAINTENANCE mode' })
-  async setMaintenance(@Param('id') id: string, @Body() body: { reason?: string }) {
-    return this.screensService.setMaintenance(id, body.reason);
+  async setMaintenance(@Param('id') id: string, @Body() body: { reason?: string }, @CurrentUser() user: any) {
+    return this.screensService.setMaintenance(id, body.reason, orgScope(user));
   }
 
   @Post(':id/disable')
   @ApiOperation({ summary: 'Set screen status to INACTIVE (disable)' })
-  async disable(@Param('id') id: string) {
-    return this.screensService.setDisabled(id);
+  async disable(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.screensService.setDisabled(id, orgScope(user));
   }
 
   @Post(':id/re-pair')

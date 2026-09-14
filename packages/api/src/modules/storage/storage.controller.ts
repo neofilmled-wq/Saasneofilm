@@ -13,9 +13,10 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { StorageService } from './storage.service';
-import { Public } from '../../common/decorators';
+import { Public, Roles } from '../../common/decorators';
 
 const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN'];
 
@@ -34,7 +35,10 @@ class ConfirmUploadDto {
 @ApiBearerAuth()
 @Controller('storage')
 export class StorageController {
-  constructor(private readonly storage: StorageService) {}
+  constructor(
+    private readonly storage: StorageService,
+    private readonly config: ConfigService,
+  ) {}
 
   /** Org id of the authenticated caller (from the verified JWT, never the body). */
   private callerOrg(req: Request): string {
@@ -137,12 +141,16 @@ export class StorageController {
    * Delete a file from storage. Scoped to the caller's org namespace.
    */
   @Delete(':key')
-  @ApiOperation({ summary: 'Delete a file from storage' })
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Delete a file from storage (staff only)' })
   async deleteFile(
     @Req() req: Request,
     @Param('key') key: string,
     @Query('bucket') bucket?: string,
   ) {
+    // Was open to any authenticated user with a caller-chosen bucket -> anyone
+    // could delete any file in any bucket. Restricted to platform staff (@Roles
+    // above); still validate bucket + key scope as defense-in-depth.
     this.assertBucket(bucket);
     this.assertOwnedKey(req, key);
     await this.storage.delete(key, bucket);
@@ -161,12 +169,17 @@ export class StorageController {
    */
   @Public()
   @Get('/files/:bucket/*')
-  @ApiOperation({ summary: 'Proxy a public creative file from MinIO' })
+  @ApiOperation({ summary: 'Proxy a public creative asset from MinIO' })
   async proxyFile(
     @Param('bucket') bucket: string,
     @Req() req: Request,
     @Res() res: Response,
   ) {
+    // This route is @Public (creatives must be readable by TVs and web without
+    // a token). It used to serve ANY bucket the caller named - including
+    // neofilm-uploads, which holds pre-move uploads and the OTA APKs - with no
+    // auth. Lock it to the creatives bucket only; everything else is private and
+    // must go through an authenticated, scope-checked path.
     if (bucket !== this.storage.creativesBucket) {
       throw new NotFoundException('File not found');
     }

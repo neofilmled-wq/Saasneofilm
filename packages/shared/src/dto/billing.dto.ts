@@ -75,16 +75,6 @@ export const freezeEntitySchema = z.object({
 
 export type FreezeEntityDto = z.infer<typeof freezeEntitySchema>;
 
-// ─── AI Credits Purchase ───
-
-export const purchaseAiCreditsSchema = z.object({
-  creditsPackage: z.enum(['100', '500']),
-  successUrl: z.string().url(),
-  cancelUrl: z.string().url(),
-});
-
-export type PurchaseAiCreditsDto = z.infer<typeof purchaseAiCreditsSchema>;
-
 // ─── Subscription Draft (NeoFilm Business Model) ───
 
 // Progressive per-TV pricing: any screen count from 1 to MAX_TV_COUNT is valid

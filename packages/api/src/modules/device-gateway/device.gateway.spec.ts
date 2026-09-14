@@ -23,7 +23,8 @@ describe('DeviceGateway', () => {
       notifyScreenStatusChange: jest.fn(),
     };
 
-    gateway = new DeviceGateway(prismaMock, redisMock, partnerGatewayMock);
+    const configMock: any = { get: jest.fn() };
+    gateway = new DeviceGateway(prismaMock, redisMock, partnerGatewayMock, configMock);
     // Mock the server
     (gateway as any).server = {
       to: jest.fn().mockReturnThis(),

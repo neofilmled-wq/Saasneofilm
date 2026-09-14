@@ -131,8 +131,8 @@ export class ScreensService {
     return { message: 'Screen deleted successfully' };
   }
 
-  async setMaintenance(id: string, reason?: string) {
-    const existing = await this.findById(id);
+  async setMaintenance(id: string, reason?: string, ctx?: ScreenScopeCtx) {
+    const existing = await this.findById(id, ctx);
     const screen = await this.prisma.screen.update({
       where: { id },
       data: {
@@ -147,8 +147,8 @@ export class ScreensService {
     return screen;
   }
 
-  async setDisabled(id: string) {
-    const existing = await this.findById(id);
+  async setDisabled(id: string, ctx?: ScreenScopeCtx) {
+    const existing = await this.findById(id, ctx);
     const screen = await this.prisma.screen.update({
       where: { id },
       data: { status: 'INACTIVE', maintenanceMode: false },
@@ -158,8 +158,8 @@ export class ScreensService {
     return screen;
   }
 
-  async publish(id: string) {
-    const existing = await this.findById(id);
+  async publish(id: string, ctx?: ScreenScopeCtx) {
+    const existing = await this.findById(id, ctx);
     const screen = await this.prisma.screen.update({
       where: { id },
       data: {

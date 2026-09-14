@@ -27,9 +27,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     type?: string;
     screenId?: string;
   }) {
-    // Reject MFA pending tokens from accessing protected routes
-    if (payload.type === 'mfa_pending') {
-      throw new UnauthorizedException('MFA verification required');
+    // Whitelist, not blacklist. Only genuine session tokens may reach a
+    // protected route: an access token (no `type`, or 'access') or a device
+    // token ('device'). Anything else — mfa_pending, and notably the
+    // email-verification token, which is otherwise a full-scope token — is
+    // rejected here so it can never be replayed as a login.
+    const t = payload.type ?? 'access';
+    if (t !== 'access' && t !== 'device') {
+      throw new UnauthorizedException('Invalid token type');
     }
 
     // Device tokens: validate against Device table, not User

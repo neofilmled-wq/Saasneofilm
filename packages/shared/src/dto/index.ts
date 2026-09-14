@@ -117,8 +117,6 @@ export {
   type ConnectOnboardingDto,
   freezeEntitySchema,
   type FreezeEntityDto,
-  purchaseAiCreditsSchema,
-  type PurchaseAiCreditsDto,
   exportQuerySchema,
   type ExportQueryDto,
   createSubscriptionDraftSchema,

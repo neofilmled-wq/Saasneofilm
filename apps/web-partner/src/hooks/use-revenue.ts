@@ -152,8 +152,13 @@ export function usePayouts(period?: string) {
   return useQuery({
     queryKey: queryKeys.payouts.list(period),
     queryFn: async () => {
-      const data = await apiFetch(`/payouts/partner/${orgId}/history`);
-      return Array.isArray(data) ? data : data.data ?? [];
+      // `/payouts/partner/:orgId/history` is the ADMIN route — a partner gets a
+      // 403 there, which silently rendered "Aucun paiement" even after they had
+      // actually been paid. The partner-scoped route takes the org from the
+      // token instead.
+      const res: any = await apiFetch('/partner/payouts/history');
+      const payload = res?.data ?? res;
+      return Array.isArray(payload) ? payload : (payload?.data ?? []);
     },
     enabled: !!orgId,
   });

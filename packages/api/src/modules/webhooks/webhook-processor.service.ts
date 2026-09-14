@@ -1,4 +1,10 @@
-import { Injectable, Inject, Logger, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  Logger,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import Stripe from 'stripe';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -51,9 +57,16 @@ export class WebhookProcessorService {
   /**
    * Process a verified Stripe webhook event with idempotency.
    *
-   * Uses StripeWebhookEvent table to ensure each event is processed at most once.
-   * Failed processing is recorded but the HTTP response is still 200 to prevent
-   * Stripe from retrying indefinitely.
+   * Uses StripeWebhookEvent table to ensure each event is processed at most once:
+   * a retry of an already-processed event is acknowledged without re-running it.
+   *
+   * A processing failure RETHROWS so the endpoint answers 5xx and Stripe retries
+   * with its own backoff (~3 days). Swallowing the error behind a 200 is what
+   * turned every transient failure into permanent data loss — a subscription
+   * event that failed once was never replayed, and nothing downstream noticed.
+   * Events that still fail after Stripe gives up stay in the table with
+   * `processed = false` and a `failureReason`, and can be replayed by hand with
+   * `stripe events resend <id>`.
    */
   async processEvent(event: Stripe.Event): Promise<{ received: boolean }> {
     const { id: stripeEventId, type: eventType } = event;
@@ -108,6 +121,12 @@ export class WebhookProcessorService {
           failureReason: message,
         },
       });
+
+      // 5xx → Stripe redelivers this event. The idempotency check above makes
+      // the redelivery a no-op once it finally succeeds.
+      throw new InternalServerErrorException(
+        `Webhook processing failed for ${eventType} (${stripeEventId})`,
+      );
     }
 
     return { received: true };

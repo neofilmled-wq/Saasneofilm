@@ -1,15 +1,24 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
+// An invoice belongs to one organization. Reads must be pinned to the caller's
+// org (staff bypass); otherwise any authenticated user reads every tenant's
+// Stripe invoices — amounts, periods, customer ids.
+export type InvoiceScopeCtx = { orgId?: string | null; isAdmin?: boolean };
+
 @Injectable()
 export class InvoicesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(params: { page: number; limit: number; status?: string; organizationId?: string }) {
-    const { page, limit, status, organizationId } = params;
+  async findAll(params: { page: number; limit: number; status?: string; organizationId?: string; ctx?: InvoiceScopeCtx }) {
+    const { page, limit, status, organizationId, ctx } = params;
     const where: any = {};
     if (status) where.status = status;
-    if (organizationId) where.organizationId = organizationId;
+    if (ctx && !ctx.isAdmin) {
+      where.organizationId = ctx.orgId ?? '__no_org__';
+    } else if (organizationId) {
+      where.organizationId = organizationId;
+    }
 
     const [invoices, total] = await Promise.all([
       this.prisma.stripeInvoice.findMany({
@@ -24,9 +33,11 @@ export class InvoicesService {
     return { data: invoices, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  async findById(id: string) {
-    const invoice = await this.prisma.stripeInvoice.findUnique({
-      where: { id },
+  async findById(id: string, ctx?: InvoiceScopeCtx) {
+    const where: any = { id };
+    if (ctx && !ctx.isAdmin) where.organizationId = ctx.orgId ?? '__no_org__';
+    const invoice = await this.prisma.stripeInvoice.findFirst({
+      where,
       include: { organization: true, customer: true, payments: true },
     });
     if (!invoice) throw new NotFoundException('Invoice not found');

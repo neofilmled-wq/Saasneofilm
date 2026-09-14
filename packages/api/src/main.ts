@@ -76,20 +76,26 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalInterceptors(new LoggingInterceptor(), new TransformInterceptor());
 
-  // Swagger
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('NeoFilm API')
-    .setDescription('NeoFilm SaaS Platform API')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  // Swagger — never in production: /api/docs published the full API surface
+  // (every route, DTO and auth scheme) to anyone. Enabled outside production,
+  // or explicitly via ENABLE_SWAGGER=true for a controlled staging box.
+  const swaggerEnabled =
+    process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true';
+  if (swaggerEnabled) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('NeoFilm API')
+      .setDescription('NeoFilm SaaS Platform API')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   const port = process.env.API_PORT || 3001;
   await app.listen(port);
   logger.log(`NeoFilm API running on http://localhost:${port}`);
-  logger.log(`Swagger docs at http://localhost:${port}/api/docs`);
+  if (swaggerEnabled) logger.log(`Swagger docs at http://localhost:${port}/api/docs`);
 }
 
 bootstrap();

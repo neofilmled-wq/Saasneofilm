@@ -1,10 +1,14 @@
-import { Controller, Get, Post, Body, Query, Res, Logger, HttpCode, HttpStatus, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Req, Res, Logger, HttpCode, HttpStatus, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { OAuthService } from './oauth.service';
 import { Public } from '../../common/decorators';
+
+/** httpOnly cookie carrying the anti-CSRF state nonce during the OAuth round-trip. */
+const OAUTH_STATE_COOKIE = 'oauth_state';
+const OAUTH_COOKIE_PATH = '/api/v1/auth/oauth';
 
 interface PendingLogin {
   accessToken: string;
@@ -56,7 +60,18 @@ export class OAuthController {
       return res.status(503).json({ message: 'Google OAuth not configured' });
     }
     const callbackUrl = this.configService.get<string>('GOOGLE_CALLBACK_URL', 'http://localhost:3001/api/v1/auth/oauth/google/callback');
-    const state = Buffer.from(JSON.stringify({ interfaceType: interfaceType || 'ADVERTISER' })).toString('base64');
+    // Anti-CSRF: a random nonce goes into `state` AND an httpOnly cookie bound to
+    // this browser. The callback only proceeds if the two match, so an attacker
+    // cannot feed a victim a state they crafted (login-CSRF). (audit M2)
+    const nonce = randomBytes(16).toString('base64url');
+    res.cookie(OAUTH_STATE_COOKIE, nonce, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 10 * 60_000,
+      path: OAUTH_COOKIE_PATH,
+    });
+    const state = Buffer.from(JSON.stringify({ interfaceType: interfaceType || 'ADVERTISER', nonce })).toString('base64');
     const url = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${clientId}&` +
       `redirect_uri=${encodeURIComponent(callbackUrl)}&` +
@@ -71,10 +86,18 @@ export class OAuthController {
   @Public()
   @Get('google/callback')
   @ApiOperation({ summary: 'Google OAuth callback' })
-  async googleCallback(@Query('code') code: string, @Query('state') state: string, @Res() res: Response) {
+  async googleCallback(@Query('code') code: string, @Query('state') state: string, @Req() req: Request, @Res() res: Response) {
     try {
       const stateData = JSON.parse(Buffer.from(state || '', 'base64').toString());
       const interfaceType = stateData.interfaceType === 'PARTNER' ? 'PARTNER' : 'ADVERTISER';
+
+      // Anti-CSRF: the state nonce must match the httpOnly cookie set when THIS
+      // browser started the flow. Blocks login-CSRF (a crafted/replayed state).
+      const cookieNonce = (req as any).cookies?.[OAUTH_STATE_COOKIE] as string | undefined;
+      res.clearCookie(OAUTH_STATE_COOKIE, { path: OAUTH_COOKIE_PATH });
+      if (!stateData.nonce || !cookieNonce || stateData.nonce !== cookieNonce) {
+        throw new Error('OAuth state mismatch (possible CSRF)');
+      }
 
       // Exchange code for tokens
       const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');

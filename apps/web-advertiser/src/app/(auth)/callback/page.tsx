@@ -13,9 +13,7 @@ function CallbackContent() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    const refresh = searchParams.get('refresh');
-    const isNew = searchParams.get('isNew') === 'true';
+    const code = searchParams.get('code');
     const oauthError = searchParams.get('error');
 
     if (oauthError) {
@@ -24,24 +22,32 @@ function CallbackContent() {
       return;
     }
 
-    if (!token || !refresh) {
+    if (!code) {
       setError('Paramètres manquants.');
       setTimeout(() => router.push('/login'), 2000);
       return;
     }
 
-    setTokensFromCallback(token, refresh, isNew)
-      .then(() => {
-        if (isNew) {
-          router.push('/onboarding');
-        } else {
-          router.push('/campaigns');
-        }
-      })
-      .catch(() => {
-        setError('Échec de l\'authentification.');
-        setTimeout(() => router.push('/login'), 2000);
+    // Exchange the one-time code for JWTs (tokens travel in the POST body,
+    // never in the URL / logs / Referer). audit M1
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+    (async () => {
+      const res = await fetch(`${apiBase}/auth/oauth/exchange`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
       });
+      if (!res.ok) throw new Error('exchange failed');
+      const json = await res.json();
+      const payload = json?.data ?? json; // unwrap TransformInterceptor envelope
+      const { accessToken, refreshToken, isNew } = payload;
+      if (!accessToken || !refreshToken) throw new Error('missing tokens');
+      await setTokensFromCallback(accessToken, refreshToken, !!isNew);
+      router.push(isNew ? '/onboarding' : '/campaigns');
+    })().catch(() => {
+      setError('Échec de l\'authentification.');
+      setTimeout(() => router.push('/login'), 2000);
+    });
   }, [searchParams, setTokensFromCallback, router]);
 
   return (

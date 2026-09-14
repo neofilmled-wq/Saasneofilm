@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DeviceGateway } from '../device-gateway/device.gateway';
+import { assertPublicHttpUrl } from '../../common/ssrf-guard.util';
 
 interface ParsedChannel {
   name: string;
@@ -105,7 +106,18 @@ async function fetchAndCacheParsedPlaylist(url: string, logger: Logger): Promise
     return cached.channels;
   }
   try {
-    const res = await fetch(url);
+    // SSRF guard: block internal/private targets before fetching a
+    // user-supplied URL (audit M6).
+    await assertPublicHttpUrl(url);
+    // Timeout so a slow/hanging host can't tie up the server.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    let res: Response;
+    try {
+      res = await fetch(url, { signal: ctrl.signal });
+    } finally {
+      clearTimeout(timer);
+    }
     if (!res.ok) {
       logger.warn(`Playlist fetch failed (${res.status}): ${url}`);
       return null;

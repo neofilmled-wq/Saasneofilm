@@ -33,8 +33,16 @@ export class WebhookProcessorService {
     private readonly disputeHandler: DisputeHandler,
     private readonly connectHandler: ConnectHandler,
   ) {
-    this.webhookSecret = this.config.get<string>('STRIPE_WEBHOOK_SECRET', 'whsec_placeholder');
+    // No default: an unset secret must FAIL CLOSED, not fall back to the public
+    // 'whsec_placeholder' string (which an attacker could sign a forged event
+    // with). Empty secret -> verifyAndConstruct rejects every webhook. (audit H2)
+    this.webhookSecret = this.config.get<string>('STRIPE_WEBHOOK_SECRET', '');
     this.connectWebhookSecret = this.config.get<string>('STRIPE_CONNECT_WEBHOOK_SECRET', '');
+    if (!this.webhookSecret) {
+      this.logger.warn(
+        'STRIPE_WEBHOOK_SECRET is not set — all Stripe webhooks will be rejected until it is configured.',
+      );
+    }
   }
 
   /**
@@ -44,6 +52,12 @@ export class WebhookProcessorService {
     const secret = isConnect && this.connectWebhookSecret
       ? this.connectWebhookSecret
       : this.webhookSecret;
+
+    // Fail closed: never attempt verification with an empty/unset secret.
+    if (!secret) {
+      this.logger.error('Webhook secret not configured — rejecting webhook.');
+      throw new BadRequestException('Webhook signature verification unavailable');
+    }
 
     try {
       return this.stripe.webhooks.constructEvent(rawBody, signature, secret);

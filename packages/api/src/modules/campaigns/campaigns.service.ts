@@ -282,7 +282,11 @@ export class CampaignsService {
           budgetCents: campaignData.budgetCents ?? 0,
           advertiserOrgId: campaignData.advertiserOrgId,
           groupId: campaignData.groupId ?? null,
-          status: 'ACTIVE',
+          // NEVER create as ACTIVE: that skipped moderation + the payment gate
+          // (an ACTIVE campaign is diffused on TVs). Start in PENDING_REVIEW like
+          // createFull; ACTIVE is only reached via publish() (admin approval +
+          // paid booking). (audit H4)
+          status: 'PENDING_REVIEW',
         },
       });
 

@@ -100,7 +100,9 @@ export class CampaignIndexerService {
           },
         },
         creatives: {
-          where: { status: 'READY' },
+          // Only MODERATED creatives may be diffused (isApproved), like
+          // ads-scheduler. Defense-in-depth vs an unmoderated READY creative. (H4)
+          where: { status: 'READY', isApproved: true },
           select: { id: true },
         },
       },
@@ -187,7 +189,9 @@ export class CampaignIndexerService {
           },
         },
         creatives: {
-          where: { status: 'READY' },
+          // Only MODERATED creatives may be diffused (isApproved), like
+          // ads-scheduler. Defense-in-depth vs an unmoderated READY creative. (H4)
+          where: { status: 'READY', isApproved: true },
           select: { id: true },
         },
       },

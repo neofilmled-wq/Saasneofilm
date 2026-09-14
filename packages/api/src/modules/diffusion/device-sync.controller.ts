@@ -8,6 +8,7 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
@@ -38,6 +39,24 @@ export class DeviceSyncController {
 
   constructor(private readonly deviceSyncService: DeviceSyncService) {}
 
+  /**
+   * The authoritative deviceId is the one in the VERIFIED device JWT (sub),
+   * never what the client puts in the query/body. Requires a device-type token
+   * and rejects any client-supplied deviceId that doesn't match it — so a user
+   * (or another device) can't submit proofs / heartbeats for someone else's
+   * device. (audit H3)
+   */
+  private deviceIdFromToken(req: Request | undefined, provided?: string): string {
+    const user = (req as any)?.user;
+    if (!user || user.type !== 'device' || !user.id) {
+      throw new ForbiddenException('A device token is required for this endpoint');
+    }
+    if (provided && provided !== user.id) {
+      throw new ForbiddenException('deviceId does not match the authenticated device');
+    }
+    return user.id as string;
+  }
+
   // ──────────────────────────────────────────────────────────────────────────
   // GET /diffusion/schedule
   // ──────────────────────────────────────────────────────────────────────────
@@ -46,12 +65,12 @@ export class DeviceSyncController {
   @ApiOperation({ summary: 'Pull schedule for a device' })
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   async getSchedule(
-    @Query('deviceId') deviceId: string,
+    @Query('deviceId') deviceIdParam: string,
     @Query('since') since?: string,
     @Req() req?: Request,
   ) {
+    const deviceId = this.deviceIdFromToken(req, deviceIdParam);
     const sinceVersion = since ? parseInt(since, 10) : undefined;
-    const etag = req?.headers['if-none-match'] as string | undefined;
 
     const result = await this.deviceSyncService.getScheduleForDevice(
       deviceId,
@@ -74,9 +93,13 @@ export class DeviceSyncController {
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Submit diffusion proof batch' })
   @Throttle({ default: { limit: 10, ttl: 60000 } })
-  async submitProofBatch(@Body(new ZodValidationPipe(diffusionLogBatchSchema)) body: any) {
+  async submitProofBatch(
+    @Body(new ZodValidationPipe(diffusionLogBatchSchema)) body: any,
+    @Req() req?: Request,
+  ) {
+    const deviceId = this.deviceIdFromToken(req, body.deviceId);
     const result = await this.deviceSyncService.processProofBatch(
-      body.deviceId,
+      deviceId,
       body.batchId,
       body.proofs,
     );
@@ -102,8 +125,13 @@ export class DeviceSyncController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Device heartbeat with playback status' })
   @Throttle({ default: { limit: 60, ttl: 60000 } })
-  async heartbeat(@Body(new ZodValidationPipe(diffusionHeartbeatSchema)) body: any) {
-    return this.deviceSyncService.processHeartbeat(body);
+  async heartbeat(
+    @Body(new ZodValidationPipe(diffusionHeartbeatSchema)) body: any,
+    @Req() req?: Request,
+  ) {
+    // Force the deviceId to the authenticated device (ignore/validate body).
+    const deviceId = this.deviceIdFromToken(req, body.deviceId);
+    return this.deviceSyncService.processHeartbeat({ ...body, deviceId });
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -114,7 +142,11 @@ export class DeviceSyncController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Report cached creatives on device' })
   @Throttle({ default: { limit: 6, ttl: 3600000 } }) // 6 per hour
-  async cacheReport(@Body(new ZodValidationPipe(cacheReportSchema)) body: any) {
-    return this.deviceSyncService.processCacheReport(body);
+  async cacheReport(
+    @Body(new ZodValidationPipe(cacheReportSchema)) body: any,
+    @Req() req?: Request,
+  ) {
+    const deviceId = this.deviceIdFromToken(req, body.deviceId);
+    return this.deviceSyncService.processCacheReport({ ...body, deviceId });
   }
 }

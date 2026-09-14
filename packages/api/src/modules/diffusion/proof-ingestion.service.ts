@@ -312,14 +312,14 @@ export class ProofIngestionService {
     signature: string,
     deviceSecret: string,
   ): boolean {
-    if (!deviceSecret) return true; // No secret configured, skip verification
-
-    // Unsigned-proof placeholder from the current TV fleet. Accepting it
-    // means any client can forge a DiffusionLog (the billing/anti-fraud
-    // source of truth). We keep accepting it by DEFAULT so the deployed
+    // Unsigned proof: either the device has no secret configured, or it sent
+    // the 'none'/empty placeholder used by the current TV fleet. Accepting it
+    // means a device can forge its own DiffusionLog entries (the billing/anti-
+    // fraud source of truth). We keep accepting it by DEFAULT so the deployed
     // fleet keeps working, but the operator can set ALLOW_UNSIGNED_PROOF=false
-    // once the APK signs proofs — then forged 'none' signatures are rejected.
-    if (signature === 'none' || !signature) {
+    // once the APK signs proofs — then ALL unsigned proofs (missing secret OR
+    // 'none' signature) are rejected. (audit H3)
+    if (!deviceSecret || signature === 'none' || !signature) {
       const allowUnsigned = process.env.ALLOW_UNSIGNED_PROOF !== 'false';
       if (allowUnsigned) {
         if (!this.warnedUnsigned) {

@@ -33,9 +33,9 @@ export class WebhookProcessorService {
     private readonly disputeHandler: DisputeHandler,
     private readonly connectHandler: ConnectHandler,
   ) {
-    // No default: an unset secret must FAIL CLOSED, not fall back to the public
-    // 'whsec_placeholder' string (which an attacker could sign a forged event
-    // with). Empty secret -> verifyAndConstruct rejects every webhook. (audit H2)
+    // No default: an unset secret must FAIL CLOSED, not fall back to a public
+    // placeholder value an attacker could sign a forged event with.
+    // Empty secret -> verifyAndConstruct rejects every webhook. (audit H2)
     this.webhookSecret = this.config.get<string>('STRIPE_WEBHOOK_SECRET', '');
     this.connectWebhookSecret = this.config.get<string>('STRIPE_CONNECT_WEBHOOK_SECRET', '');
     if (!this.webhookSecret) {

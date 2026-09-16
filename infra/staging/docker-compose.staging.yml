@@ -68,7 +68,7 @@ services:
       mc mb --ignore-existing local/neofilm-creatives;
       mc mb --ignore-existing local/neofilm-uploads;
       mc anonymous set download local/neofilm-creatives;
-      mc anonymous set none local/neofilm-uploads;
+      mc anonymous set download local/neofilm-uploads;
       exit 0;
       "
 

@@ -108,9 +108,10 @@ services:
       CDN_BASE_URL: https://neofilmapitest.alkaya.fr/neofilm-creatives
       API_PUBLIC_URL: https://neofilmapitest.alkaya.fr/api/v1
       MQTT_BROKER_URL: mqtt://mosquitto:1883
-      # Stripe de TEST — pas necessaire pour tester l'anti-VM. A remplir si besoin.
-      STRIPE_SECRET_KEY: sk_test_placeholder
-      STRIPE_WEBHOOK_SECRET: whsec_placeholder
+      # Stripe de TEST — pas necessaire pour tester l'anti-VM. Injecte depuis
+      # l'environnement de l'hote si besoin (aucune valeur secrete en clair ici).
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       # --- Play Integrity (anti-VM inviolable) - ACTIVE sur staging -----------
       # Prerequis: deposer la cle de service JSON sur le NAS a
       #   /volume2/docker/neofilm-staging/secrets/play-integrity.json

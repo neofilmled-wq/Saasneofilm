@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, UnauthorizedException, UnprocessableEntityException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -55,6 +55,52 @@ export class TvAuthService {
     return 'legacy';
   }
 
+  /** Libellé lisible d'un variant (pour les messages utilisateur). */
+  private variantLabel(variant: string): string {
+    return variant === 'coworking' ? 'NeoFilm Coworking' : 'NeoFilm TV';
+  }
+
+  /** Usage d'écran attendu pour un variant d'app (legacy↔AIRBNB, coworking↔COWORKING). */
+  private usageForVariant(variant: string): 'AIRBNB' | 'COWORKING' {
+    return variant === 'coworking' ? 'COWORKING' : 'AIRBNB';
+  }
+
+  /** Libellé lisible d'un usage d'écran. */
+  private usageLabel(usage: string): string {
+    return usage === 'COWORKING' ? 'Coworking' : 'Airbnb';
+  }
+
+  /**
+   * EXCLUSION MUTUELLE : une box physique (androidId/serial) ne peut être
+   * appairée qu'en UN SEUL variant. Si un écran est déjà appairé en tant que
+   * l'AUTRE app, on refuse l'installation/l'appairage de celle-ci.
+   * (null exclu : une ligne pré-migration non encore adoptée ne bloque pas.)
+   */
+  private async assertNoOtherVariantPaired(
+    variant: string,
+    serial: string,
+    androidId?: string,
+  ): Promise<void> {
+    const conflict = await this.prisma.device.findFirst({
+      where: {
+        pairedAt: { not: null },
+        screenId: { not: null },
+        AND: [{ appVariant: { not: null } }, { appVariant: { not: variant } }],
+        OR: androidId
+          ? [{ androidId }, { serialNumber: serial }]
+          : [{ serialNumber: serial }],
+      },
+      select: { appVariant: true },
+    });
+    if (conflict) {
+      const label = this.variantLabel(conflict.appVariant ?? '');
+      throw new ConflictException(
+        `Impossible d'utiliser cette application : cet écran est déjà appairé en tant que « ${label} ». ` +
+          `Veuillez contacter le support depuis votre espace partenaire si vous souhaitez y remédier.`,
+      );
+    }
+  }
+
   async registerDevice(
     deviceId: string,
     serialNumber?: string,
@@ -97,6 +143,10 @@ export class TvAuthService {
         );
       }
     }
+
+    // EXCLUSION MUTUELLE : refuser si l'AUTRE app est déjà appairée sur cette box.
+    // (Avant le reconnect : le reconnect du MÊME variant reste autorisé.)
+    await this.assertNoOtherVariantPaired(variant, serial, androidId);
 
     // 0. Try reconnect by androidId first — if device already paired, skip registration
     if (androidId) {
@@ -264,8 +314,39 @@ export class TvAuthService {
     });
     if (!device) throw new NotFoundException('Device not found');
 
+    // EXCLUSION MUTUELLE au moment de l'appairage (couvre la course où deux apps
+    // affichaient un PIN avant que l'une soit appairée). Si le variant du device
+    // est connu et que l'AUTRE app est déjà appairée sur cette box → refus.
+    if (device.appVariant) {
+      await this.assertNoOtherVariantPaired(
+        device.appVariant,
+        device.serialNumber,
+        device.androidId ?? undefined,
+      );
+    }
+
     // Assign to screen if provided — always update (partner may reassign)
     const effectiveScreenId = screenId || device.screenId || undefined;
+
+    // CATÉGORIE : le code/appareil est propre à un usage. On refuse d'appairer
+    // une app à un écran déclaré dans l'AUTRE catégorie (ex : app Coworking sur
+    // un écran déclaré Airbnb). legacy↔AIRBNB, coworking↔COWORKING.
+    if (effectiveScreenId) {
+      const targetScreen = await this.prisma.screen.findUnique({
+        where: { id: effectiveScreenId },
+        select: { usage: true },
+      });
+      const deviceVariant = device.appVariant ?? 'legacy';
+      const expectedUsage = this.usageForVariant(deviceVariant);
+      if (targetScreen && targetScreen.usage !== expectedUsage) {
+        throw new ConflictException(
+          `Impossible d'appairer : cet écran est déclaré « ${this.usageLabel(targetScreen.usage)} » ` +
+            `mais l'appareil exécute l'application « ${this.variantLabel(deviceVariant)} ». ` +
+            `Appairez-le à un écran « ${this.usageLabel(expectedUsage)} », ou changez le type de cet écran.`,
+        );
+      }
+    }
+
     if (effectiveScreenId) {
       await this.prisma.device.update({
         where: { id: device.id },

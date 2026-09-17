@@ -182,24 +182,33 @@ export class DevicesService {
       throw new BadRequestException('Screen does not belong to this partner');
     }
 
-    // Create or upsert the device
+    // Create or reuse the device. serialNumber n'est plus unique SEUL (l'unicité
+    // est désormais le couple (serialNumber, appVariant)), donc pas d'upsert par
+    // serialNumber : on cherche une ligne existante puis on update, sinon create.
+    // appVariant reste null ici → adopté par l'app au 1er register/reconnect.
     const provisioningToken = randomBytes(32).toString('hex');
-    const device = await this.prisma.device.upsert({
+    const existing = await this.prisma.device.findFirst({
       where: { serialNumber: request.serialNumber },
-      create: {
-        serialNumber: request.serialNumber,
-        provisioningToken,
-        status: 'PROVISIONING',
-        screenId,
-        pairedAt: new Date(),
-      },
-      update: {
-        screenId,
-        pairedAt: new Date(),
-        status: 'PROVISIONING',
-        unpairedAt: null,
-      },
     });
+    const device = existing
+      ? await this.prisma.device.update({
+          where: { id: existing.id },
+          data: {
+            screenId,
+            pairedAt: new Date(),
+            status: 'PROVISIONING',
+            unpairedAt: null,
+          },
+        })
+      : await this.prisma.device.create({
+          data: {
+            serialNumber: request.serialNumber,
+            provisioningToken,
+            status: 'PROVISIONING',
+            screenId,
+            pairedAt: new Date(),
+          },
+        });
 
     // Link screen's active device
     await this.prisma.screen.update({

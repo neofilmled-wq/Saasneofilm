@@ -41,6 +41,20 @@ export class TvAuthService {
     return undefined; // absent/invalid → leave as-is (legacy APK stays UNKNOWN)
   }
 
+  /**
+   * Quelle app parle : 'legacy' ou 'coworking'. C'est le discriminant d'appairage
+   * (coworking & legacy partagent la même clé de signature donc le même ANDROID_ID ;
+   * sans ce variant les deux tombaient sur la même ligne Device = le même écran).
+   * Priorité au champ explicite envoyé par le client, sinon déduit du packageName.
+   * Défaut = 'legacy' (l'ancien parc APK n'envoyait ni l'un ni l'autre).
+   */
+  private resolveAppVariant(appVariant?: string, packageName?: string): string {
+    const v = (appVariant || '').trim().toLowerCase();
+    if (v === 'coworking' || v === 'legacy') return v;
+    if (packageName === 'com.neofilm.coworking') return 'coworking';
+    return 'legacy';
+  }
+
   async registerDevice(
     deviceId: string,
     serialNumber?: string,
@@ -49,9 +63,11 @@ export class TvAuthService {
     integrityToken?: string,
     integrityNonce?: string,
     packageName?: string,
+    appVariant?: string,
   ) {
     const serial = serialNumber || deviceId;
     const cls = this.normalizeDeviceClass(deviceClass);
+    const variant = this.resolveAppVariant(appVariant, packageName);
 
     // Reject non-display clients outright: a browser or emulator/VM is not a
     // valid NeoFilm screen. No PIN is issued, no device is created — the client
@@ -84,17 +100,35 @@ export class TvAuthService {
 
     // 0. Try reconnect by androidId first — if device already paired, skip registration
     if (androidId) {
-      const reconnected = await this.reconnectByAndroidId(androidId, cls);
+      const reconnected = await this.reconnectByAndroidId(androidId, cls, variant);
       if (reconnected) return { ...reconnected, alreadyPaired: true, pin: '', expiresAt: new Date(0).toISOString(), pairingUrl: '', qrPayload: '' };
     }
 
-    // 1. Check if we already mapped this fingerprint
-    const knownDbId = this.fingerprintMap.get(deviceId);
+    // 1. Check if we already mapped this fingerprint (scopé par variant : legacy et
+    //    coworking ont le même deviceId=androidId, il ne faut pas les confondre).
+    const mapKey = `${deviceId}:${variant}`;
+    const knownDbId = this.fingerprintMap.get(mapKey);
 
-    // 2. Try to find existing device by known DB id OR by serial number
+    // 2. Try to find existing device by known DB id OR by (serial + variant)
     let device = knownDbId
       ? await this.prisma.device.findUnique({ where: { id: knownDbId } })
-      : await this.prisma.device.findUnique({ where: { serialNumber: serial } });
+      : await this.prisma.device.findFirst({ where: { serialNumber: serial, appVariant: variant } });
+
+    // 2b. Adoption : réutiliser une ligne d'AVANT la migration (appVariant = null)
+    //     portant ce serial, en lui attribuant le variant courant. Évite de créer
+    //     un doublon → une box déjà appairée n'a PAS à se ré-appairer.
+    if (!device) {
+      const preMigration = await this.prisma.device.findFirst({
+        where: { serialNumber: serial, appVariant: null },
+      });
+      if (preMigration) {
+        device = await this.prisma.device.update({
+          where: { id: preMigration.id },
+          data: { appVariant: variant },
+        });
+        this.logger.log(`Adopted pre-migration device ${device.id} (serial=${serial}) → appVariant=${variant}`);
+      }
+    }
 
     if (!device) {
       // Create new device
@@ -103,18 +137,19 @@ export class TvAuthService {
         device = await this.prisma.device.create({
           data: {
             serialNumber: serial,
+            appVariant: variant,
             provisioningToken,
             status: 'PROVISIONING',
             ...(cls ? { deviceClass: cls } : {}),
           },
         });
-        this.logger.log(`New TV device registered: ${device.serialNumber} (${device.id})`);
+        this.logger.log(`New TV device registered: ${device.serialNumber} [${variant}] (${device.id})`);
       } catch (err: any) {
-        // Handle unique constraint violation (device already exists with this serial)
+        // Handle unique constraint violation (device already exists for this serial+variant)
         if (err?.code === 'P2002') {
-          device = await this.prisma.device.findUnique({ where: { serialNumber: serial } });
+          device = await this.prisma.device.findFirst({ where: { serialNumber: serial, appVariant: variant } });
           if (!device) throw err;
-          this.logger.log(`Reusing existing device: ${device.serialNumber} (${device.id})`);
+          this.logger.log(`Reusing existing device: ${device.serialNumber} [${variant}] (${device.id})`);
         } else {
           throw err;
         }
@@ -122,7 +157,7 @@ export class TvAuthService {
     }
 
     // Remember mapping
-    this.fingerprintMap.set(deviceId, device.id);
+    this.fingerprintMap.set(mapKey, device.id);
 
     // Keep the reported legitimacy class up to date (real box vs browser/VM).
     if (cls && (device as { deviceClass?: string }).deviceClass !== cls) {
@@ -141,12 +176,14 @@ export class TvAuthService {
         where: { id: device.id },
         data: { androidId },
       }).catch((err: any) => {
-        // P2002 = unique constraint: another stale device still owns this androidId.
-        // Clear it on that device first, then retry on the current one.
+        // P2002 = contrainte unique (androidId, appVariant) : une autre ligne
+        // stale du MÊME variant possède encore cet androidId. On la nettoie
+        // d'abord, puis on ré-attribue. Scopé au variant → on ne vole jamais
+        // l'androidId de l'autre app (coworking ne pique pas celui de legacy).
         if (err?.code === 'P2002') {
           return this.prisma.device
             .updateMany({
-              where: { androidId, NOT: { id: device.id } },
+              where: { androidId, appVariant: variant, NOT: { id: device.id } },
               data: { androidId: null },
             })
             .then(() =>
@@ -287,43 +324,65 @@ export class TvAuthService {
   }
 
   /**
-   * Reconnect a device by its Android hardware ID.
-   * If the androidId matches a paired device, issue a new JWT without re-pairing.
+   * Reconnect a device by its Android hardware ID, SCOPED to the calling app
+   * (appVariant). coworking & legacy partagent le même ANDROID_ID → sans ce
+   * scope, une app se reconnectait à l'écran de l'autre.
    *
-   * Lookup order:
-   *   1. Exact match on Device.androidId (the canonical path).
-   *   2. Fallback: match on Device.serialNumber when the BDD lags behind
-   *      (e.g. a stale row created before androidId backfill). Many devices have
-   *      serial == androidId in practice — covers the case where the WebView
-   *      reports a different androidId than what was originally stored.
-   *
-   * When the fallback hits, we also backfill the androidId so the next call
-   * takes the fast path.
+   * Ordre de recherche :
+   *   1. Exact : (androidId, appVariant) — le chemin canonique post-migration.
+   *   2. Adoption : une ligne d'AVANT la migration (appVariant = null) portant
+   *      cet androidId OU serial == androidId → on l'adopte (set appVariant +
+   *      backfill androidId) SANS ré-appairer. Une box mono-app reprend ainsi
+   *      sa ligne existante sans PIN.
    */
   async reconnectByAndroidId(
     androidId: string,
     deviceClass?: 'HARDWARE' | 'EMULATOR' | 'BROWSER',
+    appVariant?: string,
   ) {
     if (!androidId) return null;
+    const variant = this.resolveAppVariant(appVariant);
+    const inc = { screen: { select: { id: true, name: true, partnerOrgId: true } } } as const;
 
-    let device = await this.prisma.device.findUnique({
-      where: { androidId },
-      include: { screen: { select: { id: true, name: true, partnerOrgId: true } } },
+    // 1. Exact match sur le couple (androidId, variant)
+    let device = await this.prisma.device.findFirst({
+      where: { androidId, appVariant: variant },
+      include: inc,
     });
 
+    // 2. Adoption d'une ligne pré-migration (appVariant = null) de CETTE box.
     if (!device) {
-      const fallback = await this.prisma.device.findUnique({
-        where: { serialNumber: androidId },
-        include: { screen: { select: { id: true, name: true, partnerOrgId: true } } },
+      const preMigration = await this.prisma.device.findFirst({
+        where: { appVariant: null, OR: [{ androidId }, { serialNumber: androidId }] },
+        include: inc,
+      });
+      if (preMigration && preMigration.pairedAt && preMigration.screenId) {
+        device = await this.prisma.device.update({
+          where: { id: preMigration.id },
+          data: { appVariant: variant, androidId },
+          include: inc,
+        });
+        this.logger.log(
+          `reconnectByAndroidId: adopted pre-migration device ${preMigration.id} → appVariant=${variant} (+backfill androidId)`,
+        );
+      }
+    }
+
+    // 3. Self-heal : ligne du MÊME variant dont le serial == androidId mais
+    //    dont l'androidId n'était pas encore renseigné.
+    if (!device) {
+      const fallback = await this.prisma.device.findFirst({
+        where: { serialNumber: androidId, appVariant: variant },
+        include: inc,
       });
       if (fallback && fallback.pairedAt && fallback.screenId) {
-        device = fallback;
-        // Self-heal the row so subsequent lookups skip the fallback path.
-        await this.prisma.device
-          .update({ where: { id: fallback.id }, data: { androidId } })
-          .catch(() => undefined);
+        device = await this.prisma.device.update({
+          where: { id: fallback.id },
+          data: { androidId },
+          include: inc,
+        });
         this.logger.log(
-          `reconnectByAndroidId: matched by serialNumber fallback for device ${fallback.id} — backfilled androidId`,
+          `reconnectByAndroidId: matched by serialNumber fallback for device ${fallback.id} [${variant}] — backfilled androidId`,
         );
       }
     }

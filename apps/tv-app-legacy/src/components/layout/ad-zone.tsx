@@ -283,7 +283,10 @@ export function AdZone({ houseAds, targetedAds = [], rotationMs, onImpression }:
           key={liveCurrentAd.id}
           src={liveCurrentAd.fileUrl}
           className="absolute inset-0 h-full w-full"
-          style={{ objectFit: 'cover' }}
+          // `contain` (pas `cover`) : on veut voir la créative EN ENTIER,
+          // sans recadrage/zoom. Le container est `bg-black`, donc le ratio
+          // manquant est comblé par des bandes noires (letterbox/pillarbox).
+          style={{ objectFit: 'contain' }}
           // Intrinsic dimensions = re-encoded creative size. Lets the
           // WebView reserve the surface BEFORE the metadata atom arrives,
           // so the panel doesn't reflow once the first frame decodes.

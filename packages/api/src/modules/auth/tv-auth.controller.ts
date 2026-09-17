@@ -58,6 +58,8 @@ export class TvAuthController {
       integrityToken?: string;
       integrityNonce?: string;
       packageName?: string;
+      // 'legacy' | 'coworking' — discriminant d'appairage (voir tv-auth.service).
+      appVariant?: string;
     },
   ) {
     if (!body.deviceId) throw new BadRequestException('deviceId is required');
@@ -69,6 +71,7 @@ export class TvAuthController {
       body.integrityToken,
       body.integrityNonce,
       body.packageName,
+      body.appVariant,
     );
   }
 
@@ -76,9 +79,13 @@ export class TvAuthController {
   @Post('reconnect')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reconnect a paired device by its Android hardware ID — returns JWT if found' })
-  async reconnect(@Body() body: { androidId: string }) {
+  async reconnect(@Body() body: { androidId: string; appVariant?: string }) {
     if (!body.androidId) throw new BadRequestException('androidId is required');
-    const result = await this.tvAuthService.reconnectByAndroidId(body.androidId);
+    const result = await this.tvAuthService.reconnectByAndroidId(
+      body.androidId,
+      undefined,
+      body.appVariant,
+    );
     if (!result) throw new NotFoundException('No paired device found for this androidId');
     return result;
   }

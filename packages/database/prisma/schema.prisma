@@ -471,8 +471,15 @@ enum DeviceClass {
 
 model Device {
   id           String       @id @default(cuid())
-  serialNumber String       @unique
-  androidId    String?      @unique // Android hardware ID — survives app reinstall
+  // serialNumber & androidId ne sont PLUS uniques seuls : coworking et legacy
+  // sont signées avec la même clé → même ANDROID_ID sur une box → sans variant
+  // les deux apps tombaient sur la MÊME ligne Device (même écran). L'identité
+  // est désormais le couple (identifiant + appVariant). Voir @@unique plus bas.
+  serialNumber String
+  androidId    String? // Android hardware ID — survives app reinstall (scopé par appVariant)
+  // Quelle app possède cette ligne : 'legacy' | 'coworking' (null = ligne
+  // d'avant la migration, adoptée paresseusement au 1er register/reconnect).
+  appVariant   String?
   status       DeviceStatus @default(PROVISIONING)
   // How the client identified itself at registration (real box vs browser/VM).
   // UNKNOWN = legacy APK that predates the check → treated as legitimate.
@@ -514,6 +521,10 @@ model Device {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Identité scopée par app : une box (même androidId/serial) peut porter DEUX
+  // appairages indépendants, un par app (legacy vs coworking).
+  @@unique([serialNumber, appVariant])
+  @@unique([androidId, appVariant])
   @@index([screenId])
   @@index([status])
   @@index([lastPingAt])

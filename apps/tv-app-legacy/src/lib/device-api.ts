@@ -267,18 +267,20 @@ export interface TvBootstrapResponse {
 // ── API methods ───────────────────────────
 
 export const deviceApi = {
-  /** TV self-registration: device gets a PIN + QR payload */
+  /** TV self-registration: device gets a PIN + QR payload.
+   *  appVariant='legacy' : discriminant d'appairage. coworking & legacy partagent
+   *  le même ANDROID_ID (même clé) ; sans ça les deux tombaient sur le même écran. */
   register: (deviceId: string, serialNumber?: string, androidId?: string, deviceClass?: string) =>
     deviceFetch<TvRegisterResponse>('/tv/register', {
       method: 'POST',
-      body: JSON.stringify({ deviceId, serialNumber, androidId, deviceClass }),
+      body: JSON.stringify({ deviceId, serialNumber, androidId, deviceClass, appVariant: 'legacy' }),
     }),
 
   /** Reconnect by Android hardware ID — returns JWT if device was previously paired */
   reconnect: (androidId: string) =>
     deviceFetch<TvPairResponse>('/tv/reconnect', {
       method: 'POST',
-      body: JSON.stringify({ androidId }),
+      body: JSON.stringify({ androidId, appVariant: 'legacy' }),
     }),
 
   /** Pair device by PIN (can be called by admin or device) */

@@ -144,6 +144,9 @@ export const deviceApi = {
         integrityToken: integrity?.integrityToken,
         integrityNonce: integrity?.integrityNonce,
         packageName: integrity?.packageName,
+        // Discriminant d'appairage : coworking & legacy partagent le même
+        // ANDROID_ID (même clé), sans ça les deux tombaient sur le même écran.
+        appVariant: 'coworking',
       }),
     }),
 

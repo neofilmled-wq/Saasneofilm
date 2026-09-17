@@ -1180,6 +1180,18 @@ Staging is fully isolated: distinct compose (`infra/staging/docker-compose.stagi
 - ❌ **NAS** services (`api`, `tv`, `tv-legacy`, `coworking`): nothing automatic — manual Docker (`docker build` → push Docker Hub `kyksdev/neofilm-*` → `pull` + `up` on the NAS).
 - ❌ **Android APKs**: nothing (separate build + OTA).
 
-**⚠️ Which backend an APK talks to** is hardcoded in `apps/<app>/android/app/build.gradle.kts` (`CW_APP_URL` / `TV_APP_URL`) per build type. **Currently `debug` AND `release` both point at PROD** for coworking / tv-app / tv-app-legacy → any APK built today talks to prod. Target convention: `debug` → staging (`neofilmapitest.alkaya.fr`), `release` → prod. APK builds require the Android SDK.
+**⚠️ Which backend an APK talks to** is hardcoded in `apps/<app>/android/app/build.gradle.kts` (`CW_APP_URL` / `TV_APP_URL`) per build type. **Convention: `debug` → STAGING (`neofilmapitest.alkaya.fr`), `release` → PROD (`neofilmapi.alkaya.fr`).** APK builds require the Android SDK.
+
+État actuel par app :
+- **coworking** : `debug` → staging (`…/coworking`), `release` → prod. ✅
+- **tv-app-legacy** : `debug` → staging (`…/tv-legacy`), `release` → prod. ✅
+- **tv-app** : `debug` ET `release` encore sur PROD (à aligner si un jour réutilisé).
+
+**Builder une APK de TEST tv-legacy (pointe sur staging)** — Android SDK requis :
+```bash
+cd apps/tv-app-legacy/android && ./gradlew.bat assembleDebug
+# → app/build/outputs/apk/debug/app-debug.apk  (signée DEBUG, backend = staging)
+```
+La `debug` est **signée avec la clé debug** (pas la release) → elle ne peut PAS se mettre à jour par-dessus une box en prod (signature différente) — c'est voulu : les tests staging n'interfèrent jamais avec la flotte prod. Pour une vraie release prod : `./gradlew.bat assembleRelease` (signée avec le keystore release — voir §Keystore).
 
 **Workflow**: work on branch `dev` → deploy/validate on staging (`:staging`) → merge `dev → main` only when ready to deploy for real (Vercel goes automatically; the NAS still needs a manual `:latest` build/pull). Full memo: `infra/staging/README.md`.

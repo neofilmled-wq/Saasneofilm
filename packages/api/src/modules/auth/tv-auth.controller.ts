@@ -5,6 +5,7 @@ import {
   Post,
   Req,
   Query,
+  Headers,
   HttpCode,
   HttpStatus,
   BadRequestException,
@@ -111,7 +112,10 @@ export class TvAuthController {
   @ApiOperation({ summary: 'Check device pairing status' })
   async status(
     @Query('deviceId') deviceId: string,
-    @Query('provisioningToken') provisioningToken?: string,
+    // Secret d'écran passé en EN-TÊTE (pas en query) pour ne jamais finir dans
+    // les logs d'accès / l'historique. Utilisé seulement en mode strict
+    // (TV_REQUIRE_DEVICE_SECRET=true). Aucun client ne l'envoyait en query.
+    @Headers('x-provisioning-token') provisioningToken?: string,
   ) {
     if (!deviceId) throw new BadRequestException('deviceId query param required');
     return this.tvAuthService.getDeviceStatus(deviceId, provisioningToken);

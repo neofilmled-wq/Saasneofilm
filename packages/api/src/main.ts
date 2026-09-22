@@ -37,8 +37,20 @@ async function bootstrap() {
 
   // Security
   app.use(helmet());
+  // Retire l'en-tête X-Powered-By: Express (fingerprinting serveur). Helmet le
+  // fait déjà, mais on le désactive explicitement pour couvrir toutes les
+  // réponses (y compris celles qui ne passent pas par le middleware helmet).
+  app.getHttpAdapter().getInstance().disable('x-powered-by');
   app.use(compression());
   app.use(cookieParser());
+
+  // Corps de requête absent → objet vide. Sans ça, un POST sans body fait
+  // `body.x` sur `undefined` dans les handlers → TypeError → 500. Avec {}, la
+  // validation du handler (`if (!body.x) throw BadRequest`) renvoie un 400 propre.
+  app.use((req: { body?: unknown }, _res: unknown, next: () => void) => {
+    if (req.body === undefined || req.body === null) req.body = {};
+    next();
+  });
 
   // CORS — SAFE BY DEFAULT (reflect request origin, the previous behaviour) so
   // a misconfigured/legacy API_CORS_ORIGINS value can never brick production.

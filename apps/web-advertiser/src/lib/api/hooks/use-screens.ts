@@ -11,6 +11,8 @@ interface ScreenFilters {
   lat?: number;
   lng?: number;
   environment?: ScreenEnvironment;
+  /** Produit NeoFilm : Airbnb (app legacy) vs Coworking. */
+  usage?: 'AIRBNB' | 'COWORKING';
   status?: string;
 }
 
@@ -48,6 +50,9 @@ export function useAvailableScreens(filters: ScreenFilters = {}) {
       }
       if (filters.environment) {
         screens = screens.filter((s) => s.environment === filters.environment);
+      }
+      if (filters.usage) {
+        screens = screens.filter((s) => s.usage === filters.usage);
       }
       if (filters.lat && filters.lng && filters.radiusKm) {
         screens = screens.filter((s) => {

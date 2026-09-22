@@ -266,9 +266,6 @@ export default function PairingPage({
               <Button asChild>
                 <Link href={`/partner/screens/${screenId}`}>Voir l'écran</Link>
               </Button>
-              <Button variant="outline" asChild>
-                <Link href={`/partner/screens/${screenId}/ux-settings`}>Configurer l'UX TV</Link>
-              </Button>
             </div>
           </CardContent>
         </Card>

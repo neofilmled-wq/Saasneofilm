@@ -115,33 +115,6 @@ export interface MockPayout {
   createdAt: string;
 }
 
-export interface MockUxConfig {
-  screenId: string;
-  catalogEnabled: boolean;
-  defaultHomeSection: 'iptv' | 'streaming' | 'catalog';
-  language: 'fr' | 'en';
-  themeColor?: string;
-  logoUrl?: string;
-  adFrequencyMinutes: number;
-  currentVersionOnDevice: string;
-  pendingVersion?: string;
-  lastPushedAt?: string;
-}
-
-export interface MockSplitScreenConfig {
-  screenId: string;
-  enabled: boolean;
-  rightZoneWidthPercent: 25 | 30 | 35;
-  adPosition: 'right';
-  displayRules: {
-    power_on: boolean;
-    open_app: boolean;
-    change_app: boolean;
-    catalog_open: boolean;
-  };
-  adDurationSeconds: number;
-}
-
 // ========== MOCK DATA ==========
 
 export const mockSites: MockSite[] = [

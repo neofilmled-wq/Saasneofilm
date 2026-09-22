@@ -5,8 +5,6 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Button } from '@neofilm/ui';
-import { formatCurrency } from '@/lib/utils';
-import { OnlineStatusDot } from '@/components/common/status-badge';
 import type { MockScreen } from '@/lib/mock-data';
 
 // ─── Custom marker icons ────────────────────────────────
@@ -26,8 +24,9 @@ function createIcon(color: string) {
 }
 
 const ICONS = {
-  online: createIcon('#22c55e'),
-  offline: createIcon('#ef4444'),
+  // Couleurs alignées sur les badges de la liste : Airbnb = emerald, Coworking = blue.
+  airbnb: createIcon('#10b981'),
+  coworking: createIcon('#3b82f6'),
   selected: createIcon('#7c3aed'),
 };
 
@@ -100,7 +99,12 @@ export function AdvertiserScreenMap({ screens, selectedIds, onToggle, flyTo }: A
       <FlyToHandler flyTo={flyTo ?? null} />
       {visibleScreens.map((screen) => {
         const isSelected = selectedIds.has(screen.id);
-        const icon = isSelected ? ICONS.selected : screen.isOnline ? ICONS.online : ICONS.offline;
+        // Sélectionné = violet ; sinon couleur par type d'écran (usage).
+        const icon = isSelected
+          ? ICONS.selected
+          : screen.usage === 'COWORKING'
+            ? ICONS.coworking
+            : ICONS.airbnb;
 
         return (
           <Marker
@@ -113,7 +117,15 @@ export function AdvertiserScreenMap({ screens, selectedIds, onToggle, flyTo }: A
               <div className="space-y-2 p-1">
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="text-sm font-bold">{screen.name}</h3>
-                  <OnlineStatusDot isOnline={screen.isOnline} />
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                      screen.usage === 'COWORKING'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-emerald-100 text-emerald-700'
+                    }`}
+                  >
+                    {screen.usage === 'COWORKING' ? 'Coworking' : 'Airbnb'}
+                  </span>
                 </div>
                 <div className="space-y-1 text-xs text-gray-600">
                   <p><span className="font-medium">Ville :</span> {screen.city}</p>

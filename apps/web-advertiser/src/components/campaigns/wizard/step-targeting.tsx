@@ -9,8 +9,7 @@ import type { AddressSelection } from '@neofilm/ui';
 import { useCampaignWizard } from '@/stores/campaign-wizard.store';
 import { useAvailableScreens } from '@/lib/api/hooks/use-screens';
 import { useBusyScreens } from '@/lib/api/hooks/use-campaigns';
-import { OnlineStatusDot } from '@/components/common/status-badge';
-import type { MockScreen, ScreenEnvironment } from '@/lib/mock-data';
+import type { MockScreen } from '@/lib/mock-data';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 
@@ -22,15 +21,18 @@ const AdvertiserScreenMap = dynamic(
 const TV_PACKS = [50, 100, 150, 200] as const;
 // Progressive per-TV pricing: pick any number of screens from 1 to MAX_TV_COUNT.
 const MAX_TV_COUNT = 200;
-const ENVIRONMENTS: { value: ScreenEnvironment | 'ALL'; label: string }[] = [
+// Filtre par produit NeoFilm (usage de l'écran) : Airbnb vs Coworking.
+type UsageFilter = 'ALL' | 'AIRBNB' | 'COWORKING';
+const USAGE_FILTERS: { value: UsageFilter; label: string }[] = [
   { value: 'ALL', label: 'Tous les types' },
-  { value: 'HOTEL_LOBBY', label: "Hall d'hôtel" },
-  { value: 'HOTEL_ROOM', label: "Chambre d'hôtel" },
-  { value: 'CINEMA_LOBBY', label: 'Cinéma' },
-  { value: 'RESTAURANT', label: 'Restaurant' },
-  { value: 'RETAIL', label: 'Commerce' },
-  { value: 'OUTDOOR', label: 'Extérieur' },
+  { value: 'AIRBNB', label: 'Airbnb' },
+  { value: 'COWORKING', label: 'Coworking' },
 ];
+
+/** Libellé lisible du type d'écran (usage). */
+function usageLabel(usage?: 'AIRBNB' | 'COWORKING'): string {
+  return usage === 'COWORKING' ? 'Coworking' : 'Airbnb';
+}
 
 interface PricingQuote {
   diffusionMonthly: number | null;
@@ -214,7 +216,15 @@ function TargetingBlock({
                       {screen.city} — {screen.partnerOrgName}
                     </p>
                   </div>
-                  <OnlineStatusDot isOnline={screen.isOnline} />
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                      screen.usage === 'COWORKING'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-emerald-100 text-emerald-700'
+                    }`}
+                  >
+                    {usageLabel(screen.usage)}
+                  </span>
                 </label>
               );
             })}
@@ -254,7 +264,7 @@ export function StepTargeting() {
   const minCatalogPack = isEditing ? initialCatalogPackSize : 0;
 
   const [citySearch, setCitySearch] = useState(draft.targetingCity);
-  const [environment, setEnvironment] = useState<ScreenEnvironment | 'ALL'>('ALL');
+  const [usageFilter, setUsageFilter] = useState<UsageFilter>('ALL');
   const durationMonths = draft.subscriptionMonths || 12;
 
   const { data: busyData } = useBusyScreens();
@@ -263,7 +273,7 @@ export function StepTargeting() {
 
   const { data: screens = [], isLoading } = useAvailableScreens({
     city: citySearch || undefined,
-    environment: environment === 'ALL' ? undefined : environment,
+    usage: usageFilter === 'ALL' ? undefined : usageFilter,
   });
 
   // Coworking screens run an app with no catalogue page, so a listing targeted
@@ -382,12 +392,12 @@ export function StepTargeting() {
         </div>
         <div className="space-y-2">
           <Label>Type d&apos;emplacement</Label>
-          <Select value={environment} onValueChange={(v) => setEnvironment(v as typeof environment)}>
+          <Select value={usageFilter} onValueChange={(v) => setUsageFilter(v as UsageFilter)}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {ENVIRONMENTS.map((e) => (
+              {USAGE_FILTERS.map((e) => (
                 <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
               ))}
             </SelectContent>

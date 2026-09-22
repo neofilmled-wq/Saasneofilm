@@ -2,7 +2,7 @@
 
 import { use } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Settings, Columns, Link2, RotateCcw, PlayCircle } from 'lucide-react';
+import { ArrowLeft, Link2, RotateCcw, PlayCircle, Pencil } from 'lucide-react';
 import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@neofilm/ui';
 import { LoadingState } from '@/components/ui/loading-state';
 import { ErrorState } from '@/components/ui/error-state';
@@ -55,6 +55,17 @@ export default function ScreenDetailPage({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Écran modifiable tant qu'il n'est pas "en service" : ni activé, ni
+              appairé. Une fois activé + appairé (donc en diffusion), on masque
+              le bouton pour éviter de changer ses caractéristiques à chaud. */}
+          {permissions.canEditScreens && (screen.status !== 'ACTIVE' || !screen.activeDeviceId) && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/partner/screens/${screenId}/edit`}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Modifier
+              </Link>
+            </Button>
+          )}
           {screen.status === 'INACTIVE' && permissions.canEditUxSettings && screen.activeDeviceId && (
             <Button
               size="sm"
@@ -79,22 +90,6 @@ export default function ScreenDetailPage({
               <Link href={`/partner/screens/${screenId}/pairing`}>
                 <Link2 className="mr-2 h-4 w-4" />
                 Appairer
-              </Link>
-            </Button>
-          )}
-          {permissions.canEditUxSettings && (
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/partner/screens/${screenId}/ux-settings`}>
-                <Settings className="mr-2 h-4 w-4" />
-                UX TV
-              </Link>
-            </Button>
-          )}
-          {permissions.canEditUxSettings && (
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/partner/screens/${screenId}/split-screen`}>
-                <Columns className="mr-2 h-4 w-4" />
-                Split-screen
               </Link>
             </Button>
           )}
